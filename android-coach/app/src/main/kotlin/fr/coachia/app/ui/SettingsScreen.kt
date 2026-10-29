@@ -27,14 +27,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.coachia.app.MainViewModel
+import fr.coachia.core.Settings
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 
-private val models = listOf(
-    "claude-opus-5-5" to "Claude Opus 5.5 (recommandé)",
-    "claude-sonnet-5-5" to "Claude Sonnet 5.5 (plus rapide, moins cher)",
-    "claude-haiku-5-5" to "Claude Haiku 5.5 (économique)",
-)
 
 @Composable
 fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
@@ -43,8 +39,9 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val s = data.settings
     val p = data.profile
 
-    var apiKey by remember(s) { mutableStateOf(s.anthropicApiKey) }
-    var model by remember(s) { mutableStateOf(s.model) }
+    val models by vm.models.collectAsStateWithLifecycle()
+    var apiKey by remember(s) { mutableStateOf(s.geminiApiKey) }
+    var model by remember(s) { mutableStateOf(s.geminiModel) }
     var clientId by remember(s) { mutableStateOf(s.stravaClientId) }
     var clientSecret by remember(s) { mutableStateOf(s.stravaClientSecret) }
 
@@ -70,17 +67,20 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     ) {
         Text("Réglages", style = MaterialTheme.typography.titleLarge)
 
-        Section("Intelligence artificielle (Claude)") {
+        Section("Discussion IA — Gemini (gratuit, optionnel)") {
             Text(
-                "Crée une clé API sur console.anthropic.com (rubrique API Keys) et colle-la ici. Elle est chiffrée sur ton téléphone " +
-                    "et n'est envoyée qu'à l'API d'Anthropic. L'usage est facturé par Anthropic selon ta consommation.",
+                "Le planificateur et le bilan sont intégrés et gratuits. Pour discuter avec le coach, crée une clé gratuite sur " +
+                    "aistudio.google.com/apikey (compte Google, sans carte bancaire) et colle-la ici. L'offre gratuite a des quotas " +
+                    "par minute et par jour ; en offre gratuite, Google peut utiliser les échanges pour améliorer ses modèles.",
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedTextField(
-                apiKey, { apiKey = it.trim() }, label = { Text("Clé API Anthropic") }, singleLine = true,
+                apiKey, { apiKey = it.trim() }, label = { Text("Clé API Gemini") }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
             )
-            Dropdown("Modèle", models.map { it.first }, model, { id -> models.firstOrNull { it.first == id }?.second ?: id }, { model = it }, Modifier.fillMaxWidth())
+            val options = (listOf(Settings.DEFAULT_MODEL, model) + models).distinct()
+            Dropdown("Modèle", options, model, { if (it == Settings.DEFAULT_MODEL) "$it (recommandé)" else it }, { model = it }, Modifier.fillMaxWidth())
+            OutlinedButton(onClick = { vm.loadModels(apiKey) }, enabled = apiKey.isNotBlank()) { Text("Charger les modèles disponibles") }
         }
 
         Section("Strava") {
@@ -100,14 +100,14 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
 
         Button(
-            onClick = { vm.saveSettings(s.copy(anthropicApiKey = apiKey, model = model, stravaClientId = clientId, stravaClientSecret = clientSecret)) },
+            onClick = { vm.saveSettings(s.copy(geminiApiKey = apiKey, geminiModel = model, stravaClientId = clientId, stravaClientSecret = clientSecret)) },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Enregistrer les réglages") }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = {
-                    vm.saveSettings(s.copy(anthropicApiKey = apiKey, model = model, stravaClientId = clientId, stravaClientSecret = clientSecret))
+                    vm.saveSettings(s.copy(geminiApiKey = apiKey, geminiModel = model, stravaClientId = clientId, stravaClientSecret = clientSecret))
                     vm.stravaAuthorizeIntent()?.let(context::startActivity)
                 },
                 modifier = Modifier.weight(1f),
@@ -119,11 +119,9 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
         Section("COROS") {
             Text(
-                "COROS ne propose pas d'accès direct (API) aux particuliers. L'appli récupère donc tes données COROS ainsi :\n" +
-                    "• Activités : active dans l'appli COROS la synchro automatique vers Strava (Profil → Paramètres → Applications tierces → Strava). " +
-                    "Elles arrivent ensuite ici à chaque synchronisation.\n" +
-                    "• Sommeil, VFC, récupération, charge, VO2max : envoie une capture de l'écran COROS au coach (onglet Forme ou Coach, ou « Partager » " +
-                    "depuis l'appli COROS) ; il lit et enregistre les valeurs.",
+                "COROS ne propose pas d'accès direct (API) aux particuliers : tes activités COROS arrivent via Strava. " +
+                    "Dans l'appli COROS, active la synchro automatique (Profil → Paramètres → Applications tierces → Strava) ; " +
+                    "fais de même dans Zwift. Elles apparaissent ensuite ici à chaque synchronisation.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

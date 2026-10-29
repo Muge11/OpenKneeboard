@@ -2,11 +2,8 @@ package fr.coachia.app
 
 import android.app.Application
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
 import android.provider.CalendarContract
-import android.util.Base64
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,7 +12,7 @@ import fr.coachia.core.AthleteProfile
 import fr.coachia.core.CalendarEvent
 import fr.coachia.core.ChatEntry
 import fr.coachia.core.Constraint
-import fr.coachia.core.ImageInput
+import fr.coachia.core.Planner
 import fr.coachia.core.SessionStatus
 import fr.coachia.core.Settings
 import fr.coachia.core.StravaClient
@@ -26,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
@@ -54,9 +50,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _tab = MutableStateFlow(Tab.CALENDAR)
     val tab: StateFlow<Tab> = _tab.asStateFlow()
 
-    /** Images waiting to be sent with the next chat message. */
-    private val _pendingImages = MutableStateFlow<List<Uri>>(emptyList())
-    val pendingImages: StateFlow<List<Uri>> = _pendingImages.asStateFlow()
+    private val _models = MutableStateFlow<List<String>>(emptyList())
+    val models: StateFlow<List<String>> = _models.asStateFlow()
 
     fun selectTab(t: Tab) {
         _tab.value = t
@@ -72,25 +67,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- Coach ---------------------------------------------------------------------------------
 
-    fun addPendingImages(uris: List<Uri>) {
-        _pendingImages.value = (_pendingImages.value + uris).take(MAX_IMAGES)
-    }
+    val hasAi: Boolean get() = data.value.settings.geminiApiKey.isNotBlank()
 
-    fun removePendingImage(uri: Uri) {
-        _pendingImages.value = _pendingImages.value - uri
-    }
-
-    fun askCoach(text: String, images: List<Uri> = _pendingImages.value) {
-        if (_coachBusy.value || (text.isBlank() && images.isEmpty())) return
-        _pendingImages.value = emptyList()
+    fun askCoach(text: String) {
+        if (_coachBusy.value || text.isBlank()) return
         _tab.value = Tab.COACH
         _coachBusy.value = true
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val inputs = images.mapNotNull { loadImage(it) }
-                    val prompt = text.ifBlank { "Analyse cette capture d'écran et enregistre les données utiles." }
-                    app.coach.send(prompt, inputs) { _chat.value = app.transcript.display.toList() }
+                    app.coach.send(text) { _chat.value = app.transcript.display.toList() }
                 }
             } catch (e: Exception) {
                 _message.value = e.message ?: e.toString()
@@ -101,30 +87,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Planificateur intégré : gratuit, instantané, sans connexion. */
+    fun autoPlan(days: Int = 14) {
+        val result = Planner.plan(data.value, LocalDate.now(), days)
+        app.repo.update { d -> d.copy(events = d.events.filterNot { it.id in result.removedIds } + result.sessions) }
+        _message.value = "${result.sessions.size} séances planifiées sur $days jours."
+    }
+
+    fun loadModels(apiKey: String) {
+        viewModelScope.launch {
+            try {
+                _models.value = withContext(Dispatchers.IO) { app.gemini.listModels(apiKey.trim()) }
+                _message.value = "${_models.value.size} modèles disponibles."
+            } catch (e: Exception) {
+                _message.value = "Impossible de lister les modèles : ${e.message}"
+            }
+        }
+    }
+
     fun newConversation() {
         if (_coachBusy.value) return
         viewModelScope.launch(Dispatchers.IO) {
             app.transcript.clear()
             _chat.value = emptyList()
         }
-    }
-
-    /** Downscale to Claude's recommended size and encode as JPEG base64. */
-    private fun loadImage(uri: Uri): ImageInput? = runCatching {
-        val source = ImageDecoder.createSource(app.contentResolver, uri)
-        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            val w = info.size.width
-            val h = info.size.height
-            val scale = MAX_EDGE.toFloat() / maxOf(w, h)
-            if (scale < 1f) decoder.setTargetSize((w * scale).toInt(), (h * scale).toInt())
-        }
-        val out = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
-        ImageInput("image/jpeg", Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
-    }.getOrElse {
-        _message.value = "Image illisible : ${it.message}"
-        null
     }
 
     // ---- Strava --------------------------------------------------------------------------------
@@ -203,10 +189,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.repo.update { d -> d.copy(constraints = d.constraints.filterNot { it.id == id }) }
     }
 
-    fun deleteWellness(id: String) {
-        app.repo.update { d -> d.copy(wellness = d.wellness.filterNot { it.id == id }) }
-    }
-
     fun zwiftShareIntent(e: CalendarEvent): Intent {
         val dir = File(app.cacheDir, "exports").apply { mkdirs() }
         val safe = e.title.replace(Regex("[^A-Za-z0-9À-ÿ _-]"), "").trim().ifEmpty { "seance" }
@@ -250,10 +232,5 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveProfile(p: AthleteProfile) {
         app.repo.update { it.copy(profile = p) }
         _message.value = "Profil enregistré."
-    }
-
-    companion object {
-        const val MAX_IMAGES = 5
-        const val MAX_EDGE = 1568
     }
 }

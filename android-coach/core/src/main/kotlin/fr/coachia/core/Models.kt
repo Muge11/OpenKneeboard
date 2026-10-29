@@ -78,7 +78,7 @@ data class CalendarEvent(
     val priority: String? = null,
     val steps: List<IntervalStep> = emptyList(),
     val status: SessionStatus = SessionStatus.PLANNED,
-    /** "user" or "ai" */
+    /** "user", "planner" (planificateur intégré) or "ai" (coach Gemini) */
     val createdBy: String = "user",
     val completedActivityId: String? = null,
 )
@@ -104,35 +104,6 @@ data class Constraint(
     val description: String,
     val maxMinutesPerDay: Int? = null,
     val createdAt: String = "",
-)
-
-@Serializable
-data class WellnessEntry(
-    val id: String,
-    val date: String,
-    /** RENPHO, COROS, MANUAL, ... */
-    val source: String,
-    val weightKg: Double? = null,
-    val bmi: Double? = null,
-    val bodyFatPct: Double? = null,
-    val muscleMassKg: Double? = null,
-    val skeletalMusclePct: Double? = null,
-    val bodyWaterPct: Double? = null,
-    val boneMassKg: Double? = null,
-    val proteinPct: Double? = null,
-    val visceralFat: Double? = null,
-    val subcutaneousFatPct: Double? = null,
-    val bmrKcal: Double? = null,
-    val metabolicAge: Int? = null,
-    val restingHr: Double? = null,
-    val hrvMs: Double? = null,
-    val sleepHours: Double? = null,
-    val sleepScore: Double? = null,
-    val stress: Double? = null,
-    val vo2max: Double? = null,
-    val trainingLoad: Double? = null,
-    val recoveryPct: Double? = null,
-    val notes: String = "",
 )
 
 @Serializable
@@ -170,13 +141,14 @@ data class StravaAuth(
 
 @Serializable
 data class Settings(
-    val anthropicApiKey: String = "",
-    val model: String = DEFAULT_MODEL,
+    /** Clé gratuite Google AI Studio, optionnelle : sans elle, le planificateur et l'analyse locale fonctionnent. */
+    val geminiApiKey: String = "",
+    val geminiModel: String = DEFAULT_MODEL,
     val stravaClientId: String = "",
     val stravaClientSecret: String = "",
 ) {
     companion object {
-        const val DEFAULT_MODEL = "claude-opus-5-5"
+        const val DEFAULT_MODEL = "gemini-flash-latest"
     }
 }
 
@@ -189,5 +161,4 @@ data class AppData(
     val activities: List<Activity> = emptyList(),
     val events: List<CalendarEvent> = emptyList(),
     val constraints: List<Constraint> = emptyList(),
-    val wellness: List<WellnessEntry> = emptyList(),
 )

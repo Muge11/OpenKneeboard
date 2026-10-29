@@ -1,6 +1,5 @@
 package fr.coachia.core
 
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -63,7 +62,7 @@ class CoreTest {
     }
 
     @Test
-    fun toolsProtectUserEventsAndMergeWellness() {
+    fun toolsProtectUserEvents() {
         val r = repo()
         r.update { it.copy(events = listOf(CalendarEvent("race", "2026-11-15", type = EventType.RACE, title = "Trail des Crêtes", priority = "A"))) }
         val tools = CoachTools(r, { "ok" }, { today })
@@ -78,13 +77,6 @@ class CoreTest {
         assertTrue(del.content.contains("Non supprimés"))
         assertEquals(listOf("race"), r.data.events.map { it.id })
         assertTrue(tools.execute("update_session", json("""{"id":"race","date":"2026-11-16"}""")).isError)
-
-        tools.execute("record_wellness", json("""{"date":"2026-10-29","source":"RENPHO","weight_kg":71.4,"body_fat_pct":12.1}"""))
-        tools.execute("record_wellness", json("""{"date":"2026-10-29","source":"renpho","muscle_mass_kg":58.2}"""))
-        val w = r.data.wellness.single()
-        assertEquals(71.4, w.weightKg)
-        assertEquals(58.2, w.muscleMassKg)
-        assertEquals(71.4, r.data.profile.weightKg)
 
         assertTrue(tools.execute("create_sessions", json("""{"sessions":[{"date":"demain","sport":"RUN","title":"x"}]}""")).isError)
     }
@@ -139,59 +131,125 @@ class CoreTest {
         }
     }
 
+    private fun history(days: Int, tss: Double = 60.0) = (0 until days).map {
+        Activity("a$it", "T", Sport.TRAIL, "r", today.minusDays(it.toLong() + 1).toString() + "T08:00:00", 3600, sufferScore = tss)
+    }
+
     @Test
-    fun coachRunsToolLoopAndPersistsHistory() {
+    fun plannerRespectsConstraintsRacesAndRestDays() {
+        val race = CalendarEvent("race", "2026-11-08", type = EventType.RACE, sport = Sport.TRAIL, title = "Trail A", priority = "A")
+        val club = CalendarEvent("club", "2026-10-31", type = EventType.CLUB_TRAINING, sport = Sport.MTB, title = "Club")
+        val oldAuto = CalendarEvent("old", "2026-11-02", type = EventType.PLANNED_SESSION, title = "ancienne", createdBy = "planner")
+        val data = AppData(
+            profile = AthleteProfile(ftpW = 250, maxHr = 188),
+            activities = history(60),
+            events = listOf(race, club, oldAuto),
+            constraints = listOf(Constraint("c", "2026-11-03", "2026-11-04", ConstraintKind.UNAVAILABLE, "déplacement pro")),
+        )
+        val r = Planner.plan(data, today, 14)
+        val dates = r.sessions.map { it.date }
+        assertEquals(setOf("old"), r.removedIds)
+        assertTrue("2026-10-31" !in dates, "pas de séance le jour du club")
+        assertTrue("2026-11-03" !in dates && "2026-11-04" !in dates, "indisponibilité respectée")
+        assertTrue("2026-11-08" !in dates && "2026-11-09" !in dates, "course et lendemain libres")
+        assertTrue(r.sessions.any { it.date == "2026-11-07" && it.title.contains("déblocage") }, "veille de course")
+        assertEquals(dates.size, dates.toSet().size, "une séance max par jour")
+        assertTrue(r.sessions.all { it.createdBy == Planner.AUTHOR && it.durationMin != null })
+        assertTrue(r.sessions.filter { it.sport == Sport.INDOOR_BIKE }.all { it.steps.isNotEmpty() })
+        // Semaine pleine (lun. 9 nov. -> dim. 15 nov.) : au moins un jour sans séance.
+        val week2 = (9..15).map { "2026-11-%02d".format(it) }
+        assertTrue(week2.any { it !in dates })
+        // Pas de séances dures consécutives.
+        val hard = r.sessions.filter { it.intensity in listOf("VO2MAX", "THRESHOLD") }.map { LocalDate.parse(it.date) }.sorted()
+        hard.zipWithNext().forEach { (a, b) -> assertTrue(b.toEpochDay() - a.toEpochDay() > 1, "$a et $b consécutifs") }
+    }
+
+    @Test
+    fun plannerAppliesThroughTool() {
+        val r = repo()
+        r.update { AppData(activities = history(30)) }
+        val out = CoachTools(r, { "ok" }, { today }).execute("auto_plan", json("""{"days":7}"""))
+        assertTrue(!out.isError, out.content)
+        assertTrue(r.data.events.isNotEmpty())
+        val again = CoachTools(r, { "ok" }, { today }).execute("auto_plan", json("""{"days":7}"""))
+        assertTrue(!again.isError)
+        assertEquals(r.data.events.size, r.data.events.map { it.date }.toSet().size, "re-planifier remplace au lieu de dupliquer")
+    }
+
+    @Test
+    fun analysisReport() {
+        val data = AppData(
+            profile = AthleteProfile(ftpW = 250, weightKg = 70.0),
+            activities = history(40) + Activity("b", "T", Sport.MTB, "XC", "2026-10-20T10:00:00", 3600, weightedAvgWatts = 280.0),
+            events = listOf(CalendarEvent("race", "2026-11-20", type = EventType.RACE, title = "XC régional", priority = "A")),
+        )
+        val txt = Analysis.report(data, today)
+        assertTrue(txt.contains("## Charge"))
+        assertTrue(txt.contains("XC régional"))
+        assertTrue(txt.contains("test FTP"), txt)
+    }
+
+    @Test
+    fun geminiCoachRunsToolLoopAndPersistsHistory() {
         val server = MockWebServer()
         server.enqueue(
-            MockResponse().setHeader("content-type", "application/json").setBody(
-                """{"id":"msg_1","type":"message","role":"assistant","model":"claude-opus-5-5",
-                "content":[{"type":"thinking","thinking":"","signature":"sig"},
-                  {"type":"text","text":"Je regarde ton profil."},
-                  {"type":"tool_use","id":"toolu_1","name":"update_athlete_profile","input":{"ftp_w":272}}],
-                "stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":10}}""",
+            MockResponse().setBody(
+                """{"candidates":[{"content":{"role":"model","parts":[
+                  {"text":"Je mets à jour ta FTP."},
+                  {"functionCall":{"name":"update_athlete_profile","args":{"ftp_w":272}},"thoughtSignature":"sig123"}]},
+                  "finishReason":"STOP"}]}""",
             ),
         )
         server.enqueue(
-            MockResponse().setHeader("content-type", "application/json").setBody(
-                """{"id":"msg_2","type":"message","role":"assistant","model":"claude-opus-5-5",
-                "content":[{"type":"text","text":"FTP mise à jour à 272 W."}],
-                "stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":10}}""",
-            ),
+            MockResponse().setBody("""{"candidates":[{"content":{"role":"model","parts":[{"text":"FTP mise à jour à 272 W."}]},"finishReason":"STOP"}]}"""),
         )
         server.start()
         try {
             val r = repo()
-            r.update { it.copy(settings = it.settings.copy(anthropicApiKey = "sk-test")) }
+            r.update { it.copy(settings = it.settings.copy(geminiApiKey = "k-test")) }
             val transcript = ChatTranscript(dir)
-            val coach = Coach(
-                r, transcript, CoachTools(r, { "ok" }, { today }),
-                clientFactory = { key -> AnthropicOkHttpClient.builder().apiKey(key).baseUrl(server.url("/").toString()).build() },
-                today = { today },
-            )
-            coach.send("Ma FTP est maintenant de 272 W", listOf(ImageInput("image/jpeg", "aGVsbG8=")))
+            val coach = GeminiCoach(r, transcript, CoachTools(r, { "ok" }, { today }), GeminiClient(OkHttpClient(), server.url("/").toString()), { today })
+            coach.send("Ma FTP est maintenant de 272 W")
             assertEquals(272, r.data.profile.ftpW)
             assertEquals(listOf("user", "assistant", "tool", "assistant"), transcript.display.map { it.role })
-            assertEquals("FTP mise à jour à 272 W.", transcript.display.last().text)
 
             val first = server.takeRequest()
-            assertTrue(first.path!!.startsWith("/v1/messages"), first.path)
-            assertTrue(first.getHeader("anthropic-beta")!!.contains(Coach.FALLBACK_BETA))
+            assertEquals("/v1beta/models/gemini-flash-latest:generateContent", first.path)
+            assertEquals("k-test", first.getHeader("x-goog-api-key"))
             val body1 = json(first.body.readUtf8())
-            assertEquals("default", body1["fallbacks"]!!.jsonPrimitive.content)
-            assertEquals("adaptive", body1["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
-            assertEquals(CoachTools.definitions.size, body1["tools"]!!.jsonArray.size)
+            val decls = body1["tools"]!!.jsonArray[0].jsonObject["functionDeclarations"]!!.jsonArray
+            assertEquals(CoachTools.definitions.size, decls.size)
+            assertTrue(body1["systemInstruction"] != null)
             val body2 = json(server.takeRequest().body.readUtf8())
-            val msgs = body2["messages"]!!.jsonArray
-            assertEquals(3, msgs.size)
-            val assistantBlocks = msgs[1].jsonObject["content"]!!.jsonArray.map { (it as JsonObject)["type"]!!.jsonPrimitive.content }
-            assertEquals(listOf("thinking", "text", "tool_use"), assistantBlocks)
-            val result = msgs[2].jsonObject["content"]!!.jsonArray[0].jsonObject
-            assertEquals("tool_result", result["type"]!!.jsonPrimitive.content)
-            assertEquals("toolu_1", result["tool_use_id"]!!.jsonPrimitive.content)
+            val contents = body2["contents"]!!.jsonArray
+            assertEquals(listOf("user", "model", "user"), contents.map { it.jsonObject["role"]!!.jsonPrimitive.content })
+            val modelParts = contents[1].jsonObject["parts"]!!.jsonArray
+            assertEquals("sig123", modelParts[1].jsonObject["thoughtSignature"]!!.jsonPrimitive.content)
+            val fr = contents[2].jsonObject["parts"]!!.jsonArray[0].jsonObject["functionResponse"]!!.jsonObject
+            assertEquals("update_athlete_profile", fr["name"]!!.jsonPrimitive.content)
+            assertTrue(fr["response"]!!.jsonObject["result"]!!.jsonPrimitive.content.contains("FTP 272"))
 
             val reloaded = ChatTranscript(dir)
             assertEquals(4, reloaded.history.size)
             assertEquals(transcript.display, reloaded.display)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun geminiQuotaErrorKeepsHistoryValid() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(429).setBody("""{"error":{"code":429,"message":"Resource exhausted"}}"""))
+        server.start()
+        try {
+            val r = repo()
+            r.update { it.copy(settings = it.settings.copy(geminiApiKey = "k")) }
+            val transcript = ChatTranscript(dir)
+            val coach = GeminiCoach(r, transcript, CoachTools(r, { "ok" }, { today }), GeminiClient(OkHttpClient(), server.url("/").toString()), { today })
+            val e = runCatching { coach.send("salut") }.exceptionOrNull()
+            assertTrue(e is CoachException && e.message!!.contains("Quota"))
+            assertEquals("model", transcript.history.last()["role"]!!.jsonPrimitive.content)
         } finally {
             server.shutdown()
         }

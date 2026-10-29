@@ -38,6 +38,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -118,20 +119,21 @@ fun CalendarScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    FilledTonalButton(
-                        enabled = !busy,
-                        onClick = {
-                            vm.askCoach(
-                                "Planifie mes séances des 14 prochains jours à partir d'aujourd'hui, en tenant compte de mes courses, " +
-                                    "entraînements club, impératifs, disponibilités et de ma forme actuelle. Remplace tes anciennes séances " +
-                                    "non réalisées sur cette période si besoin, puis résume le plan.",
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
+                    FilledTonalButton(onClick = { vm.autoPlan(14) }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Filled.Star, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Planifier 2 semaines avec l'IA")
+                        Text("Planifier 2 semaines")
+                    }
+                    if (vm.hasAi) {
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = {
+                                vm.askCoach(
+                                    "Planifie mes séances des 14 prochains jours : lance le planificateur puis ajuste-le selon mes courses, " +
+                                        "entraînements club, impératifs, disponibilités et ma forme actuelle, puis résume le plan.",
+                                )
+                            },
+                        ) { Text("Avec l'IA") }
                     }
                 }
             }
@@ -291,7 +293,10 @@ private fun EventCard(vm: MainViewModel, e: CalendarEvent, onEdit: () -> Unit) {
                     e.elevationM?.let { add("D+ ${it.roundToInt()} m") }
                     e.priority?.let { add("Priorité $it") }
                     TrainingLoad.estimatePlannedTss(e).takeIf { it > 0 }?.let { add("TSS ≈ ${it.roundToInt()}") }
-                    if (e.createdBy == "ai") add("par le coach")
+                    when (e.createdBy) {
+                        "ai" -> add("par le coach IA")
+                        "planner" -> add("auto")
+                    }
                     when (e.status) {
                         SessionStatus.DONE -> add("✓ réalisée")
                         SessionStatus.SKIPPED -> add("✗ non faite")
@@ -340,10 +345,12 @@ private fun EventCard(vm: MainViewModel, e: CalendarEvent, onEdit: () -> Unit) {
                             },
                             label = { Text("Agenda du tél.") },
                         )
-                        AssistChip(
-                            onClick = { vm.askCoach("Peux-tu m'expliquer la séance « ${e.title} » du ${e.date} et me donner des conseils pour la réussir ?") },
-                            label = { Text("Demander au coach") },
-                        )
+                        if (vm.hasAi) {
+                            AssistChip(
+                                onClick = { vm.askCoach("Peux-tu m'expliquer la séance « ${e.title} » du ${e.date} et me donner des conseils pour la réussir ?") },
+                                label = { Text("Demander au coach") },
+                            )
+                        }
                         AssistChip(onClick = { confirmDelete = true }, label = { Text("Supprimer") })
                     }
                 }

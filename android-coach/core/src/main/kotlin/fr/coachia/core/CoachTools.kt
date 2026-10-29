@@ -1,8 +1,5 @@
 package fr.coachia.core
 
-import com.anthropic.core.JsonValue
-import com.anthropic.models.beta.messages.BetaTool
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -10,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonElement as JE
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -21,6 +19,9 @@ import java.time.LocalDate
 import kotlin.math.roundToInt
 
 class ToolOutcome(val content: String, val isError: Boolean = false, val note: String? = null)
+
+/** Provider-neutral tool declaration: [parameters] is an OpenAPI-style JSON schema object, null when the tool takes no input. */
+class ToolDef(val name: String, val description: String, val parameters: JsonObject?)
 
 private class BadInput(message: String) : Exception(message)
 
@@ -36,8 +37,8 @@ class CoachTools(
             "update_athlete_profile" -> updateProfile(input)
             "get_activities" -> getActivities(input)
             "get_fitness" -> getFitness(input)
-            "get_wellness" -> getWellness(input)
-            "record_wellness" -> recordWellness(input)
+            "get_analysis" -> ToolOutcome(Analysis.report(repo.data, today()))
+            "auto_plan" -> autoPlan(input)
             "get_calendar" -> getCalendar(input)
             "create_sessions" -> createSessions(input)
             "update_session" -> updateSession(input)
@@ -90,7 +91,7 @@ class CoachTools(
         val extra = buildJsonObject {
             put("effective_ftp_w", p.effectiveFtp)
             val ftp = p.effectiveFtp
-            val w = p.weightKg ?: d.wellness.filter { it.weightKg != null }.maxByOrNull { it.date }?.weightKg
+            val w = p.weightKg
             if (ftp != null && w != null) put("ftp_w_per_kg", round1(ftp / w * 10) / 10)
             TrainingLoad.lthr(p)?.let { put("lthr_used_bpm", it.roundToInt()) }
             if (ftp != null) {
@@ -174,58 +175,13 @@ class CoachTools(
         return ToolOutcome(sb.toString())
     }
 
-    private fun getWellness(input: JsonObject): ToolOutcome {
-        val r = range(input, 90, 0)
-        val list = repo.data.wellness.filter { inRange(it.date, r) }.sortedBy { it.date }
-        if (list.isEmpty()) return ToolOutcome("Aucune donnée de santé entre ${r.first} et ${r.second}.")
-        return ToolOutcome(AppJson.encodeToString(ListSerializer(WellnessEntry.serializer()), list))
+    private fun autoPlan(input: JsonObject): ToolOutcome {
+        val days = (input.int("days") ?: 14).coerceIn(3, 42)
+        val result = Planner.plan(repo.data, today(), days)
+        repo.update { d -> d.copy(events = d.events.filterNot { it.id in result.removedIds } + result.sessions) }
+        val list = result.sessions.joinToString("\n") { "- [${it.id}] ${it.date} ${it.sport.name} ${it.title} (${it.durationMin} min)" }
+        return ToolOutcome(result.summary + "\nSéances créées :\n" + list, note = "Planificateur : ${result.sessions.size} séance(s) sur $days jours")
     }
-
-    private val wellnessFields = listOf(
-        "weight_kg", "bmi", "body_fat_pct", "muscle_mass_kg", "skeletal_muscle_pct", "body_water_pct", "bone_mass_kg",
-        "protein_pct", "visceral_fat", "subcutaneous_fat_pct", "bmr_kcal", "metabolic_age", "resting_hr", "hrv_ms",
-        "sleep_hours", "sleep_score", "stress", "vo2max", "training_load", "recovery_pct",
-    )
-
-    private fun recordWellness(input: JsonObject): ToolOutcome {
-        val date = input.date("date") ?: today().toString()
-        val source = (input.str("source") ?: "MANUAL").uppercase()
-        val e = WellnessEntry(
-            id = newId(), date = date, source = source,
-            weightKg = input.num("weight_kg"), bmi = input.num("bmi"), bodyFatPct = input.num("body_fat_pct"),
-            muscleMassKg = input.num("muscle_mass_kg"), skeletalMusclePct = input.num("skeletal_muscle_pct"),
-            bodyWaterPct = input.num("body_water_pct"), boneMassKg = input.num("bone_mass_kg"), proteinPct = input.num("protein_pct"),
-            visceralFat = input.num("visceral_fat"), subcutaneousFatPct = input.num("subcutaneous_fat_pct"),
-            bmrKcal = input.num("bmr_kcal"), metabolicAge = input.int("metabolic_age"), restingHr = input.num("resting_hr"),
-            hrvMs = input.num("hrv_ms"), sleepHours = input.num("sleep_hours"), sleepScore = input.num("sleep_score"),
-            stress = input.num("stress"), vo2max = input.num("vo2max"), trainingLoad = input.num("training_load"),
-            recoveryPct = input.num("recovery_pct"), notes = input.str("notes").orEmpty(),
-        )
-        val count = wellnessFields.count { input.num(it) != null }
-        if (count == 0 && e.notes.isBlank()) throw BadInput("aucune valeur fournie")
-        repo.update { d ->
-            val existing = d.wellness.firstOrNull { it.date == date && it.source == source }
-            val merged = if (existing == null) e else mergeWellness(existing, e)
-            val list = d.wellness.filterNot { it.id == existing?.id } + merged
-            val profile = if (e.weightKg != null && date >= (d.wellness.filter { it.weightKg != null }.maxOfOrNull { it.date } ?: "")) {
-                d.profile.copy(weightKg = e.weightKg)
-            } else d.profile
-            d.copy(wellness = list.sortedBy { it.date }, profile = profile)
-        }
-        return ToolOutcome("Enregistré : $count valeurs ($source, $date).", note = "Données santé enregistrées ($source, $date, $count valeurs)")
-    }
-
-    private fun mergeWellness(a: WellnessEntry, b: WellnessEntry) = a.copy(
-        weightKg = b.weightKg ?: a.weightKg, bmi = b.bmi ?: a.bmi, bodyFatPct = b.bodyFatPct ?: a.bodyFatPct,
-        muscleMassKg = b.muscleMassKg ?: a.muscleMassKg, skeletalMusclePct = b.skeletalMusclePct ?: a.skeletalMusclePct,
-        bodyWaterPct = b.bodyWaterPct ?: a.bodyWaterPct, boneMassKg = b.boneMassKg ?: a.boneMassKg,
-        proteinPct = b.proteinPct ?: a.proteinPct, visceralFat = b.visceralFat ?: a.visceralFat,
-        subcutaneousFatPct = b.subcutaneousFatPct ?: a.subcutaneousFatPct, bmrKcal = b.bmrKcal ?: a.bmrKcal,
-        metabolicAge = b.metabolicAge ?: a.metabolicAge, restingHr = b.restingHr ?: a.restingHr, hrvMs = b.hrvMs ?: a.hrvMs,
-        sleepHours = b.sleepHours ?: a.sleepHours, sleepScore = b.sleepScore ?: a.sleepScore, stress = b.stress ?: a.stress,
-        vo2max = b.vo2max ?: a.vo2max, trainingLoad = b.trainingLoad ?: a.trainingLoad, recoveryPct = b.recoveryPct ?: a.recoveryPct,
-        notes = listOf(a.notes, b.notes).filter { it.isNotBlank() }.joinToString(" | "),
-    )
 
     private fun getCalendar(input: JsonObject): ToolOutcome {
         val r = range(input, 7, 28)
@@ -308,7 +264,7 @@ class CoachTools(
         val current = repo.data.events.firstOrNull { it.id == id } ?: throw BadInput("évènement $id introuvable")
         val status = parseEnum<SessionStatus>(input.str("status"), "status")
         val onlyStatus = input.keys.all { it == "id" || it == "status" }
-        if (current.createdBy != "ai" && !onlyStatus) {
+        if (!Planner.isAuto(current) && !onlyStatus) {
             throw BadInput("cet évènement a été saisi par l'athlète : seul son statut peut être modifié. Demande-lui de le changer.")
         }
         val updated = current.copy(
@@ -333,8 +289,8 @@ class CoachTools(
         val ids = (input["ids"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.toSet()
             ?: throw BadInput("'ids' doit être une liste")
         val events = repo.data.events.filter { it.id in ids }
-        val protectedOnes = events.filter { it.createdBy != "ai" }
-        val deletable = events.filter { it.createdBy == "ai" }.map { it.id }.toSet()
+        val protectedOnes = events.filterNot(Planner::isAuto)
+        val deletable = events.filter(Planner::isAuto).map { it.id }.toSet()
         repo.update { d -> d.copy(events = d.events.filterNot { it.id in deletable }) }
         val sb = StringBuilder("${deletable.size} séance(s) supprimée(s).")
         if (protectedOnes.isNotEmpty()) sb.append(" Non supprimés (saisis par l'athlète) : ${protectedOnes.joinToString { it.title }}.")
@@ -362,19 +318,26 @@ class CoachTools(
     // ---- definitions ---------------------------------------------------------------------------
 
     companion object {
-        private fun obj(props: Map<String, Any>, required: List<String> = emptyList()): BetaTool.InputSchema =
-            BetaTool.InputSchema.builder()
-                .properties(JsonValue.from(props))
-                .required(required)
-                .build()
+        private fun schema(value: Any?): JE = when (value) {
+            null -> JsonNull
+            is String -> JsonPrimitive(value)
+            is Number -> JsonPrimitive(value)
+            is Boolean -> JsonPrimitive(value)
+            is Map<*, *> -> JsonObject(value.entries.associate { (k, v) -> k.toString() to schema(v) })
+            is List<*> -> JsonArray(value.map(::schema))
+            else -> error("unsupported $value")
+        }
+
+        private fun obj(props: Map<String, Any>, required: List<String> = emptyList()): JsonObject {
+            val m = mutableMapOf<String, Any>("type" to "object", "properties" to props)
+            if (required.isNotEmpty()) m["required"] = required
+            return schema(m) as JsonObject
+        }
 
         private fun s(desc: String) = mapOf("type" to "string", "description" to desc)
         private fun n(desc: String) = mapOf("type" to "number", "description" to desc)
         private fun i(desc: String) = mapOf("type" to "integer", "description" to desc)
         private fun e(desc: String, values: List<String>) = mapOf("type" to "string", "enum" to values, "description" to desc)
-
-        private fun tool(name: String, description: String, schema: BetaTool.InputSchema) =
-            BetaTool.builder().name(name).description(description).inputSchema(schema).build()
 
         private val dateRange = mapOf(
             "from" to s("Date de début AAAA-MM-JJ (incluse)"),
@@ -414,15 +377,17 @@ class CoachTools(
             ),
         )
 
-        val definitions: List<BetaTool> = listOf(
-            tool(
+        private val weekDays = java.time.DayOfWeek.entries.associate { it.name to i("Minutes disponibles le ${it.name}") }
+
+        val definitions: List<ToolDef> = listOf(
+            ToolDef(
                 "get_athlete_profile",
                 "Profil de l'athlète : FTP (et W/kg), FC max/repos/seuil, poids, objectifs, disponibilités hebdomadaires, matériel, zones de puissance.",
-                obj(emptyMap()),
+                null,
             ),
-            tool(
+            ToolDef(
                 "update_athlete_profile",
-                "Met à jour le profil (seulement les champs fournis). availability = minutes disponibles par jour, clés MONDAY..SUNDAY.",
+                "Met à jour le profil (seulement les champs fournis).",
                 obj(
                     mapOf(
                         "ftp_w" to i("FTP en watts"),
@@ -431,53 +396,37 @@ class CoachTools(
                         "lthr" to i("FC au seuil lactique"),
                         "weight_kg" to n("Poids en kg"),
                         "goals" to s("Objectifs de la saison (texte complet, remplace l'existant)"),
-                        "availability" to mapOf("type" to "object", "additionalProperties" to mapOf("type" to "integer")),
+                        "availability" to mapOf("type" to "object", "properties" to weekDays, "description" to "Minutes disponibles par jour"),
                         "availability_notes" to s("Précisions sur les disponibilités"),
                     ),
                 ),
             ),
-            tool(
+            ToolDef(
                 "get_activities",
-                "Activités réalisées (Strava, y compris celles venant de COROS et Zwift) avec durée, distance, D+, FC, puissance et TSS estimé. Par défaut les 28 derniers jours.",
+                "Activités réalisées (Strava, y compris COROS et Zwift) avec durée, distance, D+, FC, puissance et TSS estimé. Par défaut les 28 derniers jours.",
                 obj(dateRange),
             ),
-            tool(
+            ToolDef(
                 "get_fitness",
-                "Charge d'entraînement : CTL/ATL/TSB du jour, évolution, prévision jour par jour à partir des séances planifiées, volumes hebdomadaires des 12 dernières semaines et prochaines courses.",
+                "Charge d'entraînement : CTL/ATL/TSB du jour, évolution, prévision jour par jour d'après le calendrier, volumes hebdomadaires des 12 dernières semaines et prochaines courses.",
                 obj(mapOf("forecast_days" to i("Nombre de jours de prévision (défaut 28, max 120)"))),
             ),
-            tool(
-                "get_wellness",
-                "Données de santé enregistrées (poids et composition corporelle Renpho, FC repos, VFC, sommeil, stress, récupération COROS…). Par défaut les 90 derniers jours.",
-                obj(dateRange),
+            ToolDef(
+                "get_analysis",
+                "Bilan automatique complet : charge, volumes, puissance, prévisions pour les courses et recommandations calculées.",
+                null,
             ),
-            tool(
-                "record_wellness",
-                "Enregistre des mesures de santé/composition corporelle (lues sur une capture d'écran ou dictées). Ne fournis que les valeurs réellement lues. Les mesures du même jour et de la même source sont fusionnées.",
-                obj(
-                    mapOf(
-                        "date" to s("Date de la mesure AAAA-MM-JJ (défaut aujourd'hui)"),
-                        "source" to e("Origine", listOf("RENPHO", "COROS", "ZWIFT", "STRAVA", "MANUAL", "OTHER")),
-                        "weight_kg" to n("Poids kg"), "bmi" to n("IMC"), "body_fat_pct" to n("Masse grasse %"),
-                        "muscle_mass_kg" to n("Masse musculaire kg"), "skeletal_muscle_pct" to n("Muscle squelettique %"),
-                        "body_water_pct" to n("Eau corporelle %"), "bone_mass_kg" to n("Masse osseuse kg"),
-                        "protein_pct" to n("Protéines %"), "visceral_fat" to n("Graisse viscérale (indice)"),
-                        "subcutaneous_fat_pct" to n("Graisse sous-cutanée %"), "bmr_kcal" to n("Métabolisme de base kcal"),
-                        "metabolic_age" to i("Âge métabolique"), "resting_hr" to n("FC repos bpm"), "hrv_ms" to n("VFC ms"),
-                        "sleep_hours" to n("Durée de sommeil h"), "sleep_score" to n("Score de sommeil"),
-                        "stress" to n("Niveau de stress"), "vo2max" to n("VO2max estimée"),
-                        "training_load" to n("Charge d'entraînement affichée par la montre"),
-                        "recovery_pct" to n("Récupération %"),
-                        "notes" to s("Autres informations lues (texte)"),
-                    ),
-                ),
-            ),
-            tool(
+            ToolDef(
                 "get_calendar",
-                "Calendrier : courses, entraînements club, séances planifiées (avec id, statut et auteur user/ai) et impératifs/impondérables. Par défaut de J-7 à J+28.",
+                "Calendrier : courses, entraînements club, séances planifiées (id, statut, auteur user/planner/ai) et impératifs. Par défaut de J-7 à J+28.",
                 obj(dateRange),
             ),
-            tool(
+            ToolDef(
+                "auto_plan",
+                "Lance le planificateur intégré à partir d'aujourd'hui : remplace les séances automatiques non réalisées de la période par un nouveau plan.",
+                obj(mapOf("days" to i("Nombre de jours à planifier (défaut 14, max 42)"))),
+            ),
+            ToolDef(
                 "create_sessions",
                 "Ajoute des séances planifiées au calendrier (plusieurs à la fois). Vérifie d'abord le calendrier pour éviter les doublons.",
                 obj(
@@ -490,17 +439,17 @@ class CoachTools(
                     listOf("sessions"),
                 ),
             ),
-            tool(
+            ToolDef(
                 "update_session",
-                "Modifie une séance créée par le coach (date, contenu…). Pour les évènements saisis par l'athlète seul le statut (DONE/SKIPPED/PLANNED) peut changer.",
+                "Modifie une séance automatique (date, contenu…). Pour les évènements saisis par l'athlète seul le statut (DONE/SKIPPED/PLANNED) peut changer.",
                 obj(sessionFields + mapOf("id" to s("Identifiant de l'évènement"), "status" to e("Statut", SessionStatus.entries.map { it.name })), listOf("id")),
             ),
-            tool(
+            ToolDef(
                 "delete_sessions",
-                "Supprime des séances créées par le coach (les évènements de l'athlète sont protégés).",
+                "Supprime des séances automatiques (les évènements de l'athlète sont protégés).",
                 obj(mapOf("ids" to mapOf("type" to "array", "items" to mapOf("type" to "string"))), listOf("ids")),
             ),
-            tool(
+            ToolDef(
                 "add_constraint",
                 "Enregistre un impératif ou impondérable signalé par l'athlète (indisponibilité, temps limité, fatigue, maladie, blessure, déplacement…).",
                 obj(
@@ -514,10 +463,10 @@ class CoachTools(
                     listOf("start_date", "kind", "description"),
                 ),
             ),
-            tool(
+            ToolDef(
                 "sync_strava",
-                "Récupère les dernières activités Strava (à utiliser si l'athlète dit avoir fait une séance qui n'apparaît pas encore).",
-                obj(emptyMap()),
+                "Récupère les dernières activités Strava (si l'athlète dit avoir fait une séance qui n'apparaît pas encore).",
+                null,
             ),
         )
     }

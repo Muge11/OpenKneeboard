@@ -28,12 +28,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="coachia" android:host="localhost" />
             </intent-filter>
-            <!-- Partager une capture d'écran (Renpho, COROS…) directement vers le coach -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="image/*" />
-            </intent-filter>
         </activity>
 
         <provider

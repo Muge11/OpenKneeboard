@@ -3,7 +3,8 @@ package fr.coachia.app
 import android.app.Application
 import fr.coachia.core.AppRepository
 import fr.coachia.core.ChatTranscript
-import fr.coachia.core.Coach
+import fr.coachia.core.GeminiClient
+import fr.coachia.core.GeminiCoach
 import fr.coachia.core.CoachTools
 import fr.coachia.core.StravaClient
 import fr.coachia.core.StravaSync
@@ -20,7 +21,9 @@ class CoachApp : Application() {
         private set
     lateinit var stravaSync: StravaSync
         private set
-    lateinit var coach: Coach
+    lateinit var gemini: GeminiClient
+        private set
+    lateinit var coach: GeminiCoach
         private set
 
     override fun onCreate() {
@@ -31,6 +34,7 @@ class CoachApp : Application() {
         transcript = ChatTranscript(dir, codec)
         strava = StravaClient(OkHttpClient.Builder().callTimeout(60, TimeUnit.SECONDS).build())
         stravaSync = StravaSync(repo, strava)
-        coach = Coach(repo, transcript, CoachTools(repo, { stravaSync.sync() }))
+        gemini = GeminiClient(OkHttpClient.Builder().callTimeout(5, TimeUnit.MINUTES).readTimeout(5, TimeUnit.MINUTES).build())
+        coach = GeminiCoach(repo, transcript, CoachTools(repo, { stravaSync.sync() }), gemini)
     }
 }
