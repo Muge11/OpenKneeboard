@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Montagne + éclair : trail / VTT, piloté par l'IA -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#C8E6C9"
+        android:pathData="M24,76 L46,40 L56,54 L64,44 L84,76 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,40 L52,50 L48,50 L44,46 Z" />
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M60,28 L50,50 L58,50 L52,66 L68,42 L60,42 L66,28 Z" />
+</vector>
