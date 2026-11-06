@@ -36,3 +36,12 @@ Pour changer d'adresse plus tard : `…/budget-app/#config`.
 - Pour un utilisateur qui n'est pas le propriétaire du script, Google affiche une fine bannière
   « Cette application a été créée par un utilisateur de Google Apps Script » : elle ne peut pas être retirée.
 - La web app doit être en **v0.7.0 ou plus** (elle autorise l'affichage dans l'appli installée).
+
+## 3. Notifications (v1.3.0)
+
+1. Mettez à jour **`index.html`** et **`sw.js`** sur GitHub Pages (*Add file › Upload files*, remplacer, *Commit*).
+2. Fermez complètement l'appli installée puis rouvrez-la (deux fois si besoin) : la nouvelle coquille se charge.
+3. Dans l'appli : **Plus › Notifications › Activer les notifications**, acceptez, puis **Envoyer un test**.
+
+Les notifications sont envoyées par Apps Script au service de notifications de Chrome (Google), chiffrées de bout
+en bout : seul votre téléphone peut les lire. Aucune donnée n'est stockée par la coquille.

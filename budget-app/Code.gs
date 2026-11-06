@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.3.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -30,6 +30,7 @@ var SH = {
   ENV: 'Enveloppes',
   VEH: 'Vehicules',
   CPT: 'ComptesEpargne',
+  PUSH: 'Push',
   CONFIG: 'Config'
 };
 
@@ -48,6 +49,8 @@ var HEADERS = {
   ComptesEpargne: ['id', 'ordre', 'actif', 'creeLe'],
   EnAttente: ['id', 'description', 'montant', 'creeLe', 'saisiPar'],
   Epargne: ['id', 'compte', 'solde', 'majLe', 'saisiPar'],
+  // Appareils abonnés aux notifications (adresse du service de notifications + clés publiques de l'appareil).
+  Push: ['id', 'email', 'endpoint', 'p256dh', 'auth', 'appareil', 'creeLe', 'dernierEnvoi'],
   Config: ['cle', 'valeur']
 };
 
@@ -232,6 +235,9 @@ function data_(me) {
     vehicules: readTable_(SH.VEH),
     reperes: getConfig_('reperes'),
     paie: getConfig_('paie'),
+    vapidPublic: (function () { try { return wpKeys_().pub; } catch (e) { return ''; } })(),
+    pushDevices: readTable_(SH.PUSH).filter(function (d) { return d.email.toLowerCase() === me.email.toLowerCase(); })
+      .map(function (d) { return { id: d.id, appareil: d.appareil, creeLe: d.creeLe, endpoint: d.endpoint }; }),
     sheetUrl: SpreadsheetApp.getActive().getUrl(),
     appUrl: (function () { try { return ScriptApp.getService().getUrl(); } catch (e) { return ''; } })(),
     lastBackup: props.getProperty('lastBackup') || ''
@@ -1090,6 +1096,12 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.3.0', titre: 'Notifications', items: [
+    'Vraies notifications sur le téléphone : rappel de saisie, enveloppe presque vide ou dépassée, rythme de dépense inhabituel.',
+    'Tout se règle dans Plus › Notifications : heure du rappel, délai, seuil d\'alerte, montants affichés ou non.',
+    'Bouton « Tester » pour vérifier qu\'un appareil reçoit bien les notifications.',
+    'Choisissez les enveloppes affichées : celles qui ne vous servent pas peuvent être masquées (Budget › Choisir les enveloppes).'
+  ] },
   { v: '1.2.0', titre: 'Plus clair, plus personnel', items: [
     'Écran d\'accueil « Bonjour » à l\'ouverture, aux couleurs de votre thème.',
     'Nouvelle barre : Synthèse, Mouvements, Budget (enveloppes et fixes), Épargne, Plus — et le bouton + au centre.',
@@ -1186,6 +1198,7 @@ function reportCheck() {
     if (hasSalary(m)) sendReport_(prev, 'salaire saisi');
     else if (m === cur && day >= 5) sendReport_(prev, 'le 5 du mois');
   });
+  try { notifyCheck_(hour); } catch (e) { appendJournal_('système', 'Erreur', 'Notifications', String(e && e.message || e)); }
 }
 
 function reportRecipients_() {
@@ -1552,6 +1565,355 @@ function dateFor_(mois, jour) {
   var days = new Date(y, m, 0).getDate();
   var d = Math.min(Math.max(1, Number(jour) || 1), days);
   return mois + '-' + (d < 10 ? '0' : '') + d;
+}
+
+/* ================================================================== */
+/* Notifications Web Push (RFC 8030 / 8291 / 8292) — sans bibliothèque  */
+/* Signature VAPID (ECDSA P-256) et chiffrement aes128gcm écrits ici :  */
+/* Apps Script ne fournit ni ECDSA ni AES.                              */
+/* ================================================================== */
+var WP_ = (function () {
+  var B = function (h) { return BigInt('0x' + h); };
+  var P = B('ffffffff00000001000000000000000000000000ffffffffffffffffffffffff');
+  var N = B('ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551');
+  var CB = B('5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b');
+  var G = [B('6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296'), B('4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5')];
+  var Z0 = BigInt(0), Z1 = BigInt(1), Z2 = BigInt(2), Z3 = BigInt(3), Z4 = BigInt(4), Z8 = BigInt(8);
+
+  function mod(a, m) { var r = a % m; return r < Z0 ? r + m : r; }
+  function inv(a, m) {
+    var t = Z0, nt = Z1, r = m, nr = mod(a, m), q, tmp;
+    while (nr !== Z0) { q = r / nr; tmp = t - q * nt; t = nt; nt = tmp; tmp = r - q * nr; r = nr; nr = tmp; }
+    return mod(t, m);
+  }
+  // Points en coordonnées jacobiennes [X, Y, Z] ; Z = 0 : point à l'infini.
+  function dbl(p) {
+    if (p[2] === Z0 || p[1] === Z0) return [Z0, Z1, Z0];
+    var d = mod(p[2] * p[2], P), g = mod(p[1] * p[1], P), b = mod(p[0] * g, P);
+    var a = mod(Z3 * (p[0] - d) * (p[0] + d), P);
+    var x = mod(a * a - Z8 * b, P);
+    var z = mod((p[1] + p[2]) * (p[1] + p[2]) - g - d, P);
+    var y = mod(a * (Z4 * b - x) - Z8 * g * g, P);
+    return [x, y, z];
+  }
+  function add(p, q) {
+    if (p[2] === Z0) return q; if (q[2] === Z0) return p;
+    var z1 = mod(p[2] * p[2], P), z2 = mod(q[2] * q[2], P);
+    var u1 = mod(p[0] * z2, P), u2 = mod(q[0] * z1, P);
+    var s1 = mod(p[1] * q[2] * z2, P), s2 = mod(q[1] * p[2] * z1, P);
+    if (u1 === u2) return s1 === s2 ? dbl(p) : [Z0, Z1, Z0];
+    var h = mod(u2 - u1, P), i = mod(Z4 * h * h, P), j = mod(h * i, P), r = mod(Z2 * (s2 - s1), P), v = mod(u1 * i, P);
+    var x = mod(r * r - j - Z2 * v, P);
+    var y = mod(r * (v - x) - Z2 * s1 * j, P);
+    var z = mod(((p[2] + q[2]) * (p[2] + q[2]) - z1 - z2) * h, P);
+    return [x, y, z];
+  }
+  function mul(k, pt) {
+    var r = [Z0, Z1, Z0], q = [pt[0], pt[1], Z1], bits = k.toString(2);
+    for (var i = 0; i < bits.length; i++) { r = dbl(r); if (bits[i] === '1') r = add(r, q); }
+    if (r[2] === Z0) throw new Error('Point à l\'infini');
+    var zi = inv(r[2], P), zi2 = mod(zi * zi, P);
+    return [mod(r[0] * zi2, P), mod(r[1] * zi2 * zi, P)];
+  }
+  function onCurve(pt) { return mod(pt[1] * pt[1] - (pt[0] * pt[0] * pt[0] - Z3 * pt[0] + CB), P) === Z0; }
+
+  // --- octets (tableaux 0-255) ---
+  function toBn(b) { var h = ''; for (var i = 0; i < b.length; i++) h += (b[i] < 16 ? '0' : '') + b[i].toString(16); return h ? BigInt('0x' + h) : Z0; }
+  function fromBn(n, len) { var h = n.toString(16); while (h.length < len * 2) h = '0' + h; var o = []; for (var i = 0; i < len; i++) o.push(parseInt(h.substr(i * 2, 2), 16)); return o; }
+  function u8(a) { var o = []; for (var i = 0; i < a.length; i++) o.push(a[i] & 255); return o; }
+  function s8(a) { var o = []; for (var i = 0; i < a.length; i++) o.push(a[i] > 127 ? a[i] - 256 : a[i]); return o; }
+  function utf8(s) { var e = unescape(encodeURIComponent(s)), o = []; for (var i = 0; i < e.length; i++) o.push(e.charCodeAt(i)); return o; }
+  function sha256(b) { return u8(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s8(b))); }
+  function hmac(key, data) { return u8(Utilities.computeHmacSha256Signature(s8(data), s8(key))); }
+  function b64u(b) { return Utilities.base64EncodeWebSafe(s8(b)).replace(/=+$/, ''); }
+  function unb64u(s) { s = String(s).replace(/=+$/, ''); while (s.length % 4) s += '='; return u8(Utilities.base64DecodeWebSafe(s)); }
+  function random(len) {
+    var seed = '';
+    for (var i = 0; i < 4; i++) seed += Utilities.getUuid();
+    seed += Date.now() + ':' + Math.random() + ':' + Math.random();
+    var out = [], ctr = 0;
+    while (out.length < len) { out = out.concat(sha256(utf8(seed + '#' + (ctr++)))); }
+    return out.slice(0, len);
+  }
+  function randScalar() { var k; do { k = mod(toBn(random(32)), N); } while (k === Z0); return k; }
+  function pubBytes(pt) { return [4].concat(fromBn(pt[0], 32), fromBn(pt[1], 32)); }
+
+  // --- ECDSA P-256 / SHA-256, nonce déterministe (RFC 6979) ---
+  function sign(priv, msg) {
+    var h = sha256(msg), e = mod(toBn(h), N), x = fromBn(priv, 32), hb = fromBn(e, 32);
+    var V = [], K = [], i;
+    for (i = 0; i < 32; i++) { V.push(1); K.push(0); }
+    K = hmac(K, V.concat([0], x, hb)); V = hmac(K, V);
+    K = hmac(K, V.concat([1], x, hb)); V = hmac(K, V);
+    for (;;) {
+      V = hmac(K, V);
+      var k = toBn(V);
+      if (k >= Z1 && k < N) {
+        var r = mod(mul(k, G)[0], N);
+        if (r !== Z0) {
+          var s = mod(inv(k, N) * (e + r * priv), N);
+          if (s !== Z0) return fromBn(r, 32).concat(fromBn(s, 32));
+        }
+      }
+      K = hmac(K, V.concat([0])); V = hmac(K, V);
+    }
+  }
+
+  // --- AES-128 ---
+  var SB = [], XT = function (a) { return ((a << 1) ^ (a & 128 ? 0x11b : 0)) & 255; };
+  (function () {
+    var p = 1, q = 1;
+    do {
+      p = p ^ ((p << 1) & 255) ^ (p & 128 ? 0x1b : 0);
+      q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 255; if (q & 128) q ^= 0x09;
+      var x = q ^ ((q << 1) | (q >> 7)) ^ ((q << 2) | (q >> 6)) ^ ((q << 3) | (q >> 5)) ^ ((q << 4) | (q >> 4));
+      SB[p] = (x ^ 0x63) & 255;
+    } while (p !== 1);
+    SB[0] = 0x63;
+  })();
+  function expand(key) {
+    var w = key.slice(), rc = 1;
+    for (var i = 16; i < 176; i += 4) {
+      var t = w.slice(i - 4, i);
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = XT(rc); }
+      for (var j = 0; j < 4; j++) w.push(w[i - 16 + j] ^ t[j]);
+    }
+    return w;
+  }
+  function aesBlock(w, inp) {
+    var s = [], i, r, c;
+    for (i = 0; i < 16; i++) s[i] = inp[i] ^ w[i];
+    for (r = 1; r <= 10; r++) {
+      for (i = 0; i < 16; i++) s[i] = SB[s[i]];
+      var t = s.slice();
+      for (c = 0; c < 4; c++) for (i = 0; i < 4; i++) s[c * 4 + i] = t[((c + i) % 4) * 4 + i];
+      if (r < 10) {
+        for (c = 0; c < 4; c++) {
+          var a0 = s[c * 4], a1 = s[c * 4 + 1], a2 = s[c * 4 + 2], a3 = s[c * 4 + 3], x = a0 ^ a1 ^ a2 ^ a3;
+          s[c * 4] ^= x ^ XT(a0 ^ a1); s[c * 4 + 1] ^= x ^ XT(a1 ^ a2); s[c * 4 + 2] ^= x ^ XT(a2 ^ a3); s[c * 4 + 3] ^= x ^ XT(a3 ^ a0);
+        }
+      }
+      for (i = 0; i < 16; i++) s[i] ^= w[r * 16 + i];
+    }
+    return s;
+  }
+  // --- AES-GCM (chiffrement seul, étiquette de 16 octets) ---
+  function gmul(x, y) {
+    var z = [], v = y.slice(), i, j;
+    for (i = 0; i < 16; i++) z.push(0);
+    for (i = 0; i < 128; i++) {
+      if (x[i >> 3] & (128 >> (i & 7))) for (j = 0; j < 16; j++) z[j] ^= v[j];
+      var lsb = v[15] & 1;
+      for (j = 15; j > 0; j--) v[j] = (v[j] >> 1) | ((v[j - 1] & 1) << 7);
+      v[0] >>= 1;
+      if (lsb) v[0] ^= 0xe1;
+    }
+    return z;
+  }
+  function gcm(key, iv, pt) {
+    var w = expand(key), zero = [], i, j;
+    for (i = 0; i < 16; i++) zero.push(0);
+    var H = aesBlock(w, zero), j0 = iv.concat([0, 0, 0, 1]), ct = [], ctr = j0.slice();
+    for (i = 0; i < pt.length; i += 16) {
+      for (j = 15; j >= 12; j--) { ctr[j] = (ctr[j] + 1) & 255; if (ctr[j]) break; }
+      var ks = aesBlock(w, ctr);
+      for (j = 0; j < 16 && i + j < pt.length; j++) ct.push(pt[i + j] ^ ks[j]);
+    }
+    var y = zero.slice();
+    for (i = 0; i < ct.length; i += 16) {
+      for (j = 0; j < 16; j++) y[j] ^= (i + j < ct.length ? ct[i + j] : 0);
+      y = gmul(y, H);
+    }
+    var bits = ct.length * 8, len = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (bits >>> 24) & 255, (bits >>> 16) & 255, (bits >>> 8) & 255, bits & 255];
+    for (j = 0; j < 16; j++) y[j] ^= len[j];
+    y = gmul(y, H);
+    var ek = aesBlock(w, j0), tag = [];
+    for (j = 0; j < 16; j++) tag.push(y[j] ^ ek[j]);
+    return ct.concat(tag);
+  }
+
+  /** Chiffre `text` pour un abonnement (clés p256dh / auth en base64url) : corps aes128gcm complet. */
+  function encrypt(text, p256dh, auth) {
+    var ua = unb64u(p256dh), au = unb64u(auth);
+    if (ua.length !== 65 || ua[0] !== 4) throw new Error('Clé d\'abonnement invalide');
+    var uaPt = [toBn(ua.slice(1, 33)), toBn(ua.slice(33))];
+    if (!onCurve(uaPt)) throw new Error('Clé d\'abonnement hors courbe');
+    var d = randScalar(), as = pubBytes(mul(d, G));
+    var shared = fromBn(mul(d, uaPt)[0], 32);
+    var prkKey = hmac(au, shared);
+    var ikm = hmac(prkKey, utf8('WebPush: info').concat([0], ua, as, [1]));
+    var salt = random(16), prk = hmac(salt, ikm);
+    var cek = hmac(prk, utf8('Content-Encoding: aes128gcm').concat([0, 1])).slice(0, 16);
+    var nonce = hmac(prk, utf8('Content-Encoding: nonce').concat([0, 1])).slice(0, 12);
+    var body = gcm(cek, nonce, utf8(text).concat([2]));
+    return salt.concat([0, 0, 16, 0], [65], as, body);
+  }
+  /** Jeton VAPID pour l'origine du service de notifications. */
+  function vapid(keys, endpoint, contact) {
+    var aud = String(endpoint).match(/^https:\/\/[^/]+/)[0];
+    var enc = function (o) { return b64u(utf8(JSON.stringify(o))); };
+    var data = enc({ typ: 'JWT', alg: 'ES256' }) + '.' + enc({ aud: aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:' + contact });
+    return 'vapid t=' + data + '.' + b64u(sign(toBn(unb64u(keys.priv)), utf8(data))) + ', k=' + keys.pub;
+  }
+  function newKeys() { var d = randScalar(); return { priv: b64u(fromBn(d, 32)), pub: b64u(pubBytes(mul(d, G))) }; }
+  return { encrypt: encrypt, vapid: vapid, newKeys: newKeys, s8: s8, _t: { sign: sign, gcm: gcm, aesBlock: aesBlock, expand: expand, mul: mul, G: G, toBn: toBn, fromBn: fromBn, unb64u: unb64u, b64u: b64u } };
+})();
+
+var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false };
+
+/** Clés VAPID du foyer (créées une seule fois, gardées dans les propriétés du script). */
+function wpKeys_() {
+  var props = PropertiesService.getScriptProperties();
+  var priv = props.getProperty('vapidPriv'), pub = props.getProperty('vapidPub');
+  if (priv && pub) return { priv: priv, pub: pub };
+  return withLock_(function () {
+    priv = props.getProperty('vapidPriv'); pub = props.getProperty('vapidPub');
+    if (priv && pub) return { priv: priv, pub: pub };
+    var k = WP_.newKeys();
+    props.setProperty('vapidPriv', k.priv); props.setProperty('vapidPub', k.pub);
+    return k;
+  });
+}
+
+/** Envoie une notification à un appareil ; supprime l'abonnement s'il n'existe plus. Renvoie le code HTTP. */
+function sendPush_(dev, payload) {
+  var keys = wpKeys_();
+  var owner = Session.getEffectiveUser().getEmail() || 'budget@example.com';
+  var body = WP_.encrypt(JSON.stringify(payload), dev.p256dh, dev.auth);
+  var res = UrlFetchApp.fetch(dev.endpoint, {
+    method: 'post', contentType: 'application/octet-stream', payload: WP_.s8(body), muteHttpExceptions: true,
+    headers: { Authorization: WP_.vapid(keys, dev.endpoint, owner), TTL: '86400', 'Content-Encoding': 'aes128gcm', Urgency: 'normal' }
+  });
+  var code = res.getResponseCode();
+  if (code === 404 || code === 410) { deleteBy_(SH.PUSH, 'id', dev.id); }
+  else if (code < 300) { dev.dernierEnvoi = nowIso_(); upsert_(SH.PUSH, dev); }
+  return { code: code, text: code < 300 ? '' : String(res.getContentText()).substring(0, 200) };
+}
+
+function savePushSub(sub, appareil) {
+  var me = ctx_(0);
+  if (!sub || !/^https:\/\/[^\s]+$/.test(sub.endpoint || '') || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) throw new Error('Abonnement invalide');
+  if (String(sub.endpoint).length > 1000) throw new Error('Abonnement invalide');
+  return withLock_(function () {
+    var old = findBy_(SH.PUSH, 'endpoint', sub.endpoint);
+    var dev = { id: old ? old.id : newId_(), email: me.email, endpoint: sub.endpoint, p256dh: String(sub.keys.p256dh), auth: String(sub.keys.auth),
+      appareil: String(appareil || 'Appareil').substring(0, 60), creeLe: old ? old.creeLe : nowIso_(), dernierEnvoi: old ? old.dernierEnvoi : '' };
+    upsert_(SH.PUSH, dev);
+    log_(me, 'Notifications', 'Appareil', 'Activées sur ' + dev.appareil);
+    return { id: dev.id, appareil: dev.appareil, creeLe: dev.creeLe, endpoint: dev.endpoint };
+  });
+}
+
+function deletePushSub(id) {
+  var me = ctx_(0);
+  return withLock_(function () {
+    var d = findBy_(SH.PUSH, 'id', id);
+    if (!d) return true;
+    if (d.email.toLowerCase() !== me.email.toLowerCase() && me.role !== 'admin') throw new Error('Appareil d\'un autre utilisateur');
+    deleteBy_(SH.PUSH, 'id', id);
+    log_(me, 'Notifications', 'Appareil', 'Retiré : ' + d.appareil);
+    return true;
+  });
+}
+
+function sendTestPush(id) {
+  var me = ctx_(0);
+  var d = findBy_(SH.PUSH, 'id', id);
+  if (!d || d.email.toLowerCase() !== me.email.toLowerCase()) throw new Error('Appareil introuvable');
+  return withLock_(function () {
+    return sendPush_(d, { title: 'Budget', body: 'Les notifications fonctionnent sur cet appareil ✓', tag: 'test' });
+  });
+}
+
+/** Période de budget côté serveur (mêmes règles que l'appli : d'une paye à la suivante). */
+function payDate_(m, cfg) {
+  if (cfg.mois && cfg.mois[m]) return cfg.mois[m];
+  if (!cfg.jour) return null;
+  var pm = cfg.jour >= 15 ? shiftMonth_(m, -1) : m, y = Number(pm.substring(0, 4)), mo = Number(pm.substring(5, 7));
+  var d = new Date(y, mo - 1, Math.min(cfg.jour, new Date(y, mo, 0).getDate()));
+  if (cfg.weekend) { var w = d.getDay(); if (w === 6) d.setDate(d.getDate() - 1); if (w === 0) d.setDate(d.getDate() - 2); }
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+function period_(m) {
+  var cfg = parsePrefs_(getConfig_('paie')), a = payDate_(m, cfg), b = payDate_(shiftMonth_(m, 1), cfg), tz = Session.getScriptTimeZone();
+  var st, en;
+  if (a && b) { st = new Date(a + 'T00:00:00'); en = new Date(b + 'T00:00:00'); en.setDate(en.getDate() - 1); }
+  else { st = new Date(Number(m.substring(0, 4)), Number(m.substring(5, 7)) - 1, 1); en = new Date(Number(m.substring(0, 4)), Number(m.substring(5, 7)), 0); }
+  return { start: Utilities.formatDate(st, tz, 'yyyy-MM-dd'), end: Utilities.formatDate(en, tz, 'yyyy-MM-dd'), len: Math.round((en - st) / 864e5) + 1 };
+}
+function budgetMonthNow_() {
+  var today = nowIso_().substring(0, 10), cur = currentMonth_();
+  for (var k = -1; k <= 1; k++) { var m = shiftMonth_(cur, k), pr = period_(m); if (today >= pr.start && today <= pr.end) return m; }
+  return cur;
+}
+
+/** Notifications de l'heure : rappel de saisie, enveloppes, rythme de dépense (une seule fois par sujet). */
+function notifyCheck_(hour) {
+  var devs = readTable_(SH.PUSH);
+  if (!devs.length) return;
+  var props = PropertiesService.getScriptProperties();
+  var sent = parsePrefs_(props.getProperty('pushSent')), today = nowIso_().substring(0, 10), changed = false;
+  var m = budgetMonthNow_(), pr = period_(m), c = computeMonth_(m);
+  var dayIdx = Math.round((new Date(today + 'T00:00:00') - new Date(pr.start + 'T00:00:00')) / 864e5) + 1, left = pr.len - dayIdx + 1;
+  var mvts = readTable_(SH.MVT), libs = readTable_(SH.LIB);
+  var eur = function (n) { return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €'; };
+  // Rythme : dépenses ponctuelles de la période jusqu'à aujourd'hui, comparées aux 4 périodes précédentes au même jour.
+  var sortieIds = {}; libs.forEach(function (l) { if (l.sens === 'sortie') sortieIds[l.id] = true; });
+  var ponct = function (mm, lim) { return mvts.filter(function (x) { return x.mois === mm && x.statut !== 'annule' && !x.recurrentId && sortieIds[x.libelleId] && x.date <= lim; })
+    .reduce(function (t, x) { return t + (Number(x.montant) || 0); }, 0); };
+  var curP = ponct(m, today), hist = [];
+  for (var k = 1; k <= 4; k++) {
+    var mk = shiftMonth_(m, -k), pk = period_(mk), lim = new Date(pk.start + 'T00:00:00'); lim.setDate(lim.getDate() + dayIdx - 1);
+    if (mvts.some(function (x) { return x.mois === mk && !x.recurrentId; })) hist.push(ponct(mk, Utilities.formatDate(lim, Session.getScriptTimeZone(), 'yyyy-MM-dd')));
+  }
+  var avgP = hist.length >= 2 ? hist.reduce(function (t, v) { return t + v; }, 0) / hist.length : 0;
+  var week = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "YYYY-'S'ww");
+
+  readTable_(SH.USERS).filter(function (u) { return u.actif; }).forEach(function (u) {
+    var mine = devs.filter(function (d) { return d.email.toLowerCase() === u.email.toLowerCase(); });
+    if (!mine.length) return;
+    var pf = parsePrefs_(u.prefs), N = {}, key;
+    Object.keys(NOTIF_DEF).forEach(function (kk) { N[kk] = pf.notif && pf.notif[kk] !== undefined ? pf.notif[kk] : NOTIF_DEF[kk]; });
+    var hidden = pf.envMasques || [], out = [];
+    // Rappel de saisie
+    if (N.rappel && hour === Number(N.heure)) {
+      var last = mvts.filter(function (x) { return x.saisiPar && x.saisiPar.toLowerCase() === u.email.toLowerCase(); })
+        .map(function (x) { return String(x.saisiLe).substring(0, 10); }).sort().pop() || mine.map(function (d) { return String(d.creeLe).substring(0, 10); }).sort()[0];
+      var days = last ? Math.floor((new Date(today + 'T00:00:00') - new Date(last + 'T00:00:00')) / 864e5) : 0;
+      key = u.email + '|rappel|' + today;
+      if (days >= Number(N.delai) && !sent[key]) out.push({ key: key, p: { title: 'Pensez à saisir vos dépenses', body: 'Rien de saisi depuis ' + days + ' jours.', tag: 'rappel', action: 'saisie' } });
+    }
+    if (hour >= 9 && hour <= 21) {
+      // Enveloppes
+      Object.keys(c.per).forEach(function (id) {
+        var p = c.per[id];
+        if (p.lib.sens !== 'sortie' || !(p.env > 0) || hidden.indexOf(id) >= 0) return;
+        var ratio = p.reel / p.env;
+        if (N.depasse && ratio > 1.0005) {
+          key = u.email + '|dep|' + m + '|' + id;
+          if (!sent[key]) out.push({ key: key, p: { title: 'Enveloppe ' + p.lib.nom + ' dépassée', body: N.montants ? 'Dépassement de ' + eur(p.reel - p.env) + '.' : 'Le budget prévu pour ce poste est atteint.', tag: 'env-' + id } });
+        } else if (Number(N.seuil) > 0 && ratio * 100 >= Number(N.seuil) && ratio <= 1.0005) {
+          key = u.email + '|seuil|' + m + '|' + id;
+          if (!sent[key]) out.push({ key: key, p: { title: 'Enveloppe ' + p.lib.nom + ' à ' + Math.round(ratio * 100) + ' %', body: N.montants ? 'Il reste ' + eur(p.env - p.reel) + ' pour ' + left + ' jours.' : 'Il reste ' + left + ' jours dans la période : levez le pied sur ce poste.', tag: 'env-' + id } });
+        }
+      });
+      // Rythme de dépense inhabituel (au plus une fois par semaine)
+      if (N.rythme && avgP > 50 && curP > avgP * 1.15 && curP - avgP > 40) {
+        key = u.email + '|rythme|' + week;
+        if (!sent[key]) out.push({ key: key, p: { title: 'Rythme de dépense élevé', body: 'Dépenses du quotidien +' + Math.round((curP / avgP - 1) * 100) + ' % par rapport à vos habitudes à cette date' + (N.montants ? ' (' + eur(curP - avgP) + ' de plus).' : '.'), tag: 'rythme' } });
+      }
+    }
+    out.slice(0, 3).forEach(function (o) {
+      mine.forEach(function (d) { try { sendPush_(d, o.p); } catch (e) { appendJournal_('système', 'Erreur', 'Notification', String(e && e.message || e)); } });
+      sent[o.key] = today; changed = true;
+    });
+  });
+  if (changed) {
+    var limit = new Date(); limit.setDate(limit.getDate() - 70);
+    var lim2 = Utilities.formatDate(limit, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    Object.keys(sent).forEach(function (kk) { if (sent[kk] < lim2) delete sent[kk]; });
+    props.setProperty('pushSent', JSON.stringify(sent));
+  }
 }
 
 /* ================================================================== */

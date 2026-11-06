@@ -3,6 +3,24 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.3.0] — 2026-11-06 — notifications
+
+- **Vraies notifications (Web Push)** sur l'appli installée, même fermée : rappel de saisie (délai et heure au choix),
+  enveloppe presque vide (seuil 70 / 80 / 90 %), enveloppe dépassée, rythme de dépense inhabituel (≤ 1 / semaine),
+  montants affichés ou non. Réglages par utilisateur dans **Plus › Notifications** ; bouton « Envoyer un test » ;
+  liste des appareils (retrait). Un appareil disparu (404 / 410) est retiré automatiquement.
+- **Serveur** : signature VAPID (ECDSA P-256, nonce RFC 6979) et chiffrement aes128gcm (RFC 8291) écrits en JavaScript
+  (Apps Script n'a ni ECDSA ni AES), vérifiés contre les primitives de Node ; clés VAPID créées une fois (propriétés
+  du script) ; feuille `Push` (appareils, hors sauvegardes) ; `savePushSub`, `deletePushSub`, `sendTestPush` ;
+  vérification horaire `notifyCheck_` appelée par `reportCheck` (anti-doublon par sujet, 9 h–21 h, rappel à l'heure choisie).
+  Nouvelle autorisation : `script.external_request` (envoi vers le service de notifications).
+- **Coquille PWA** : abonnement demandé par l'appli via `postMessage` (origines Google uniquement), bandeau
+  « Autoriser » si l'invite ne peut pas s'afficher ; `sw.js` affiche les notifications et ouvre l'appli
+  (action « + Saisir » sur le rappel) ; cache `budget-shell-v3`.
+- **Enveloppes affichées au choix** (Budget › Choisir les enveloppes affichées) : les enveloppes masquées restent dans
+  les totaux mais disparaissent des listes, de la Synthèse, des conseils et des alertes (réglage personnel).
+- Interrupteurs pour les réglages.
+
 ## [1.2.0] — 2026-11-06
 
 - **Écran d'accueil** « Bonjour, Prénom. » (prénom seul, même si la fiche contient « prénom.nom ») : prénom écrit lettre par lettre (bascule 3D), trait d'accent,

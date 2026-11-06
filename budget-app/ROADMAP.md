@@ -2,7 +2,7 @@
 
 Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
-## v1.2.0 — retours du 06/11/2026 (livrée, sauf notifications → v1.3.0)
+## v1.2.0 / v1.3.0 — retours du 06/11/2026 (livrés)
 
 Décisions validées sur maquettes : **navigation A** (5 onglets Synthèse · Mouvements · Budget · Épargne · Plus en icônes,
 bouton + surélevé au centre de la barre, onglet actif sur fond clair) ; **écran d'accueil asservi au thème**
@@ -41,7 +41,7 @@ livrées dans une version séparée v1.3.0).
   barre du bas = **Synthèse · Mouvements · Budget · Épargne · Plus**, où « Budget » regroupe Enveloppes et Fixes
   (deux sous-onglets) ; l'onglet Épargne regroupe les comptes, soldes, évolution et imputations
   (visible seulement pour les comptes autorisés ; masqué pour un utilisateur sans compte autorisé).
-- [ ] **Notifications paramétrables** *(v1.3.0, vraie notification Web Push)* (par utilisateur, dans Préférences) :
+- [x] **Notifications paramétrables** *(livrées en v1.3.0, vraie notification Web Push)* (par utilisateur, dans Préférences) :
   - rappel de saisie (ex. le soir si rien n'a été saisi depuis X jours, heure et fréquence au choix) ;
   - alertes budget (enveloppe à 80 % / dépassée, reste à vivre bas, rythme de dépense trop rapide) ;
   - à étudier : canal de diffusion — notifications du téléphone via l'appli installée (nécessite un service

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#121110">
 <meta name="color-scheme" content="dark light">
 <title>Budget</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   /* Coquille de l'appli installée : affiche la web app Apps Script en plein écran, sans barre de navigateur. */
-  :root { --bg: #0b0d10; --surface: #15181d; --line: #262b33; --text: #e9ebee; --muted: #7d8592; --accent: #4c8dff; }
+  :root { --bg: #121110; --surface: #15181d; --line: #262b33; --text: #e9ebee; --muted: #7d8592; --accent: #4c8dff; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font: 15px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
   iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
@@ -31,6 +31,11 @@
   .dots { display: flex; gap: 6px; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: b 1s infinite; }
   .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
   @keyframes b { 50% { opacity: .2; transform: translateY(-3px); } }
+  .pushbar { position: fixed; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5; background: #f4f1ea; color: #1a1916;
+    border-radius: 20px; padding: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; box-shadow: 0 12px 30px rgba(0,0,0,.35); font-weight: 600; }
+  .pushbar span { flex: 1 1 100%; }
+  .pushbar button { flex: 1; background: #1a1916; color: #f4f1ea; } .pushbar button.ghost { background: #e7e2d6; color: #1a1916; border: 0; }
+  .pushbar[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -63,6 +68,10 @@
   </div>
 </div>
 
+<div class="pushbar" id="pushbar" hidden>
+  <span>Autoriser Budget à envoyer des notifications ?</span>
+  <button id="pushYes">Autoriser</button><button class="ghost" id="pushNo">Plus tard</button>
+</div>
 <div class="screen" id="offline" hidden>
   <img src="icon-192.png" alt="">
   <h1>Hors connexion</h1>
@@ -100,6 +109,53 @@
     setTimeout(function () { $('slow').hidden = false; }, 9000);
     setTimeout(function () { $('splash').hidden = true; }, 15000);
   }
+  /* ---------- Notifications : l'appli (Apps Script) demande, la coquille s'abonne ---------- */
+  // Seule l'appli Apps Script affichée ici peut demander (domaines Google de l'appli).
+  function fromApp(e) { return /^https:\/\/([\w-]+\.)*(googleusercontent\.com|script\.google\.com)$/.test(e.origin); }
+  function b64uToU8(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var r = atob(s), o = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
+  function u8ToB64u(b) { var s = ''; new Uint8Array(b).forEach(function (x) { s += String.fromCharCode(x); }); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  function askPermission() {
+    if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+    return Notification.requestPermission().then(function (p) {
+      if (p !== 'default') return p;
+      // Pas d'invite affichée (appui fait dans l'appli) : on demande un appui ici.
+      return new Promise(function (res) {
+        $('pushbar').hidden = false;
+        $('pushYes').onclick = function () { $('pushbar').hidden = true; Notification.requestPermission().then(res); };
+        $('pushNo').onclick = function () { $('pushbar').hidden = true; res('later'); };
+      });
+    });
+  }
+  function subscribe(key) {
+    return askPermission().then(function (p) {
+      if (p === 'later') throw new Error('later');
+      if (p !== 'granted') throw new Error('denied');
+      return navigator.serviceWorker.ready;
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (old) {
+        var k = b64uToU8(key);
+        if (old && old.options && old.options.applicationServerKey && u8ToB64u(old.options.applicationServerKey) === key) return old;
+        return (old ? old.unsubscribe() : Promise.resolve()).then(function () { return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: k }); });
+      });
+    }).then(function (sub) { return JSON.parse(JSON.stringify(sub)); });
+  }
+  function pushStatus() {
+    if (!pushSupported()) return Promise.resolve({ supported: false });
+    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (sub) { return { supported: true, permission: Notification.permission, endpoint: sub ? sub.endpoint : '' }; });
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || !d.budgetPush || !fromApp(e)) return;
+    var reply = function (result, error) { try { e.source.postMessage({ budgetReply: true, id: d.id, result: result, error: error }, e.origin); } catch (x) {} };
+    var job = d.budgetPush === 'status' ? pushStatus()
+      : d.budgetPush === 'subscribe' ? (pushSupported() ? subscribe(String(d.key || '')) : Promise.reject(new Error('Notifications non gérées sur cet appareil')))
+      : d.budgetPush === 'unsubscribe' ? navigator.serviceWorker.ready.then(function (r) { return r.pushManager.getSubscription(); }).then(function (s) { return s ? s.unsubscribe() : true; })
+      : Promise.reject(new Error('Demande inconnue'));
+    job.then(function (r) { reply(r); }, function (err) { reply(null, (err && err.message) || String(err)); });
+  });
+
   // L'appli envoie son thème (clair / sombre) : la barre d'état du téléphone suit.
   window.addEventListener('message', function (e) {
     if (!e.data || !e.data.budgetTheme || !/^#[0-9a-f]{6}$/i.test(e.data.color)) return;
