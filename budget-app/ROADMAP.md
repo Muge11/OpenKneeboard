@@ -15,6 +15,12 @@ Points validés pour la prochaine version (v0.3.0) — **non développés, non d
     ou **date de prélèvement** (jour du mois, en tenant compte des fixes « versés le mois précédent ») ;
   - sélecteur de tri en haut de la liste, choix mémorisé sur l'appareil ;
   - sous-totaux par libellé quand le tri est « par libellé ».
+- [ ] **Montant 0 accepté pour les mouvements fixes** (ex. épargne prévue mais non faite ce mois-ci)
+  - la fiche d'une occurrence de fixe accepte 0 € (aujourd'hui refusé : « Montant manquant ») ;
+  - bouton rapide **« Non réalisé ce mois »** : met le réel à 0 € et conserve le prévu, sans supprimer la ligne ;
+  - affichage « 0 € — non réalisé » (étiquette dédiée), écart prévu / réel visible dans la Synthèse et les enveloppes ;
+  - un fixe peut aussi être paramétré à 0 € (ligne réservée, montant à préciser plus tard) ;
+  - les mouvements ponctuels continuent d'exiger un montant non nul.
 - [ ] **Changer la nature d'un mouvement après saisie (ponctuel ↔ fixe)**
   - dans la fiche d'un mouvement, choix **Ponctuel / Fixe** modifiable à tout moment ;
   - **ponctuel → fixe** : crée le mouvement fixe à partir de celui-ci (montant, libellé, description, jour,
