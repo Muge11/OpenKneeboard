@@ -3,6 +3,25 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.3.0] — 2026-11-06 — *test*
+
+- **Correctif** : le prévu d'une entrée (ex. salaire saisi en ponctuel) restait à 0 € sans moyen de le modifier.
+  Les lignes de la Synthèse sont maintenant cliquables pour régler le montant prévu ; les entrées sans prévu
+  sont signalées « définir ».
+- **Refonte visuelle** : thème noir unique, police Inter, icônes au trait, cartes et graphiques redessinés.
+- **Graphiques** (Synthèse › Graphiques) : répartition des sorties par type (anneau), réel vs prévu par libellé,
+  évolution sur 6 / 12 mois avec repère des entrées ; périodes mois / 3 mois / 12 mois.
+- **Conseils** (Synthèse › Conseils) : règle 50/30/20, taux d'endettement, logement, repères par libellé,
+  conseils chiffrés ; repères modifiables par l'administrateur.
+- **Libellés** : emoji personnalisable et type (besoin / envie / crédit / épargne) ; migration automatique.
+- **Saisie rapide dictée** : « 45 euros Leclerc alimentaire » → montant, libellé et description remplis.
+- **Rapidité** : enregistrement en arrière-plan (fiche fermée immédiatement) et 2 fois moins d'accès
+  à la Google Sheet (31 → 15 par enregistrement, 80 → 42 au chargement).
+- **Dupliquer** un mouvement ou un mouvement fixe.
+- **Ponctuel ↔ fixe** depuis la fiche d'un mouvement ; échéance réglable depuis la fiche.
+- **Montant 0 €** accepté pour un fixe ; bouton « Non réalisé ce mois ».
+- **Onglet Fixes** indépendant du mois affiché ; **tri** par libellé (avec sous-totaux), montant ou date de prélèvement.
+
 ## [0.2.0] — 2026-11-06 — *test*
 
 - **Enveloppes budgétaires mensuelles par libellé** (nouvel onglet 🎯 Enveloppes) :

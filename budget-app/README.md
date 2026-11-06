@@ -1,4 +1,4 @@
-# 💶 Gestion de Budget — web app Google Drive · v0.2.0 (test)
+# 💶 Gestion de Budget — web app Google Drive · v0.3.0 (test)
 
 Appli mobile/ordinateur pour gérer le budget du foyer à plusieurs.
 Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
@@ -16,7 +16,7 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
    - vous déclare **administrateur**,
    - crée le fichier **« Budget — Sauvegardes »** dans votre Drive,
    - installe la sauvegarde de nuit.
-4. **Déployer → Nouveau déploiement → Application Web**, description `v0.2.0` :
+4. **Déployer → Nouveau déploiement → Application Web**, description `v0.3.0` :
    - Exécuter en tant que : **Utilisateur accédant à l'application Web**
    - Qui a accès : **Tout utilisateur disposant d'un compte Google**
 5. Dans l'appli : **Plus → Utilisateurs & accès → Ajouter** votre femme (adresse Gmail, nom, rôle, couleur).
@@ -32,10 +32,10 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
 
 | Onglet | Rôle |
 |---|---|
-| **Synthèse** | Reste à vivre réel/prévu, mouvements à pointer, enveloppes budgétaires, tableau prévu/réel par groupe et libellé avec % des entrées, évolution sur 6 mois |
+| **Synthèse** | *Résumé* (reste à vivre, à pointer, enveloppes, tableau prévu/réel cliquable), *Graphiques* (répartition, réel vs prévu, évolution), *Conseils* (50/30/20, endettement, repères) |
 | **Mouvements** | Tous les mouvements du mois (filtres : sorties, entrées, fixes, ponctuels, à pointer), case de pointage, badge coloré « Saisi par … » |
 | **Enveloppes** | Budget mensuel par libellé : enveloppe, dépensé, reste, dépassement ; « Reste à répartir » |
-| **Fixes** | Paramétrage des entrées/sorties fixes : montant, jour, début, **échéance de fin ou perpétuel**, import en masse |
+| **Fixes** | Entrées/sorties fixes (indépendant du mois affiché) : montant, jour, début, **échéance de fin ou perpétuel**, tri, import |
 | **Plus** | Dépenses en attente, épargne, libellés, utilisateurs, journal, sauvegardes, version |
 
 ### Mouvements fixes
@@ -82,4 +82,4 @@ Toutes les actions (ajout, modification avec valeur précédente, suppression, p
 sauvegardes, utilisateurs…) sont tracées dans la feuille `Journal`, consultable dans **Plus → Journal**.
 
 ## Versionnage
-Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.2.0 — test**.
+Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.3.0 — test**.

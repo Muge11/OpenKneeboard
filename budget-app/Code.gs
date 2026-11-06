@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.2.0';
+var APP_VERSION = '0.3.0';
 var APP_STAGE = 'test';
 
 var SH = {
@@ -32,7 +32,7 @@ var SH = {
 };
 
 var HEADERS = {
-  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant'],
+  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant', 'emoji', 'type'],
   Recurrents: ['id', 'libelleId', 'description', 'montant', 'jour', 'debut', 'fin', 'actif',
     'creePar', 'creeLe', 'modifPar', 'modifLe', 'decalage'],
   Mouvements: ['id', 'mois', 'date', 'libelleId', 'description', 'montant', 'prevu', 'recurrentId',
@@ -63,27 +63,52 @@ var GROUPES = {
   courant: 'Vie courante'
 };
 
+// [nom, sens, groupe, compté le mois suivant, emoji, type]
+// type : revenu | besoin | envie | epargne | credit (sert aux conseils budgétaires)
 var DEFAULT_LIBELLES = [
-  ['Salaires', 'entree', GROUPES.entree, true],
-  ['Entrées exceptionnelles', 'entree', GROUPES.entree],
-  ['Remboursements médicaux', 'entree', GROUPES.entree],
-  ['Remboursements divers', 'entree', GROUPES.entree],
-  ['Carburant', 'sortie', GROUPES.fixes],
-  ['Prêt auto', 'sortie', GROUPES.fixes],
-  ['Prêt maison', 'sortie', GROUPES.fixes],
-  ['Crédit conso', 'sortie', GROUPES.fixes],
-  ['Alimentaire', 'sortie', GROUPES.courant],
-  ['Divers', 'sortie', GROUPES.courant],
-  ['Resto', 'sortie', GROUPES.courant],
-  ['Loisirs', 'sortie', GROUPES.courant],
-  ['Voyage / Vacances', 'sortie', GROUPES.courant],
-  ['Electricité', 'sortie', GROUPES.courant],
-  ['Eau', 'sortie', GROUPES.courant],
-  ['Impôts', 'sortie', GROUPES.courant],
-  ['Abonnements', 'sortie', GROUPES.courant],
-  ['Epargne', 'sortie', GROUPES.courant],
-  ['Scolarité', 'sortie', GROUPES.courant]
+  ['Salaires', 'entree', GROUPES.entree, true, '💼', 'revenu'],
+  ['Entrées exceptionnelles', 'entree', GROUPES.entree, false, '🎁', 'revenu'],
+  ['Remboursements médicaux', 'entree', GROUPES.entree, false, '🩺', 'revenu'],
+  ['Remboursements divers', 'entree', GROUPES.entree, false, '↩️', 'revenu'],
+  ['Carburant', 'sortie', GROUPES.fixes, false, '⛽', 'besoin'],
+  ['Prêt auto', 'sortie', GROUPES.fixes, false, '🚗', 'credit'],
+  ['Prêt maison', 'sortie', GROUPES.fixes, false, '🏠', 'credit'],
+  ['Crédit conso', 'sortie', GROUPES.fixes, false, '💳', 'credit'],
+  ['Alimentaire', 'sortie', GROUPES.courant, false, '🛒', 'besoin'],
+  ['Divers', 'sortie', GROUPES.courant, false, '📦', 'envie'],
+  ['Resto', 'sortie', GROUPES.courant, false, '🍽️', 'envie'],
+  ['Loisirs', 'sortie', GROUPES.courant, false, '🎉', 'envie'],
+  ['Voyage / Vacances', 'sortie', GROUPES.courant, false, '✈️', 'envie'],
+  ['Electricité', 'sortie', GROUPES.courant, false, '⚡', 'besoin'],
+  ['Eau', 'sortie', GROUPES.courant, false, '💧', 'besoin'],
+  ['Impôts', 'sortie', GROUPES.courant, false, '🏛️', 'besoin'],
+  ['Abonnements', 'sortie', GROUPES.courant, false, '📱', 'envie'],
+  ['Epargne', 'sortie', GROUPES.courant, false, '🐷', 'epargne'],
+  ['Scolarité', 'sortie', GROUPES.courant, false, '🎒', 'besoin']
 ];
+
+var LIB_TYPES = ['revenu', 'besoin', 'envie', 'epargne', 'credit'];
+
+/** Type par défaut d'un libellé (libellés existants ou créés à la volée). */
+function defaultType_(nom, sens, groupe) {
+  if (sens === 'entree') return 'revenu';
+  var n = norm_(nom);
+  for (var i = 0; i < DEFAULT_LIBELLES.length; i++) {
+    if (norm_(DEFAULT_LIBELLES[i][0]) === n) return DEFAULT_LIBELLES[i][5];
+  }
+  if (/pret|credit|emprunt/.test(n)) return 'credit';
+  if (/epargne|livret|assurance vie/.test(n)) return 'epargne';
+  if (/assurance|mutuelle|loyer|sante|pharma|medec|ecole|creche|garde/.test(n)) return 'besoin';
+  return groupe === GROUPES.fixes ? 'besoin' : 'envie';
+}
+
+function defaultEmoji_(nom) {
+  var n = norm_(nom);
+  for (var i = 0; i < DEFAULT_LIBELLES.length; i++) {
+    if (norm_(DEFAULT_LIBELLES[i][0]) === n) return DEFAULT_LIBELLES[i][4];
+  }
+  return '';
+}
 
 /* ================================================================== */
 /* Web app, menu, installation                                         */
@@ -119,6 +144,7 @@ function setup() {
       }, 'email');
     }
   });
+  CacheService.getScriptCache().remove('users');
   ensureBackupFile_();
   var hasTrigger = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'dailyBackup';
@@ -163,6 +189,7 @@ function data_(me) {
     attente: readTable_(SH.ATTENTE),
     epargne: readTable_(SH.EPARGNE),
     enveloppes: readTable_(SH.ENV),
+    reperes: getConfig_('reperes'),
     sheetUrl: SpreadsheetApp.getActive().getUrl(),
     lastBackup: props.getProperty('lastBackup') || ''
   };
@@ -198,8 +225,10 @@ function saveMouvement(m, repeter) {
     var lib = findBy_(SH.LIB, 'id', m.libelleId);
     if (!lib) throw new Error('Libellé inconnu');
     var old = m.id ? findBy_(SH.MVT, 'id', m.id) : null;
+    // L'identifiant peut être fourni par l'appli (enregistrement en arrière-plan).
     var rec = old ? clone_(old) : {
-      id: newId_(), recurrentId: '', prevu: '', pointe: false, modifie: false, statut: '',
+      id: /^[a-z0-9]{8,20}$/.test(m.id || '') ? m.id : newId_(),
+      recurrentId: '', prevu: '', pointe: false, modifie: false, statut: '',
       saisiPar: me.email, saisiLe: nowIso_()
     };
     // mois = mois de budget (peut différer du mois de la date, ex. salaire du 28/10 pour novembre)
@@ -366,7 +395,8 @@ function importRecurrents(text) {
       if (!lib) {
         lib = {
           id: newId_(), nom: p[1], sens: sens, groupe: sens === 'entree' ? GROUPES.entree : GROUPES.fixes,
-          budget: 0, ordre: libs.length, actif: true
+          budget: 0, ordre: libs.length, actif: true, emoji: defaultEmoji_(p[1]),
+          type: defaultType_(p[1], sens, sens === 'entree' ? GROUPES.entree : GROUPES.fixes)
         };
         upsert_(SH.LIB, lib);
         libs.push(lib);
@@ -409,6 +439,8 @@ function saveLibelle(l) {
     rec.groupe = String(l.groupe || '').trim() || (sens === 'entree' ? GROUPES.entree : GROUPES.courant);
     rec.budget = old ? old.budget : 0; // remplacé par les enveloppes (v0.2.0)
     rec.moisSuivant = !!l.moisSuivant;
+    rec.emoji = String(l.emoji || '').trim().substring(0, 8);
+    rec.type = LIB_TYPES.indexOf(l.type) >= 0 ? l.type : defaultType_(rec.nom, rec.sens, rec.groupe);
     if (l.actif !== undefined) rec.actif = !!l.actif;
     upsert_(SH.LIB, rec);
     log_(me, old ? 'Modification' : 'Création', 'Libellé',
@@ -463,6 +495,7 @@ function saveUser(u) {
       ajouteLe: old ? old.ajouteLe : nowIso_()
     };
     upsert_(SH.USERS, rec, 'email');
+    CacheService.getScriptCache().remove('users');
     var partage = shareWith_(rec);
     log_(me, old ? 'Modification' : 'Ajout', 'Utilisateur',
       rec.nom + ' <' + rec.email + '> — ' + rec.role + (rec.actif ? '' : ' (désactivé)') +
@@ -520,6 +553,86 @@ function deleteAttente(id) {
     deleteBy_(SH.ATTENTE, 'id', id);
     if (old) log_(me, 'Suppression', 'En attente', old.description + ' ' + fmtEur_(old.montant));
     return true;
+  });
+}
+
+/* ================================================================== */
+/* Ponctuel <-> fixe                                                     */
+/* ================================================================== */
+
+/** Transforme un mouvement ponctuel en mouvement fixe (il en devient la 1re occurrence). */
+function toFixe(id, fin) {
+  var me = ctx_(ROLES.editeur);
+  if (fin) checkMonth_(fin);
+  return withLock_(function () {
+    var m = findBy_(SH.MVT, 'id', id);
+    if (!m) throw new Error('Mouvement introuvable');
+    if (m.recurrentId) throw new Error('Ce mouvement est déjà fixe');
+    if (fin && fin < m.mois) throw new Error('L\'échéance de fin est avant le mois du mouvement');
+    var lib = findBy_(SH.LIB, 'id', m.libelleId);
+    var rec = {
+      id: newId_(), libelleId: m.libelleId, description: m.description, montant: m.montant,
+      jour: Number(m.date.substring(8, 10)), debut: m.mois, fin: fin || '', actif: true,
+      creePar: me.email, creeLe: nowIso_(), modifPar: '', modifLe: '',
+      decalage: m.date.substring(0, 7) < m.mois ? -1 : 0
+    };
+    upsert_(SH.REC, rec);
+    var mm = clone_(m);
+    mm.recurrentId = rec.id;
+    mm.prevu = m.montant;
+    mm.modifPar = me.email;
+    mm.modifLe = nowIso_();
+    upsert_(SH.MVT, mm);
+    ensureMonth_(currentMonth_(), me);
+    ensureMonth_(shiftMonth_(currentMonth_(), 1), me);
+    log_(me, 'Ponctuel → fixe', 'Mouvement', describeRec_(rec, lib));
+    return data_(me);
+  });
+}
+
+/**
+ * Transforme l'occurrence d'un fixe en mouvement ponctuel : le fixe n'est plus reporté
+ * après ce mois ; les occurrences futures non pointées / non modifiées sont retirées.
+ */
+function toPonctuel(id) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var m = findBy_(SH.MVT, 'id', id);
+    if (!m || !m.recurrentId) throw new Error('Ce mouvement n\'est pas un fixe');
+    var rec = findBy_(SH.REC, 'id', m.recurrentId);
+    var mm = clone_(m);
+    mm.recurrentId = '';
+    mm.prevu = '';
+    mm.modifie = false;
+    mm.modifPar = me.email;
+    mm.modifLe = nowIso_();
+    upsert_(SH.MVT, mm);
+    var n = 0;
+    if (rec) {
+      if (m.mois < rec.debut) rec.actif = false; else rec.fin = m.mois;
+      rec.modifPar = me.email;
+      rec.modifLe = nowIso_();
+      upsert_(SH.REC, rec);
+      n = propagate_(rec, shiftMonth_(m.mois, 1));
+    }
+    log_(me, 'Fixe → ponctuel', 'Mouvement', describeMvt_(mm, findBy_(SH.LIB, 'id', mm.libelleId)) +
+      ' — fixe arrêté après ' + m.mois + ', ' + n + ' occurrence(s) future(s) retirée(s)');
+    return data_(me);
+  });
+}
+
+/* ================================================================== */
+/* Repères budgétaires (conseils)                                        */
+/* ================================================================== */
+
+function saveReperes(reperes) {
+  var me = ctx_(ROLES.admin);
+  var json = JSON.stringify(reperes || {});
+  if (json.length > 20000) throw new Error('Repères trop volumineux');
+  return withLock_(function () {
+    setConfig_('reperes', json);
+    log_(me, 'Modification', 'Repères budgétaires', json.substring(0, 300));
+    return json;
   });
 }
 
@@ -666,6 +779,8 @@ function restoreBackup(id) {
         s.getRange(2, 1, rows.length, width).setValues(rows);
       }
     });
+    _memo = { tables: {}, headers: {}, sheets: {} };
+    CacheService.getScriptCache().remove('users');
     log_(me, 'Restauration', 'Sauvegarde', values[1] + ' (' + values[3] + ')');
     return data_(me);
   });
@@ -755,7 +870,7 @@ function ensureMonth_(mois, me) {
 /** Met à jour les occurrences non pointées et non modifiées à partir de `fromMonth`. */
 function propagate_(rec, fromMonth) {
   var sh = sheet_(SH.MVT);
-  var all = readTable_(SH.MVT);
+  var all = readTableRaw_(SH.MVT); // lecture fraîche : les objets sont modifiés ci-dessous
   var count = 0;
   var toDelete = [];
   all.forEach(function (m, i) {
@@ -773,6 +888,7 @@ function propagate_(rec, fromMonth) {
     count++;
   });
   toDelete.reverse().forEach(function (row) { sh.deleteRow(row); });
+  invalidate_(SH.MVT);
   return count;
 }
 
@@ -795,7 +911,11 @@ function dateFor_(mois, jour) {
 /** Renvoie l'utilisateur courant ; lève une erreur s'il n'a pas le rôle requis. */
 function ctx_(minRole) {
   var email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  var users = readTable_(SH.USERS);
+  // Les utilisateurs sont gardés 10 min en cache (vidé à chaque modification d'un utilisateur).
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('users');
+  var users = cached ? JSON.parse(cached) : readTable_(SH.USERS);
+  if (!cached && users.length) cache.put('users', JSON.stringify(users), 600);
   if (!users.length && email) {
     // Premier lancement : le premier utilisateur devient administrateur.
     var first = { email: email, nom: email.split('@')[0], role: 'admin', couleur: COLORS[0], actif: true, ajouteLe: nowIso_() };
@@ -852,7 +972,7 @@ function ensureSetup_() {
       setTextFormats_(sh, headers);
       if (name === SH.LIB) {
         appendRows_(SH.LIB, DEFAULT_LIBELLES.map(function (d, i) {
-          return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true, moisSuivant: !!d[3] };
+          return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true, moisSuivant: !!d[3], emoji: d[4], type: d[5] };
         }));
       }
     } else {
@@ -861,6 +981,7 @@ function ensureSetup_() {
       var missing = headers.filter(function (h) { return current.indexOf(h) < 0; });
       if (missing.length) {
         sh.getRange(1, current.filter(String).length + 1, 1, missing.length).setValues([missing]).setFontWeight('bold');
+        delete _memo.headers[name];
         setTextFormats_(sh, sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]);
         added[name] = missing;
       }
@@ -868,6 +989,7 @@ function ensureSetup_() {
   });
   if (added[SH.LIB] && added[SH.LIB].indexOf('moisSuivant') >= 0) migrateMoisSuivant_();
   if (added[SH.ENV] && !(added[SH.LIB] && added[SH.LIB][0] === '*')) migrateBudgets_();
+  if (added[SH.LIB] && added[SH.LIB].indexOf('type') >= 0) migrateTypes_();
   var def = ss.getSheetByName('Feuille 1') || ss.getSheetByName('Sheet1');
   if (def && def.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(def);
   if (getConfig_('version') !== APP_VERSION) {
@@ -877,6 +999,19 @@ function ensureSetup_() {
       (prev ? 'v' + prev + ' → ' : '') + 'v' + APP_VERSION + ' (' + APP_STAGE + ')');
   }
   cache.put('setup_' + APP_VERSION, '1', 21600);
+  _memo = { tables: {}, headers: {}, sheets: {} };
+}
+
+/** v0.3.0 : emoji et type (besoin / envie / épargne / crédit) proposés pour les libellés existants. */
+function migrateTypes_() {
+  _memo = { tables: {}, headers: {}, sheets: {} };
+  readTable_(SH.LIB).forEach(function (l) {
+    var changed = false;
+    if (!l.type) { l.type = defaultType_(l.nom, l.sens, l.groupe); changed = true; }
+    if (!l.emoji && defaultEmoji_(l.nom)) { l.emoji = defaultEmoji_(l.nom); changed = true; }
+    if (changed) upsert_(SH.LIB, l);
+  });
+  appendJournal_('système', 'Migration v0.3.0', 'Libellés', 'Emoji et types budgétaires proposés');
 }
 
 /** v0.2.0 : l'ancien « budget » unique des libellés devient une enveloppe par défaut. */
@@ -921,22 +1056,70 @@ function setTextFormats_(sh, headers) {
   });
 }
 
+/*
+ * Mémorisation pendant une exécution : chaque feuille n'est lue qu'une fois par action,
+ * les en-têtes ne sont relus que si la structure change. Toute écriture invalide la feuille.
+ */
+var _memo = { tables: {}, headers: {}, sheets: {} };
+
 function sheet_(name) {
-  return SpreadsheetApp.getActive().getSheetByName(name);
+  if (!_memo.ss) _memo.ss = SpreadsheetApp.getActive();
+  return _memo.sheets[name] || (_memo.sheets[name] = _memo.ss.getSheetByName(name));
+}
+
+function header_(name) {
+  if (!_memo.headers[name]) {
+    var sh = sheet_(name);
+    _memo.headers[name] = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
+  }
+  return _memo.headers[name];
+}
+
+function invalidate_(name) {
+  delete _memo.tables[name];
+  if (_memo.rows) delete _memo.rows[name];
+}
+
+/** N° de ligne d'une clé : depuis la lecture mémorisée si possible, sinon recherche dans la feuille. */
+function rowOf_(name, key, value) {
+  if (_memo.tables[name] && _memo.rows && _memo.rows[name] && key === (KEY_OF[name] || 'id')) {
+    var r = _memo.rows[name][String(value).toLowerCase()];
+    return r || -1;
+  }
+  return findRow_(sheet_(name), keyCol_(name, key), value);
 }
 
 /** Lit une feuille en tenant compte de l'ordre réel des colonnes (migrations). */
 function readTable_(name) {
+  if (_memo.tables[name]) return _memo.tables[name];
+  _memo.tables[name] = readTableRaw_(name);
+  return _memo.tables[name];
+}
+
+var KEY_OF = { Utilisateurs: 'email', Config: 'cle' };
+
+/** Lit en-tête + données en un seul accès ; mémorise le n° de ligne de chaque clé. */
+function readTableRaw_(name) {
   var sh = sheet_(name);
   var last = sh.getLastRow();
-  if (last < 2) return [];
   var width = sh.getLastColumn();
-  var header = sh.getRange(1, 1, 1, width).getValues()[0];
-  var values = sh.getRange(2, 1, last - 1, width).getValues();
+  if (last < 1 || width < 1) return [];
+  var all = sh.getRange(1, 1, last, width).getValues();
+  var header = all[0];
+  _memo.headers[name] = header;
+  var rows = {};
+  _memo.rows = _memo.rows || {};
+  _memo.rows[name] = rows;
+  if (last < 2) return [];
+  var keyIdx = header.indexOf(KEY_OF[name] || 'id');
   var tz = Session.getScriptTimeZone();
   var idx = {};
   HEADERS[name].forEach(function (h) { idx[h] = header.indexOf(h); });
-  return values
+  return all.slice(1)
+    .map(function (row, i) {
+      if (keyIdx >= 0 && row[keyIdx] !== '') rows[String(row[keyIdx]).toLowerCase()] = i + 2;
+      return row;
+    })
     .filter(function (row) { return row[0] !== ''; })
     .map(function (row) {
       var o = {};
@@ -955,9 +1138,7 @@ function readTable_(name) {
 }
 
 function toRow_(name, rec) {
-  var sh = sheet_(name);
-  var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  return header.map(function (h) {
+  return header_(name).map(function (h) {
     var v = rec[h];
     return v === undefined || v === null ? '' : v;
   });
@@ -968,6 +1149,7 @@ function appendRows_(name, recs) {
   var sh = sheet_(name);
   var rows = recs.map(function (r) { return toRow_(name, r); });
   sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  invalidate_(name);
 }
 
 function findRow_(sh, col, value) {
@@ -981,8 +1163,7 @@ function findRow_(sh, col, value) {
 }
 
 function keyCol_(name, key) {
-  var sh = sheet_(name);
-  return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].indexOf(key) + 1;
+  return header_(name).indexOf(key) + 1;
 }
 
 function findBy_(name, key, value) {
@@ -994,19 +1175,21 @@ function findBy_(name, key, value) {
 function upsert_(name, rec, key) {
   key = key || 'id';
   var sh = sheet_(name);
-  var row = findRow_(sh, keyCol_(name, key), rec[key]);
+  var row = rowOf_(name, key, rec[key]);
   var values = toRow_(name, rec);
   if (row < 0) {
     sh.getRange(sh.getLastRow() + 1, 1, 1, values.length).setValues([values]);
   } else {
     sh.getRange(row, 1, 1, values.length).setValues([values]);
   }
+  invalidate_(name);
 }
 
 function deleteBy_(name, key, value) {
   var sh = sheet_(name);
-  var row = findRow_(sh, keyCol_(name, key), value);
+  var row = rowOf_(name, key, value);
   if (row > 0) sh.deleteRow(row);
+  invalidate_(name);
 }
 
 function getConfig_(key) {
