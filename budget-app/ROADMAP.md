@@ -30,6 +30,20 @@ Points validés pour la prochaine version (v0.3.0) — **non développés, non d
     les emojis restent pour les libellés ;
   - en-tête épuré (plus de bandeau vert), jauges et graphiques redessinés ;
   - **maquette à valider avant développement**.
+- [ ] **Graphiques de répartition des dépenses**
+  - anneau (donut) de répartition des sorties du mois par libellé, et par groupe (touche = détail du libellé) ;
+  - barres « réel vs enveloppe » par libellé ;
+  - évolution sur 6 / 12 mois par libellé (barres empilées) et comparaison avec le mois précédent ;
+  - sélection de la période (mois, trimestre, année) ; respect du thème noir.
+- [ ] **Conseils budgétaires (% des revenus par rapport aux repères recommandés)**
+  - chaque libellé est classé **Besoin / Envie / Épargne / Crédit** (réglable dans Libellés, valeurs proposées par défaut) ;
+  - repères affichés avec jauge « dans la norme / à surveiller / au-dessus » :
+    - règle **50 / 30 / 20** : besoins ≤ 50 %, envies ≤ 30 %, épargne ≥ 20 % des revenus ;
+    - **taux d'endettement** (prêts + crédits) ≤ 35 % des revenus (norme des banques françaises / HCSF) ;
+    - logement (prêt + charges) ≤ ~33 %, alimentation ~10–15 %, transport ~10–15 %, loisirs ~5–10 % ;
+  - conseils courts et concrets (ex. « Loisirs : 12 % des revenus, repère 5–10 % — 140 € au-dessus ce mois-ci ») ;
+  - calculés sur le mois et sur la moyenne 3 mois (pour lisser les mois exceptionnels) ;
+  - seuils modifiables par l'administrateur ; mention : repères indicatifs, pas un conseil financier personnalisé.
 - [ ] **Emoji pour les libellés** : grille de suggestions + saisie libre (clavier emoji du téléphone).
 - [ ] **Rapidité des enregistrements** :
   - enregistrement en arrière-plan (formulaire fermé immédiatement, annulation si erreur) ;
