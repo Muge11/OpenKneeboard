@@ -116,3 +116,32 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
     car ces prélèvements sont souvent irréguliers : soldes, échéances 1/4…) — informatif, sans repère imposé ;
   - nouvelle couleur dans les graphiques (répartition, évolution) ;
   - migration : le libellé *Impôts* passe automatiquement dans ce type (modifiable).
+
+---
+
+# Version suivante (v0.5.0) — à développer
+
+- [ ] **Imputation de l'épargne sur chaque compte d'épargne**
+  - les mouvements du libellé *Epargne* (et des libellés de type « épargne ») se rattachent à un compte
+    (Trade Republic, Crédit Agricole LLD, Assurance vie Elise, Epargne Elia, Epargne Thomas…), comme les véhicules ;
+  - choix du compte dans la fiche (mémorisé pour les fixes : « Epargne Elia 25 € » → compte Epargne Elia),
+    reconnu à la dictée ;
+  - **solde suivi automatiquement** : solde de référence (saisi à une date) + versements − retraits ;
+    libellé d'entrée « Retrait épargne » pour les retraits ; mise à jour manuelle du solde toujours possible ;
+  - fiche compte : versements du mois / de l'année, historique, évolution du solde.
+- [ ] **Comptes d'épargne réservés à l'administrateur**
+  - création, modification, suppression et réglage de la visibilité des comptes : **administrateur uniquement**.
+- [ ] **Visibilité des comptes par utilisateur**
+  - pour chaque compte : « visible par tous » ou liste des personnes autorisées ;
+  - un utilisateur non autorisé ne voit ni le compte, ni son solde, ni l'imputation des versements
+    (il voit seulement « Épargne » dans le budget commun) ; totaux épargne calculés sur ses comptes visibles ;
+  - **niveau de confidentialité à choisir** (voir ci-dessous).
+
+### Point à trancher : confidentialité réelle
+Tous les utilisateurs ont accès en modification à la Google Sheet (nécessaire au fonctionnement de l'appli).
+- **Option A — masquage dans l'appli** : simple ; mais les données restent lisibles par quelqu'un qui ouvre
+  directement la Google Sheet.
+- **Option B — confidentialité réelle** : chaque compte restreint est stocké dans un fichier Google séparé,
+  partagé uniquement avec les personnes autorisées (géré automatiquement par l'appli) ; personne d'autre ne peut
+  le lire, ni par l'appli ni par Drive.
+
