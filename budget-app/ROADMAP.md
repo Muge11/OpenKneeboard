@@ -4,6 +4,11 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
 ## Prochaine version (v1.2.0) — retours du 06/11/2026 · *pas de déploiement avant le feu vert*
 
+Décisions validées sur maquettes : **navigation A** (5 onglets Synthèse · Mouvements · Budget · Épargne · Plus en icônes,
+bouton + surélevé au centre de la barre, onglet actif sur fond clair) ; **écran d'accueil asservi au thème**
+(noir en sombre, crème en clair) ; **vraies notifications** (Web Push depuis Apps Script, prototype à valider sur Pixel,
+livrées dans une version séparée v1.3.0).
+
 - [ ] **IMPORTANT — rigueur typographique et géométrique** (priorité n° 1)
   - grille d'espacement unique (multiples de 4 px) pour marges, écarts entre tuiles et paddings ;
   - alignement optique du texte dans les formes : pilules, puces, pastilles d'initiales, boutons ronds, icônes
