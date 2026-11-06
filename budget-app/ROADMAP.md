@@ -80,14 +80,15 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
 - [ ] **Imputation des dépenses par véhicule**
   - liste des véhicules du foyer (Plus › Véhicules) : nom, emoji, actif / vendu
-    — proposés au départ : Pajero, Partner (à ajuster) ;
+    — **véhicules du foyer : Partner et Pajero** (créés d'office) ;
   - option par libellé **« À imputer à un véhicule »**, activée par défaut pour *Carburant*, *Prêt auto*
-    et le futur libellé *Véhicules* (entretien, réparations, assurance, contrôle technique…) ;
+    et le nouveau libellé *Véhicules* (entretien, réparations, contrôle technique, pneus…) ;
+  - **assurances exclues** : un seul prélèvement couvre tous les contrats, il n'est pas imputé à un véhicule ;
   - dans la fiche d'un mouvement ou d'un fixe de ces libellés : choix du véhicule (puces), mémorisé
     pour les fixes (ex. Prêt Pajero → Pajero, chaque mois) ;
   - saisie dictée : le nom du véhicule est reconnu (« plein Pajero 62 euros ») ;
   - filtre par véhicule dans l'onglet Mouvements ;
-  - **coût par véhicule** : par mois et par an, détail par libellé (carburant, prêt, assurance, entretien),
+  - **coût par véhicule** : par mois et par an, détail par libellé (carburant, prêt, entretien),
     graphique d'évolution, comparaison entre véhicules ;
   - mouvements existants « non imputés » signalés, à rattacher en un geste ;
   - option ultérieure : kilométrage pour calculer le coût au kilomètre.
