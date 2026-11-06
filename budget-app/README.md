@@ -1,61 +1,71 @@
-# 💶 Gestion de Budget — web app Google Drive
+# 💶 Gestion de Budget — web app Google Drive · v0.1.0 (test)
 
-Appli mobile/ordinateur pour gérer le budget du foyer à deux.
+Appli mobile/ordinateur pour gérer le budget du foyer à plusieurs.
 Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
 **web app Google Apps Script** ouverte dans le navigateur (aucun serveur, gratuit).
 
-## Installation (≈ 10 min, une seule fois)
+## Installation
 
-1. **Créer la Google Sheet** : drive.google.com → Nouveau → Google Sheets → nommez-la « Budget ».
-2. **Ouvrir l'éditeur de script** : dans la Sheet, menu *Extensions → Apps Script*.
-3. **Copier les fichiers** :
-   - Remplacez le contenu de `Code.gs` par celui de [`Code.gs`](Code.gs).
-   - *Fichier ＋ → HTML*, nommez-le **`Index`** (sans .html), collez [`Index.html`](Index.html).
-   - *Paramètres du projet ⚙️* → cochez « Afficher le fichier manifeste appsscript.json »,
-     puis remplacez son contenu par [`appsscript.json`](appsscript.json).
-4. **Initialiser** : sélectionnez la fonction `setup` → *Exécuter* → acceptez les autorisations
-   (« Google n'a pas validé cette appli » → *Paramètres avancés* → *Accéder à Budget*).
-   Les feuilles `Lignes`, `Operations`, `EnAttente`, `Epargne`, `Config` sont créées.
-5. **Déployer** : *Déployer → Nouveau déploiement* → type **Application Web** :
+1. **Google Sheet** : créez une feuille « Budget » (ou réutilisez celle de la version précédente).
+2. **Extensions → Apps Script**, puis copiez les 3 fichiers :
+   - `Code.gs` → remplace le contenu de `Code.gs`
+   - `Index.html` → fichier HTML nommé **`Index`** (＋ → HTML)
+   - `appsscript.json` → visible après *⚙️ Paramètres du projet → Afficher le fichier manifeste*
+3. **Exécutez `setup`** une fois (▶ Exécuter) et acceptez les autorisations. Cela :
+   - crée les feuilles (Libelles, Recurrents, Mouvements, Utilisateurs, Journal…),
+   - vous déclare **administrateur**,
+   - crée le fichier **« Budget — Sauvegardes »** dans votre Drive,
+   - installe la sauvegarde de nuit.
+4. **Déployer → Nouveau déploiement → Application Web**, description `v0.1.0` :
    - Exécuter en tant que : **Utilisateur accédant à l'application Web**
    - Qui a accès : **Tout utilisateur disposant d'un compte Google**
-   → *Déployer* et copiez l'URL (`https://script.google.com/macros/s/…/exec`).
-6. **Partager avec votre femme** : partagez la **Google Sheet** avec son adresse Gmail
-   en tant qu'**Éditeur**, puis envoyez-lui l'URL de l'appli.
-   Seules les personnes ayant accès à la Sheet peuvent lire/écrire les données.
-7. **Sur le smartphone** : ouvrez l'URL dans Chrome/Safari (connecté au compte Google)
-   → menu *Partager / ⋮* → **Ajouter à l'écran d'accueil**.
+5. Dans l'appli : **Plus → Utilisateurs & accès → Ajouter** votre femme (adresse Gmail, nom, rôle, couleur).
+   La Sheet et le fichier de sauvegarde lui sont **partagés automatiquement**. Envoyez-lui l'URL de l'appli.
+6. Sur chaque smartphone : ouvrir l'URL → **Ajouter à l'écran d'accueil**.
 
-> Après une modification du code : *Déployer → Gérer les déploiements → ✏️ → Version : Nouvelle version*
-> (l'URL reste la même).
+> **Mise à jour du code** : recollez les fichiers, changez `APP_VERSION` si besoin, puis
+> *Déployer → Gérer les déploiements → ✏️ → Nouvelle version* (l'URL ne change pas).
+> Venant de la version précédente, les anciennes feuilles `Lignes` et `Operations` ne servent plus
+> et peuvent être supprimées.
 
-## Utilisation
+## Fonctionnement
 
 | Onglet | Rôle |
 |---|---|
-| **Synthèse** | Reste à vivre réel/prévu, enveloppes (Alimentation, Carburant, Loisirs…), tableau « Synthèse & Répartition » avec % du revenu, évolution sur 6 mois |
-| **Dépenses** | Liste des dépenses du mois (qui, quand, quoi), filtre par catégorie, modification/suppression |
-| **Budget** | Les lignes du mois par catégorie (prévu / réel / écart) avec case **pointé** comme dans le tableur |
-| **Plus** | Dépenses en attente, soldes d'épargne, « Je suis » (Guillaume/Elise), import de lignes, lien vers la Sheet |
+| **Synthèse** | Reste à vivre réel/prévu, mouvements à pointer, enveloppes budgétaires, tableau prévu/réel par groupe et libellé avec % des entrées, évolution sur 6 mois |
+| **Mouvements** | Tous les mouvements du mois (filtres : sorties, entrées, fixes, ponctuels, à pointer), case de pointage, badge coloré « Saisi par … » |
+| **Fixes** | Paramétrage des entrées/sorties fixes : montant, jour, début, **échéance de fin ou perpétuel**, import en masse |
+| **Plus** | Dépenses en attente, épargne, libellés, utilisateurs, journal, sauvegardes, version |
 
-- Bouton **＋** : saisie rapide d'une dépense (montant, catégorie, description, date, qui).
-  Les descriptions déjà utilisées sont proposées et retrouvent leur catégorie.
-- Les lignes **Carburant / Alimentation / Loisirs / Divers** sont « auto » : leur réel = somme
-  des dépenses saisies de cette catégorie (comme le tableau de droite de l'ancien fichier).
-- **Nouveau mois** : flèche › puis « Créer ce mois » → recopie les lignes du dernier mois
-  (prévu repris, réel = prévu pour les charges fixes, rien de pointé).
-- Montant négatif = remboursement.
-- L'appli se rafraîchit quand on y revient (pour voir les saisies de l'autre) ; bouton ⟳ sinon.
+### Mouvements fixes
+- Créés depuis l'onglet **Fixes**, ou depuis **＋** en cochant « Mouvement fixe ».
+- Ils sont **reportés automatiquement** dans chaque mois (à l'ouverture de l'appli ou en naviguant vers le mois), jusqu'à leur échéance.
+- **Modifier pour un seul mois** : ouvrez le mouvement dans l'onglet Mouvements (le mois est marqué « modifié ce mois »).
+  « Retirer ce mois » le supprime pour ce mois uniquement (rétablissable).
+- **Modifier pour la suite** : ouvrez-le dans l'onglet Fixes ; choisissez « Appliquer à partir de ». Les mois déjà pointés ou modifiés à la main ne sont pas écrasés.
+- **Arrêter** : il n'est plus reporté à partir du mois choisi.
 
-## Paramètres (feuille `Config`)
+### Prévu / réel
+- Prévu d'un libellé = somme des montants fixes prévus + son **budget mensuel** (enveloppe, réglable dans Libellés).
+- Réel = somme des mouvements saisis.
 
-- `auteurs` : `Guillaume,Elise`
-- `categoriesOperations` : `Alimentation,Carburant,Loisirs,Divers` — une nouvelle catégorie
-  (ex. `Santé`) apparaît dans la saisie ; ajoutez une ligne de budget liée en remplissant
-  sa colonne `lien` avec le même nom dans la feuille `Lignes`, sinon elle est comptée dans
-  « Autres » des Dépenses Variables.
+### Rôles
+| | Lecteur | Éditeur | Administrateur |
+|---|:-:|:-:|:-:|
+| Consulter | ✅ | ✅ | ✅ |
+| Saisir / modifier / pointer des mouvements, gérer les fixes, attente, épargne | | ✅ | ✅ |
+| Créer un libellé | | ✅ | ✅ |
+| Modifier / supprimer un libellé, gérer les utilisateurs, journal, sauvegardes, restauration | | | ✅ |
 
-## Pré-remplir les montants
+### Sauvegardes
+- **À chaque fermeture de l'appli** (ou passage à une autre appli sur le téléphone), s'il y a eu des modifications.
+- **Chaque nuit** (vers 3 h) en filet de sécurité.
+- Stockées dans le fichier « Budget — Sauvegardes » (100 dernières) ; **Plus → Sauvegardes → Restaurer**
+  (l'état actuel est sauvegardé avant toute restauration).
 
-Onglet **Plus → Importer des lignes**, collez des lignes `Catégorie;Libellé;Prévu`
-(catégories : Revenus, Besoins Fixes, Transports, Dépenses Variables, Épargne).
+### Journal
+Toutes les actions (ajout, modification avec valeur précédente, suppression, pointage, report auto,
+sauvegardes, utilisateurs…) sont tracées dans la feuille `Journal`, consultable dans **Plus → Journal**.
+
+## Versionnage
+Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.1.0 — test**.
