@@ -1,4 +1,4 @@
-# 💶 Gestion de Budget — web app Google Drive · v0.1.1 (test)
+# 💶 Gestion de Budget — web app Google Drive · v0.2.0 (test)
 
 Appli mobile/ordinateur pour gérer le budget du foyer à plusieurs.
 Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
@@ -16,7 +16,7 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
    - vous déclare **administrateur**,
    - crée le fichier **« Budget — Sauvegardes »** dans votre Drive,
    - installe la sauvegarde de nuit.
-4. **Déployer → Nouveau déploiement → Application Web**, description `v0.1.1` :
+4. **Déployer → Nouveau déploiement → Application Web**, description `v0.2.0` :
    - Exécuter en tant que : **Utilisateur accédant à l'application Web**
    - Qui a accès : **Tout utilisateur disposant d'un compte Google**
 5. Dans l'appli : **Plus → Utilisateurs & accès → Ajouter** votre femme (adresse Gmail, nom, rôle, couleur).
@@ -34,6 +34,7 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
 |---|---|
 | **Synthèse** | Reste à vivre réel/prévu, mouvements à pointer, enveloppes budgétaires, tableau prévu/réel par groupe et libellé avec % des entrées, évolution sur 6 mois |
 | **Mouvements** | Tous les mouvements du mois (filtres : sorties, entrées, fixes, ponctuels, à pointer), case de pointage, badge coloré « Saisi par … » |
+| **Enveloppes** | Budget mensuel par libellé : enveloppe, dépensé, reste, dépassement ; « Reste à répartir » |
 | **Fixes** | Paramétrage des entrées/sorties fixes : montant, jour, début, **échéance de fin ou perpétuel**, import en masse |
 | **Plus** | Dépenses en attente, épargne, libellés, utilisateurs, journal, sauvegardes, version |
 
@@ -52,8 +53,14 @@ Chaque mouvement a une **date réelle** (celle du relevé bancaire, pour le poin
 - Mouvement fixe : case « Versé le mois précédent ».
 - Saisie ponctuelle : champ « Compte pour le budget de » (mois précédent / du mois / suivant).
 
+### Enveloppes
+- Chaque libellé peut avoir une **enveloppe mensuelle** (onglet 🎯 Enveloppes).
+- Elle est **reportée automatiquement** les mois suivants ; on la modifie **à partir d'un mois** ou pour **un seul mois**.
+  Les mois passés ne changent jamais.
+- Les mouvements fixes du libellé sont compris dans l'enveloppe (ex. Abonnements 60 € dont Spotify et Netflix).
+
 ### Prévu / réel
-- Prévu d'un libellé = somme des montants fixes prévus + son **budget mensuel** (enveloppe, réglable dans Libellés).
+- Prévu d'un libellé = son **enveloppe** si elle existe, sinon la somme de ses mouvements fixes prévus.
 - Réel = somme des mouvements saisis.
 
 ### Rôles
@@ -75,4 +82,4 @@ Toutes les actions (ajout, modification avec valeur précédente, suppression, p
 sauvegardes, utilisateurs…) sont tracées dans la feuille `Journal`, consultable dans **Plus → Journal**.
 
 ## Versionnage
-Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.1.1 — test**.
+Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.2.0 — test**.

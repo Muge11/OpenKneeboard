@@ -3,6 +3,17 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.2.0] — 2026-11-06 — *test*
+
+- **Enveloppes budgétaires mensuelles par libellé** (nouvel onglet 🎯 Enveloppes) :
+  - reportées automatiquement de mois en mois ;
+  - réglables « à partir de ce mois » ou « ce mois uniquement » (l'historique n'est pas modifié) ;
+  - suggestions : dépense du mois dernier, moyenne sur 3 mois, total des fixes ;
+  - les fixes d'un libellé sont compris dans son enveloppe ;
+  - « Reste à répartir » = entrées prévues − sorties prévues.
+- Migration : l'ancien « budget mensuel » des libellés devient une enveloppe par défaut.
+- Nouvelle feuille `Enveloppes`, incluse dans les sauvegardes.
+
 ## [0.1.1] — 2026-11-06 — *test*
 
 - **Mois de budget distinct de la date réelle** : un salaire versé le 28 octobre peut compter

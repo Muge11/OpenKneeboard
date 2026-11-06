@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.1.1';
+var APP_VERSION = '0.2.0';
 var APP_STAGE = 'test';
 
 var SH = {
@@ -27,6 +27,7 @@ var SH = {
   JOURNAL: 'Journal',
   ATTENTE: 'EnAttente',
   EPARGNE: 'Epargne',
+  ENV: 'Enveloppes',
   CONFIG: 'Config'
 };
 
@@ -38,6 +39,8 @@ var HEADERS = {
     'pointe', 'modifie', 'statut', 'saisiPar', 'saisiLe', 'modifPar', 'modifLe'],
   Utilisateurs: ['email', 'nom', 'role', 'couleur', 'actif', 'ajouteLe'],
   Journal: ['horodatage', 'utilisateur', 'action', 'objet', 'detail'],
+  // portee « suite » : montant par défaut à partir de `debut` ; « mois » : ajustement du seul mois `debut`.
+  Enveloppes: ['id', 'libelleId', 'debut', 'montant', 'portee', 'modifPar', 'modifLe'],
   EnAttente: ['id', 'description', 'montant', 'creeLe', 'saisiPar'],
   Epargne: ['id', 'compte', 'solde', 'majLe', 'saisiPar'],
   Config: ['cle', 'valeur']
@@ -47,7 +50,7 @@ var NUM_COLS = ['budget', 'ordre', 'montant', 'prevu', 'jour', 'solde', 'decalag
 var BOOL_COLS = ['actif', 'pointe', 'modifie', 'moisSuivant'];
 
 // Feuilles incluses dans les sauvegardes.
-var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.USERS, SH.ATTENTE, SH.EPARGNE, SH.CONFIG];
+var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.ENV, SH.USERS, SH.ATTENTE, SH.EPARGNE, SH.CONFIG];
 var BACKUP_KEEP = 100;
 var BACKUP_CHUNK = 45000;
 
@@ -159,6 +162,7 @@ function data_(me) {
     mouvements: readTable_(SH.MVT),
     attente: readTable_(SH.ATTENTE),
     epargne: readTable_(SH.EPARGNE),
+    enveloppes: readTable_(SH.ENV),
     sheetUrl: SpreadsheetApp.getActive().getUrl(),
     lastBackup: props.getProperty('lastBackup') || ''
   };
@@ -403,12 +407,12 @@ function saveLibelle(l) {
     rec.nom = nom;
     rec.sens = sens;
     rec.groupe = String(l.groupe || '').trim() || (sens === 'entree' ? GROUPES.entree : GROUPES.courant);
-    rec.budget = num_(l.budget);
+    rec.budget = old ? old.budget : 0; // remplacé par les enveloppes (v0.2.0)
     rec.moisSuivant = !!l.moisSuivant;
     if (l.actif !== undefined) rec.actif = !!l.actif;
     upsert_(SH.LIB, rec);
     log_(me, old ? 'Modification' : 'Création', 'Libellé',
-      rec.nom + ' (' + rec.sens + ', ' + rec.groupe + ', budget ' + fmtEur_(rec.budget) +
+      rec.nom + ' (' + rec.sens + ', ' + rec.groupe +
       (rec.moisSuivant ? ', compté le mois suivant' : '') + ')' +
       (old && old.nom !== rec.nom ? ' — ancien nom : ' + old.nom : ''));
     return rec;
@@ -516,6 +520,54 @@ function deleteAttente(id) {
     deleteBy_(SH.ATTENTE, 'id', id);
     if (old) log_(me, 'Suppression', 'En attente', old.description + ' ' + fmtEur_(old.montant));
     return true;
+  });
+}
+
+/* ================================================================== */
+/* Enveloppes                                                           */
+/* ================================================================== */
+
+/** Montant de l'enveloppe d'un libellé pour un mois (0 = pas d'enveloppe). */
+function envelopeFor_(envs, libelleId, mois) {
+  var override = null, def = null;
+  envs.forEach(function (e) {
+    if (e.libelleId !== libelleId) return;
+    if (e.portee === 'mois' && e.debut === mois) override = e;
+    if (e.portee !== 'mois' && e.debut <= mois && (!def || e.debut > def.debut)) def = e;
+  });
+  return override ? Number(override.montant) : def ? Number(def.montant) : 0;
+}
+
+/**
+ * Fixe l'enveloppe d'un libellé.
+ *  - portee « mois »  : uniquement pour `mois`.
+ *  - portee « suite » : pour `mois` et les mois suivants (les ajustements ultérieurs sont remplacés).
+ * Les mois passés ne changent pas.
+ */
+function saveEnveloppe(e) {
+  var me = ctx_(ROLES.editeur);
+  checkMonth_(e.mois);
+  var portee = e.portee === 'mois' ? 'mois' : 'suite';
+  return withLock_(function () {
+    var lib = findBy_(SH.LIB, 'id', e.libelleId);
+    if (!lib) throw new Error('Libellé inconnu');
+    var envs = readTable_(SH.ENV);
+    var avant = envelopeFor_(envs, e.libelleId, e.mois);
+    var montant = num_(e.montant);
+    envs.forEach(function (x) {
+      if (x.libelleId !== e.libelleId) return;
+      var remove = portee === 'mois'
+        ? (x.portee === 'mois' && x.debut === e.mois)
+        : (x.debut >= e.mois);
+      if (remove) deleteBy_(SH.ENV, 'id', x.id);
+    });
+    appendRows_(SH.ENV, [{
+      id: newId_(), libelleId: e.libelleId, debut: e.mois, montant: montant, portee: portee,
+      modifPar: me.email, modifLe: nowIso_()
+    }]);
+    log_(me, 'Enveloppe', lib.nom, fmtEur_(avant) + ' → ' + fmtEur_(montant) + ' — ' +
+      (portee === 'mois' ? e.mois + ' uniquement' : 'à partir de ' + e.mois));
+    return readTable_(SH.ENV);
   });
 }
 
@@ -794,6 +846,7 @@ function ensureSetup_() {
     var sh = ss.getSheetByName(name);
     if (!sh) {
       sh = ss.insertSheet(name);
+      added[name] = ['*'];
       sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
       sh.setFrozenRows(1);
       setTextFormats_(sh, headers);
@@ -814,6 +867,7 @@ function ensureSetup_() {
     }
   });
   if (added[SH.LIB] && added[SH.LIB].indexOf('moisSuivant') >= 0) migrateMoisSuivant_();
+  if (added[SH.ENV] && !(added[SH.LIB] && added[SH.LIB][0] === '*')) migrateBudgets_();
   var def = ss.getSheetByName('Feuille 1') || ss.getSheetByName('Sheet1');
   if (def && def.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(def);
   if (getConfig_('version') !== APP_VERSION) {
@@ -823,6 +877,16 @@ function ensureSetup_() {
       (prev ? 'v' + prev + ' → ' : '') + 'v' + APP_VERSION + ' (' + APP_STAGE + ')');
   }
   cache.put('setup_' + APP_VERSION, '1', 21600);
+}
+
+/** v0.2.0 : l'ancien « budget » unique des libellés devient une enveloppe par défaut. */
+function migrateBudgets_() {
+  var rows = readTable_(SH.LIB).filter(function (l) { return Number(l.budget) > 0; }).map(function (l) {
+    return { id: newId_(), libelleId: l.id, debut: '2000-01', montant: Number(l.budget), portee: 'suite',
+      modifPar: 'système', modifLe: nowIso_() };
+  });
+  appendRows_(SH.ENV, rows);
+  if (rows.length) appendJournal_('système', 'Migration v0.2.0', 'Enveloppes', rows.length + ' budget(s) de libellé convertis en enveloppes');
 }
 
 /**

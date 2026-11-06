@@ -108,7 +108,7 @@
 
   nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--card); border-top: 1px solid var(--line);
     display: flex; padding-bottom: env(safe-area-inset-bottom); }
-  nav button { flex: 1; border: 0; background: transparent; padding: 8px 0 7px; font-size: 11px; color: var(--muted); cursor: pointer; }
+  nav button { flex: 1; border: 0; background: transparent; padding: 8px 0 7px; font-size: 10.5px; color: var(--muted); cursor: pointer; }
   nav button .ic { display: block; font-size: 20px; line-height: 1.2; }
   nav button.on { color: var(--accent); font-weight: 600; }
   .fab { position: fixed; right: 16px; bottom: calc(74px + env(safe-area-inset-bottom)); z-index: 21; width: 58px; height: 58px;
@@ -178,6 +178,7 @@
 <nav id="nav">
   <button data-act="tab" data-tab="synthese"><span class="ic">📊</span>Synthèse</button>
   <button data-act="tab" data-tab="mouvements"><span class="ic">🧾</span>Mouvements</button>
+  <button data-act="tab" data-tab="enveloppes"><span class="ic">🎯</span>Enveloppes</button>
   <button data-act="tab" data-tab="fixes"><span class="ic">🔁</span>Fixes</button>
   <button data-act="tab" data-tab="plus"><span class="ic">⋯</span>Plus</button>
 </nav>
@@ -325,18 +326,33 @@ function ensureMonthClient() {
 /* ================================================================== */
 /* Calculs                                                             */
 /* ================================================================== */
+/** Enveloppe d'un libellé pour un mois : ajustement du mois, sinon dernier montant « à partir de ». */
+function envInfo(libId, m) {
+  var override = null, def = null;
+  (D.enveloppes || []).forEach(function (e) {
+    if (e.libelleId !== libId) return;
+    if (e.portee === 'mois' && e.debut === m) override = e;
+    if (e.portee !== 'mois' && e.debut <= m && (!def || e.debut > def.debut)) def = e;
+  });
+  var src = override || def;
+  return { montant: src ? Number(src.montant) || 0 : 0, src: src, ajuste: !!override };
+}
+function envFor(libId, m) { return envInfo(libId, m).montant; }
+
 function compute(m) {
   var mv = D.mouvements.filter(function (x) { return x.mois === m && x.statut !== 'annule'; });
   var per = {};
   D.libelles.forEach(function (l) {
-    per[l.id] = { lib: l, prevu: l.actif && Number(l.budget) > 0 ? Number(l.budget) : 0, reel: 0, n: 0 };
+    per[l.id] = { lib: l, env: envFor(l.id, m), fixes: 0, prevu: 0, reel: 0, n: 0 };
   });
   mv.forEach(function (x) {
-    var p = per[x.libelleId] || (per[x.libelleId] = { lib: lib(x.libelleId), prevu: 0, reel: 0, n: 0 });
+    var p = per[x.libelleId] || (per[x.libelleId] = { lib: lib(x.libelleId), env: 0, fixes: 0, prevu: 0, reel: 0, n: 0 });
     p.reel += Number(x.montant) || 0;
     p.n++;
-    if (x.recurrentId) p.prevu += Number(x.prevu) || 0;
+    if (x.recurrentId) p.fixes += Number(x.prevu) || 0;
   });
+  // Prévu = l'enveloppe si elle existe (elle inclut les fixes), sinon la somme des fixes prévus.
+  Object.keys(per).forEach(function (k) { var p = per[k]; p.prevu = p.env > 0 ? p.env : p.fixes; });
   var tot = { entree: { prevu: 0, reel: 0 }, sortie: { prevu: 0, reel: 0 } };
   var groups = {};
   Object.keys(per).forEach(function (k) {
@@ -365,7 +381,7 @@ function render() {
     b.classList.toggle('on', b.dataset.tab === tab);
   });
   var c = compute(mois);
-  var v = tab === 'plus' && sub ? SUBVIEWS[sub] : { synthese: viewSynthese, mouvements: viewMouvements, fixes: viewFixes, plus: viewPlus }[tab];
+  var v = tab === 'plus' && sub ? SUBVIEWS[sub] : { synthese: viewSynthese, mouvements: viewMouvements, enveloppes: viewEnveloppes, fixes: viewFixes, plus: viewPlus }[tab];
   document.getElementById('view').innerHTML = v(c);
 }
 
@@ -383,12 +399,13 @@ function viewSynthese(c) {
   }
 
   var env = Object.keys(c.per).map(function (k) { return c.per[k]; })
-    .filter(function (p) { return p.lib.sens === 'sortie' && Number(p.lib.budget) > 0 && p.lib.actif; });
+    .filter(function (p) { return p.lib.sens === 'sortie' && p.env > 0; })
+    .sort(function (a, b) { return (b.reel / b.env) - (a.reel / a.env); });
   if (env.length) {
-    h += '<div class="card"><h2>Enveloppes du mois</h2>';
-    env.forEach(function (p) {
+    h += '<div class="card"><div class="sec-head"><h2>Enveloppes du mois</h2><button class="link small" data-act="tab" data-tab="enveloppes">Tout voir ›</button></div>';
+    env.slice(0, 6).forEach(function (p) {
       var ratio = p.prevu > 0 ? p.reel / p.prevu : 0, reste = p.prevu - p.reel;
-      h += '<div class="prog"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
+      h += '<div class="prog" data-act="openEnv" data-id="' + p.lib.id + '" style="cursor:pointer"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
         '<span class="num"><b>' + eur(p.reel) + '</b> <span class="muted">/ ' + eur(p.prevu) + '</span></span></div>' +
         '<div class="bar"><span class="' + (ratio > 1 ? 'over' : '') + '" style="width:' + Math.min(100, ratio * 100) + '%"></span></div>' +
         '<div class="small ' + (reste < 0 ? 'bad' : 'muted') + '">' + (reste < 0 ? 'Dépassement de ' + eur(-reste) : 'Reste ' + eur(reste)) + '</div></div>';
@@ -421,6 +438,84 @@ function viewSynthese(c) {
 
   h += viewEvolution();
   return h;
+}
+
+function envProg(p) {
+  var ratio = p.env > 0 ? p.reel / p.env : 0, reste = p.env - p.reel, entree = p.lib.sens === 'entree';
+  var info = envInfo(p.lib.id, mois);
+  var h = '<li class="item" data-act="openEnv" data-id="' + p.lib.id + '" style="display:block">' +
+    '<div class="prog" style="margin:0"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) +
+    (info.ajuste ? ' <span class="tag warn">ajusté ce mois</span>' : '') + '</span>';
+  if (p.env > 0) {
+    h += '<span class="num"><b>' + eur(p.reel) + '</b> <span class="muted">/ ' + eur(p.env) + '</span></span></div>' +
+      '<div class="bar"><span class="' + (!entree && ratio > 1 ? 'over' : '') + '" style="width:' + Math.min(100, ratio * 100) + '%"></span></div>' +
+      '<div class="small ' + (!entree && reste < 0 ? 'bad' : 'muted') + '">' +
+      (entree ? (reste > 0 ? 'Encore ' + eur(reste) + ' attendus' : 'Objectif atteint') : (reste < 0 ? 'Dépassement de ' + eur(-reste) : 'Reste ' + eur(reste))) +
+      (p.fixes ? ' · dont fixes ' + eur(p.fixes) : '') + '</div>';
+  } else {
+    h += '<span class="num">' + (p.reel ? eur(p.reel) + ' ' : '') + '<span class="link small">Définir ›</span></span></div>' +
+      (p.fixes ? '<div class="small muted">Fixes prévus : ' + eur(p.fixes) + '</div>' : '');
+  }
+  return h + '</div></li>';
+}
+
+function viewEnveloppes(c) {
+  var h = '';
+  var envS = 0, prevS = 0;
+  Object.keys(c.per).forEach(function (k) {
+    var p = c.per[k];
+    if (p.lib.sens === 'sortie') { envS += p.env; prevS += p.prevu; }
+  });
+  var rest = c.tot.entree.prevu - prevS;
+  h += '<div class="card hero"><div class="label">Reste à répartir (entrées prévues − sorties prévues)</div>' +
+    '<div class="big num ' + (rest < 0 ? 'bad' : 'good') + '">' + eur(rest) + '</div>' +
+    '<div class="sub"><span>Entrées prévues : <b class="num">' + eur(c.tot.entree.prevu) + '</b></span>' +
+    '<span>Enveloppes : <b class="num">' + eur(envS) + '</b></span>' +
+    '<span>Dépensé : <b class="num">' + eur(c.tot.sortie.reel) + '</b></span></div></div>';
+  h += '<div class="info">Chaque enveloppe est <b>reportée automatiquement</b> les mois suivants. Touchez un libellé pour la définir ' +
+    'pour ce mois uniquement ou à partir de ce mois. Les fixes du libellé sont compris dans son enveloppe.</div>';
+  ['sortie', 'entree'].forEach(function (sens) {
+    groupsOf(sens).forEach(function (g) {
+      var ps = libsSorted(sens).filter(function (l) { return l.groupe === g; }).map(function (l) { return c.per[l.id]; });
+      var tE = ps.reduce(function (s, p) { return s + p.env; }, 0), tR = ps.reduce(function (s, p) { return s + p.reel; }, 0);
+      h += '<div class="card"><div class="sec-head"><h2>' + (sens === 'entree' ? '💶 ' : '💸 ') + esc(g) + '</h2>' +
+        '<span class="small num"><b>' + eur(tR) + '</b>' + (tE ? ' <span class="muted">/ ' + eur(tE) + '</span>' : '') + '</span></div><ul class="list">';
+      ps.forEach(function (p) { h += envProg(p); });
+      h += '</ul></div>';
+    });
+  });
+  return h;
+}
+
+function openEnv(libId) {
+  var l = lib(libId), c = compute(mois), p = c.per[libId], info = envInfo(libId, mois);
+  var hist = [1, 2, 3].map(function (k) { return compute(shiftMonth(mois, -k)).per[libId]; }).map(function (x) { return x ? x.reel : 0; });
+  var moy = Math.round((hist[0] + hist[1] + hist[2]) / 3 * 100) / 100;
+  var ro = !canEdit();
+  var h = '<h3>' + icon(l) + ' Enveloppe « ' + esc(l.nom) + ' »</h3>';
+  h += '<div class="info">' + esc(monthName(mois)) + ' : ' + (p.env > 0 ? '<b>' + eur(p.env) + '</b>' + (info.ajuste ? ' (ajusté pour ce mois)' :
+    (info.src && info.src.debut > '2000-01' ? ' (depuis ' + esc(monthName(info.src.debut)) + ')' : '')) : 'pas d\'enveloppe') +
+    ' · ' + (l.sens === 'entree' ? 'reçu' : 'dépensé') + ' ' + eur(p.reel) + (p.fixes ? ' · dont fixes ' + eur(p.fixes) : '') + '</div>';
+  h += '<div class="field"><input id="v_amt" class="amount" inputmode="decimal" placeholder="0,00 €" value="' + (p.env > 0 ? amtInput(p.env) : '') + '"></div>';
+  h += '<div class="chips" style="margin:-4px 0 12px">' +
+    '<button type="button" class="chip" data-act="fillEnv" data-v="' + hist[0] + '">Mois dernier : ' + eur(hist[0]) + '</button>' +
+    '<button type="button" class="chip" data-act="fillEnv" data-v="' + moy + '">Moyenne 3 mois : ' + eur(moy) + '</button>' +
+    (p.fixes ? '<button type="button" class="chip" data-act="fillEnv" data-v="' + p.fixes + '">Fixes : ' + eur(p.fixes) + '</button>' : '') + '</div>';
+  h += '<div class="field"><label>Appliquer</label>' +
+    '<label class="opt"><input type="radio" name="v_portee" value="suite" checked>À partir de ' + esc(monthName(mois)) + ' (mois suivants aussi)</label>' +
+    '<label class="opt"><input type="radio" name="v_portee" value="mois">' + esc(monthName(mois)) + ' uniquement</label></div>';
+  if (info.src && info.src.modifPar) h += '<div class="foot" style="text-align:left;margin-bottom:8px">' + whoBadge(info.src.modifPar, 'Réglé par ') + ' le ' + esc(dt(info.src.modifLe)) + '</div>';
+  if (!ro) h += actions(p.env > 0 ? 'delEnv' : '', 'Supprimer', 'saveEnv', libId);
+  openSheet(h);
+  if (ro) Array.prototype.forEach.call(document.querySelectorAll('.sheet input, .sheet button'), function (e) { e.disabled = true; });
+}
+function saveEnv(libId, montant) {
+  var r = document.querySelector('input[name="v_portee"]:checked');
+  var amt = montant !== undefined ? montant : parseAmount(val('v_amt'));
+  if (amt === null) return toast('Montant manquant', true);
+  busySave(write('saveEnveloppe', { libelleId: libId, mois: mois, montant: amt, portee: r ? r.value : 'suite' })).then(function (envs) {
+    D.enveloppes = envs; closeSheet(); render(); toast(amt ? 'Enveloppe enregistrée' : 'Enveloppe supprimée');
+  });
 }
 
 function viewEvolution() {
@@ -563,7 +658,7 @@ function viewPlus() {
   h += '</ul>' + (canEdit() ? '<button class="link" data-act="openEpargne">+ Ajouter un compte</button>' : '') + '</div>';
 
   h += '<div class="card menu"><h2>⚙️ Paramètres</h2><ul class="list">';
-  h += menuItem('🏷️', 'Libellés', libsSorted().length + ' libellés · budgets mensuels', 'libelles');
+  h += menuItem('🏷️', 'Libellés', libsSorted().length + ' libellés', 'libelles');
   if (isAdmin()) {
     h += menuItem('👥', 'Utilisateurs & accès', D.users.filter(function (u) { return u.actif; }).length + ' actif(s)', 'users');
     h += menuItem('📜', 'Journal des actions', 'Qui a fait quoi, et quand', 'journal');
@@ -585,14 +680,13 @@ function backbar(title, extra) {
 var SUBVIEWS = {
   libelles: function () {
     var h = backbar('Libellés');
-    h += '<div class="info">Le <b>budget mensuel</b> d\'un libellé de sortie crée une enveloppe (ex. Alimentaire 800 €) suivie dans la Synthèse. ' +
-      'Il s\'ajoute au prévu des mouvements fixes du libellé.</div>';
+    h += '<div class="info">Les budgets mensuels se règlent dans l\'onglet <b>🎯 Enveloppes</b>.</div>';
     ['entree', 'sortie'].forEach(function (sens) {
       groupsOf(sens).forEach(function (g) {
         h += '<div class="card"><h2>' + (sens === 'entree' ? '💶 ' : '💸 ') + esc(g) + '</h2><ul class="list">';
         libsSorted(sens).filter(function (l) { return l.groupe === g; }).forEach(function (l) {
           h += '<li class="item" data-act="openLib" data-id="' + l.id + '"><span style="font-size:20px">' + icon(l) + '</span><div class="main"><div class="title">' + esc(l.nom) + '</div></div>' +
-            '<div class="amt num small">' + (l.moisSuivant ? '<span class="tag">↪ mois suivant</span> ' : '') + (+l.budget ? 'Budget ' + eur(l.budget) : '<span class="muted">—</span>') + '</div></li>';
+            '<div class="amt num small">' + (l.moisSuivant ? '<span class="tag">↪ mois suivant</span> ' : '') + (envFor(l.id, mois) ? '🎯 ' + eur(envFor(l.id, mois)) : '<span class="muted">—</span>') + '</div></li>';
         });
         h += '</ul></div>';
       });
@@ -848,9 +942,8 @@ function openLib(id, opts) {
   var groups = groupsOf().concat(['Entrées', 'Charges fixes & crédits', 'Vie courante']).filter(function (g, i, a) { return a.indexOf(g) === i; });
   var h = '<h3>' + (l ? 'Libellé' : 'Nouveau libellé') + '</h3>';
   h += '<div class="field"><label>Nom</label><input id="l_nom" value="' + esc(l ? l.nom : '') + '" placeholder="Assurances, Santé, Animaux…"></div>';
-  h += '<div class="row2"><div class="field"><label>Type</label><select id="l_sens"><option value="sortie" ' + (sens === 'sortie' ? 'selected' : '') + '>Sortie</option>' +
-    '<option value="entree" ' + (sens === 'entree' ? 'selected' : '') + '>Entrée</option></select></div>' +
-    '<div class="field"><label>Budget mensuel</label><input id="l_budget" inputmode="decimal" placeholder="0" value="' + (l && +l.budget ? amtInput(l.budget) : '') + '"></div></div>';
+  h += '<div class="field"><label>Type</label><select id="l_sens"><option value="sortie" ' + (sens === 'sortie' ? 'selected' : '') + '>Sortie</option>' +
+    '<option value="entree" ' + (sens === 'entree' ? 'selected' : '') + '>Entrée</option></select></div>';
   h += '<div class="field"><label>Groupe</label><input id="l_groupe" list="grpList" value="' + esc(l ? l.groupe : (sens === 'entree' ? 'Entrées' : 'Vie courante')) + '">' +
     '<datalist id="grpList">' + groups.map(function (g) { return '<option value="' + esc(g) + '">'; }).join('') + '</datalist></div>';
   h += '<label class="opt box"><input type="checkbox" id="l_ms" ' + (l && l.moisSuivant ? 'checked' : '') + '>' +
@@ -866,7 +959,7 @@ function openLib(id, opts) {
 
 function saveLib(id) {
   var l = id ? byId(D.libelles, id) : null;
-  var rec = { id: id || '', nom: val('l_nom'), sens: val('l_sens'), groupe: val('l_groupe'), budget: parseAmount(val('l_budget')) || 0, moisSuivant: checked('l_ms') };
+  var rec = { id: id || '', nom: val('l_nom'), sens: val('l_sens'), groupe: val('l_groupe'), moisSuivant: checked('l_ms') };
   if (l && !l.actif) rec.actif = checked('l_actif');
   if (!rec.nom.trim()) return toast('Nom manquant', true);
   var ret = form.libReturn;
@@ -986,7 +1079,7 @@ var ACT = {
   quickLib: function () {
     var nom = prompt('Nom du nouveau libellé (' + (form.sens === 'entree' ? 'entrée' : 'sortie') + ') :');
     if (!nom || !nom.trim()) return;
-    write('saveLibelle', { nom: nom, sens: form.sens, groupe: form.sens === 'entree' ? 'Entrées' : 'Vie courante', budget: 0 }).then(function (l) {
+    write('saveLibelle', { nom: nom, sens: form.sens, groupe: form.sens === 'entree' ? 'Entrées' : 'Vie courante' }).then(function (l) {
       D.libelles.push(l); form.libelleId = l.id;
       var w = document.getElementById('libWrap'); if (w) w.innerHTML = libChips(form.sens, l.id);
       toast('Libellé « ' + l.nom + ' » créé');
@@ -1008,6 +1101,10 @@ var ACT = {
       toast(res.count + ' importé(s)' + (res.skipped.length ? ', ' + res.skipped.length + ' ligne(s) ignorée(s)' : ''), !!res.skipped.length);
     });
   },
+  openEnv: function (d) { openEnv(d.id); },
+  saveEnv: function (d) { saveEnv(d.id); },
+  delEnv: function (d) { if (confirm('Supprimer cette enveloppe (selon le choix « Appliquer ») ?')) saveEnv(d.id, 0); },
+  fillEnv: function (d) { document.getElementById('v_amt').value = amtInput(d.v); },
   openLib: function (d) { openLib(d.id); },
   saveLib: function (d) { saveLib(d.id); },
   delLib: function (d) { delLib(d.id); },
