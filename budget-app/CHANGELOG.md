@@ -16,6 +16,10 @@ Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-têt
 - **Rapidité** : comptes d'épargne mis en cache côté serveur (10 min, vidé à chaque modification).
 - **Ordinateur** : en-tête, navigation et bouton + alignés sur la colonne de contenu sur grand écran ;
   survol à la souris ; **Échap** ferme une fiche, **← / →** changent de mois ; gestes tactiles inactifs à la souris.
+- **Mise en page ordinateur (≥ 1100 px)** : barre latérale (nom, « Nouveau mouvement », onglets), contenu réparti
+  en 2 colonnes (3 au-delà de 1700 px), listes (Mouvements, Journal…) en une colonne large, fiches dans un panneau
+  latéral droit pleine hauteur. Le téléphone garde sa mise en page.
+- Correctif : l'étiquette « véhicule ? » s'affichait aussi sur les mouvements déjà rattachés à un véhicule.
 - **Saisie vocale « Hey Google » supprimée** (et autorisation Google Tasks retirée) ; les anciens déclencheurs
   se suppriment d'eux-mêmes. La saisie rapide au clavier reste.
 

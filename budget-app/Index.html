@@ -348,6 +348,51 @@
   .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .swatches button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
   .swatches button.on { border-color: var(--text); }
+  .fablbl { display: none; }
+  .fab[hidden] { display: none !important; }
+
+  /* ================= Ordinateur (≥ 1100 px) : barre latérale, contenu en colonnes, fiches en panneau ================= */
+  @media (min-width: 1100px) {
+    body { padding-left: 232px; padding-bottom: 32px; }
+    header { padding: 10px 28px !important; }
+    header .month b { font-size: 18px; }
+    nav { top: 0; bottom: 0; left: 0; right: auto; width: 232px; flex-direction: column; justify-content: flex-start; gap: 4px;
+      padding: 136px 14px 20px !important; border-top: 0; border-right: 1px solid var(--line); background: var(--surface); backdrop-filter: none; }
+    nav::before { content: "Budget"; position: absolute; top: 20px; left: 26px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: var(--text); }
+    nav button { flex: none; flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 46px; padding: 0 12px; font-size: 14.5px;
+      border-radius: 12px; text-align: left; }
+    nav .pill { width: auto; height: auto; background: none !important; }
+    nav button.on { background: var(--accent-soft); color: var(--text); }
+    .fab { top: 66px; left: 14px; right: auto !important; bottom: auto; width: 204px; height: 48px; border-radius: 14px; gap: 10px;
+      display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14.5px; box-shadow: none; }
+    .fab svg { width: 20px; height: 20px; }
+    .fablbl { display: inline; }
+    .sync { top: 16px; right: 28px !important; }
+    .toast { left: calc(50% + 116px); bottom: 28px; }
+    main { max-width: 1280px; padding: 20px 28px 40px; }
+    #view[data-layout="wide"] { max-width: 1000px; margin: 0 auto; }
+    #view[data-layout="cols"] { column-count: 2; column-gap: 18px; }
+    #view[data-layout="cols"] > * { break-inside: avoid; -webkit-column-break-inside: avoid; }
+    #view[data-layout="cols"] > .card { display: block; width: 100%; box-sizing: border-box; }
+    #view[data-layout="cols"] > .seg, #view[data-layout="cols"] > .backbar, #view[data-layout="cols"] > .filterbar,
+    #view[data-layout="cols"] > .search, #view[data-layout="cols"] > .filters, #view[data-layout="cols"] > .chips,
+    #view[data-layout="cols"] > .hero, #view[data-layout="cols"] > .info, #view[data-layout="cols"] > .foot,
+    #view[data-layout="cols"] > .sec-head, #view[data-layout="cols"] > .btn.block { column-span: all; -webkit-column-span: all; }
+    #view[data-layout="cols"] > .seg { max-width: 560px; }
+    .hero .big { font-size: 42px; }
+    .hero .kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    /* Fiches : panneau latéral droit, pleine hauteur */
+    .overlay { align-items: stretch !important; justify-content: flex-end !important; background: rgba(0, 0, 0, .45); }
+    .sheet { max-width: 520px; width: 520px; max-height: none !important; height: 100vh; border-radius: 0 !important; border: 0; border-left: 1px solid var(--line);
+      padding: 26px 26px 32px; animation: slidein .2s ease-out; }
+    .sheet::before { display: none; }
+    @keyframes slidein { from { transform: translateX(40px); opacity: 0; } }
+    .loading { padding-left: 260px !important; }
+  }
+  @media (min-width: 1700px) {
+    #view[data-layout="cols"] { column-count: 3; }
+    main { max-width: 1640px; }
+  }
 </style>
 </head>
 <body>
@@ -366,7 +411,7 @@
 
 <main id="view"></main>
 
-<button class="fab" id="fab" data-act="newMvt" aria-label="Ajouter un mouvement"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<button class="fab" id="fab" data-act="newMvt" aria-label="Ajouter un mouvement"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="fablbl">Nouveau mouvement</span></button>
 <nav id="nav"></nav>
 
 <script>
@@ -796,7 +841,10 @@ function render() {
   }).join('');
   var c = compute(mois);
   var v = tab === 'plus' && sub ? SUBVIEWS[sub] : { synthese: viewSynthese, mouvements: viewMouvements, enveloppes: viewEnveloppes, fixes: viewFixes, plus: viewPlus }[tab];
-  document.getElementById('view').innerHTML = v(c);
+  var view = document.getElementById('view');
+  // Mise en page ordinateur : listes en une colonne large, le reste en colonnes.
+  view.dataset.layout = (tab === 'mouvements' && !sub) || /^(journal|backups|rapport|users)$/.test(sub) ? 'wide' : 'cols';
+  view.innerHTML = v(c);
 }
 
 function segHtml(act, cur, items) {
@@ -1081,8 +1129,8 @@ function mvtItem(x) {
   if (x.recurrentId && +x.montant === 0 && +x.prevu) meta += ' <span class="tag warn">non réalisé</span>';
   else if (x.recurrentId && x.modifie) meta += ' <span class="tag warn">modifié ce mois</span>';
   if (x.vehiculeId) meta += ' <span class="tag">' + esc(vehLabel(x.vehiculeId)) + '</span>';
-  if (l.parCompte) { var cid = compteOf(x); if (cid) meta += ' <span class="tag">' + esc(cptLabel(cid)) + '</span>'; }
   else if (l.parVehicule && vehs().length) meta += ' <span class="tag warn">véhicule ?</span>';
+  if (l.parCompte) { var cid = compteOf(x); if (cid) meta += ' <span class="tag">' + esc(cptLabel(cid)) + '</span>'; }
   if (x.date.substring(0, 7) !== x.mois) meta += ' <span class="tag">↪ ' + esc(monthName(x.mois)) + '</span>';
   if (x.modifPar && x.modifPar !== x.saisiPar) meta += ' ' + whoBadge(x.modifPar, 'modifié par ');
   return '<li class="item" data-act="openMvt" data-id="' + x.id + '">' + chk + emo(l) +
