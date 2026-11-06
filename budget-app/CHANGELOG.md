@@ -3,6 +3,15 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.1.1] — 2026-11-06
+
+- **Glisser = changer de page** (téléphone) : gauche/droite passe d'un onglet à l'autre ; résistance en bout de liste.
+  Le mois se change avec les flèches ou le sélecteur de mois.
+- **Transitions de page** : glissement en perspective dans le sens de la navigation (onglets, mois, sous-onglets
+  de la Synthèse), tuiles et cartes qui apparaissent en cascade ; respect du réglage « réduire les animations ».
+- **Effet 3D** : inclinaison des tuiles de la Synthèse vers la souris (ou le doigt à l'appui), reflet lumineux, ombre portée.
+- **Survol souris** : boutons, puces, cartes, lignes, icônes et bouton + animés.
+
 ## [1.1.0] — 2026-11-06 — nouvelle présentation « Bento »
 
 - **Refonte graphique complète** : police Plus Jakarta Sans, thème clair crème et thème sombre chaud,

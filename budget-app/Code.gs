@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.1.0';
+var APP_VERSION = '1.1.1';
 var APP_STAGE = '';
 
 var SH = {
@@ -1067,6 +1067,12 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.1.1', titre: 'Animations et effet 3D', items: [
+    'Sur le téléphone, glisser vers la gauche ou la droite change maintenant de page (Synthèse, Mouvements, Enveloppes, Fixes, Plus). Le mois se change avec les flèches ou en touchant son nom.',
+    'Changements de page animés, avec un léger effet de perspective, et tuiles qui apparaissent une à une.',
+    'Effet 3D : les tuiles de la Synthèse s\'inclinent vers la souris, ou vers le doigt quand on appuie, avec un reflet de lumière.',
+    'Survol à la souris plus vivant sur PC : boutons, cartes, lignes et icônes réagissent.'
+  ] },
   { v: '1.1.0', titre: 'Nouvelle présentation', items: [
     'Toute l\'appli change de look : tuiles colorées, nouvelle police, chiffres plus lisibles (centimes en petit).',
     'Synthèse en tuiles : reste à vivre avec sa courbe du mois et l\'avancement jour par jour, entrées, sorties, répartition et enveloppes en un coup d\'œil.',
