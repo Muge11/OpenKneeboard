@@ -1,6 +1,6 @@
 // Service worker de l'appli installée : met en cache la coquille (lancement instantané, écran hors connexion).
 // Les données ne passent pas par ici : elles restent chez Google (Apps Script / Google Sheets).
-var CACHE = 'budget-shell-v1';
+var CACHE = 'budget-shell-v2';
 var FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
