@@ -154,7 +154,20 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - indicateurs : coût total, coût moyen mensuel, carburant moyen par mois, plus grosse dépense,
     comparaison avec l'année précédente et avec l'autre véhicule ;
   - fin de prêt prévue (si le prêt est un fixe avec échéance) et coût restant à payer ;
-  - option : kilométrage relevé au plein → consommation et coût au kilomètre.
+  - *kilométrage : écarté (pas de saisie des km).*
+
+- [ ] **Compte rendu mensuel par e-mail**
+  - déclenchement : dès que le **salaire du nouveau mois** est saisi ou pointé (mouvement du libellé *Salaires*
+    rattaché au mois M) → envoi du compte rendu du mois **M-1** ; un seul envoi par mois ;
+    vérification automatique chaque matin (sauvegarde : envoi le 5 du mois si aucun salaire n'a été saisi) ;
+  - envoyé depuis le compte Gmail de l'administrateur (aucun service externe), aux destinataires choisis
+    par l'administrateur (par défaut : lui seul) ;
+  - contenu (e-mail lisible sur téléphone, thème sombre) : reste à vivre réel vs prévu, entrées / sorties,
+    enveloppes dépassées ou bien tenues, répartition besoins / envies / crédits / épargne / impôts,
+    principaux conseils, coût de chaque véhicule, épargne du mois, comparaison avec le mois précédent,
+    lien vers l'appli ;
+  - confidentialité respectée : chaque destinataire ne reçoit que les comptes d'épargne qu'il peut voir ;
+  - bouton « Envoyer le compte rendu maintenant » et aperçu dans Plus › Compte rendu ; envoi tracé au journal.
 
 ### Confidentialité réelle — option B retenue
 Tous les utilisateurs ont accès en modification à la Google Sheet (nécessaire au fonctionnement de l'appli).
