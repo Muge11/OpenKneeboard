@@ -74,7 +74,7 @@
   var KEY = 'budget.appUrl';
   var $ = function (id) { return document.getElementById(id); };
   // Accepte aussi /macros/u/1/s/… : choix du compte Google quand plusieurs comptes sont connectés dans Chrome.
-  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/(u\/\d+\/)?s\/[\w-]+\/(exec|dev)(\?.*)?$/.test(u || ''); }
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/macros\/[^/]+|macros(\/u\/\d+)?)\/s\/[\w-]+\/(exec|dev)(\?.*)?$/.test(u || ''); }
   function get() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
   function showSetup() {
     $('splash').hidden = true; $('setup').hidden = false;
