@@ -3,6 +3,18 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.0.0] — 2026-11-06 — version stable
+
+- **Ouverture plus rapide** : le serveur ne prend plus de verrou à l'ouverture s'il n'y a pas de fixes à reporter
+  (plus d'attente quand un autre utilisateur enregistre au même moment).
+- **Pointage groupé** : les cases cochées à la suite partent en un seul envoi (une ligne au journal).
+- **Calculs mémorisés** : chaque mois n'est calculé qu'une fois par affichage (graphiques, conseils, évolution).
+- **Hors connexion** : bandeau, consultation seule, saisie remise en route au retour du réseau (rechargement automatique).
+- **Messages d'erreur compréhensibles** (connexion perdue, session expirée, serveur occupé).
+- **Sauvegardes** : au plus une toutes les 10 min à la fermeture ; conservation des 90 dernières sauvegardes de nuit
+  (≈ 3 mois) et des 40 dernières autres. **Journal** plafonné aux 15 000 dernières actions.
+- Code public : exemples anonymisés (aucun montant ni compte réel).
+
 ## [0.7.0] — 2026-11-06 — *test*
 
 - **Appli installable (PWA)** : coquille `pwa/` (manifeste, service worker, icônes, écran de démarrage,

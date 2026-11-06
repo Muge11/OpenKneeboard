@@ -349,6 +349,9 @@
   .swatches button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
   .swatches button.on { border-color: var(--text); }
   .fablbl { display: none; }
+  .offbar { position: sticky; top: calc(56px + env(safe-area-inset-top)); z-index: 9; background: var(--err-bg); color: var(--err-text);
+    border-bottom: 1px solid var(--err-line); font-size: 13px; text-align: center; padding: 7px 12px; }
+  .offbar[hidden] { display: none; }
   .fab[hidden] { display: none !important; }
 
   /* ================= Ordinateur (≥ 1100 px) : barre latérale, contenu en colonnes, fiches en panneau ================= */
@@ -406,6 +409,7 @@
   <button data-act="nextMonth" id="nextBtn" aria-label="Mois suivant"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
   <button data-act="refresh" aria-label="Actualiser"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></button>
 </header>
+<div class="offbar" id="offbar" hidden>Hors connexion — consultation seule, la saisie reprendra au retour du réseau</div>
 <div class="sync" id="sync" hidden><div class="spin"></div><span>Enregistrement…</span></div>
 <div class="ptr" id="ptr"><div class="ptr-c"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div></div>
 
@@ -523,7 +527,8 @@ function icon(l) { return l.emoji || ICONS[l.nom] || (l.sens === 'entree' ? '�
 function emo(l) { return '<span class="emo">' + icon(l) + '</span>'; }
 function ltype(l) { return l.type || (l.sens === 'entree' ? 'revenu' : 'envie'); }
 function role() { return D.me.role; }
-function canEdit() { return role() === 'admin' || role() === 'editeur'; }
+var OFFLINE = navigator.onLine === false;
+function canEdit() { return !OFFLINE && (role() === 'admin' || role() === 'editeur'); }
 function isAdmin() { return role() === 'admin'; }
 function user(email) {
   for (var i = 0; i < D.users.length; i++) if (D.users[i].email.toLowerCase() === String(email).toLowerCase()) return D.users[i];
@@ -670,10 +675,17 @@ function call(fn) {
   return new Promise(function (resolve, reject) {
     var r = google.script.run
       .withSuccessHandler(function (x) { done(); resolve(x); })
-      .withFailureHandler(function (e) { done(); toast((e && e.message) || String(e), true); reject(e); });
+      .withFailureHandler(function (e) { done(); toast(friendlyError(e), true); reject(e); });
     r[fn].apply(r, args);
   });
   function done() { pending--; syncUi(); }
+}
+function friendlyError(e) {
+  var m = (e && e.message) || String(e);
+  if (/NetworkError|HTTP 0|Failed to fetch|connexion/i.test(m)) return 'Connexion perdue : réessayez dans un instant';
+  if (/Authorization|autorisation|ScriptError|log ?in|session/i.test(m)) return 'Session Google expirée : fermez puis rouvrez l\'appli';
+  if (/Lock|verrou|timeout|Délai/i.test(m)) return 'Serveur occupé : réessayez dans quelques secondes';
+  return m;
 }
 function syncUi() {
   var el = document.getElementById('sync');
@@ -736,7 +748,7 @@ function load() {
   });
 }
 function setData(data) {
-  D = data; lastLoad = Date.now(); ensured = {};
+  D = data; lastLoad = Date.now(); ensured = {}; resetCalc();
   loadPrefs(); applyTheme();
   fixSort = pref('fixSort', 'libelle'); fixDir = pref('fixDir', 'desc');
   if (!prefsApplied) {
@@ -778,8 +790,23 @@ function envInfo(libId, m) {
 }
 function envFor(libId, m) { return envInfo(libId, m).montant; }
 
+var _cmp = {}, _byMonth = null;
+/** Vide les calculs mémorisés (à chaque affichage et à chaque rechargement des données). */
+function resetCalc() { _cmp = {}; _byMonth = null; }
+function mvOfMonth(m) {
+  if (!_byMonth) {
+    _byMonth = {};
+    D.mouvements.forEach(function (x) { (_byMonth[x.mois] || (_byMonth[x.mois] = [])).push(x); });
+  }
+  return _byMonth[m] || [];
+}
 function compute(m) {
-  var mv = D.mouvements.filter(function (x) { return x.mois === m && x.statut !== 'annule'; });
+  if (_cmp[m]) return _cmp[m];
+  _cmp[m] = computeRaw(m);
+  return _cmp[m];
+}
+function computeRaw(m) {
+  var mv = mvOfMonth(m).filter(function (x) { return x.statut !== 'annule'; });
   var per = {};
   D.libelles.forEach(function (l) { per[l.id] = { lib: l, env: envFor(l.id, m), fixes: 0, prevu: 0, reel: 0, n: 0 }; });
   mv.forEach(function (x) {
@@ -831,6 +858,7 @@ function computeRange(m, n) {
 /* ================================================================== */
 function render() {
   if (!D) return;
+  resetCalc();
   var monthless = tab === 'fixes' || tab === 'plus';
   document.getElementById('monthLabel').textContent = tab === 'fixes' ? 'Mouvements fixes' : tab === 'plus' ? 'Plus' : monthName(mois);
   document.querySelector('header .month').classList.toggle('pickable', !monthless);
@@ -1420,8 +1448,8 @@ function importCardHtml() {
   {
     h += fold('fix:import', 'Importer des mouvements fixes', '', '' +
       '<div class="xs muted" style="margin-bottom:8px">Une ligne par mouvement : <code>E ou S;Libellé;Description;Montant;Fin (AAAA-MM ou vide);Jour</code><br>' +
-      'Ex. <code>S;Prêt maison;Crédit Agricole;762,32;;5</code>. Un libellé inconnu est créé. Début : mois en cours.</div>' +
-      '<textarea id="importTxt" rows="4" placeholder="E;Salaires;Salaire Guillaume;2846,01;;28"></textarea>' +
+      'Ex. <code>S;Prêt maison;Banque;750,00;;5</code>. Un libellé inconnu est créé. Début : mois en cours.</div>' +
+      '<textarea id="importTxt" rows="4" placeholder="E;Salaires;Salaire;2500,00;;28"></textarea>' +
       '<button class="btn block" style="margin-top:8px" data-act="doImport">Importer</button>', false);
   }
   return h;
@@ -1895,6 +1923,16 @@ document.addEventListener('keydown', function (e) {
     mois = shiftMonth(mois, e.key === 'ArrowLeft' ? -1 : 1); render(); ensureMonthClient(); e.preventDefault();
   }
 });
+
+/* Pointage d'un relevé : les cases cochées à la suite partent en un seul envoi. */
+var _pt = {}, _ptTimer = null;
+function queuePointe(id, v) { _pt[id] = v; clearTimeout(_ptTimer); _ptTimer = setTimeout(flushPointes, 800); }
+function flushPointes() {
+  clearTimeout(_ptTimer);
+  var list = Object.keys(_pt).map(function (id) { return { id: id, pointe: _pt[id] }; });
+  _pt = {};
+  if (list.length) bg('setPointes', [list]);
+}
 
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) {} }
 
@@ -2456,7 +2494,7 @@ var ACT = {
       else if (form.kind === 'compte') openCompte(form.id);
       else if (form.kind === 'vehDetail') openVehDetail(form.id, form.period, form.year);
     }
-    bg('setPointe', [d.id, x.pointe]);
+    queuePointe(d.id, x.pointe);
   },
   setSens: function (d) {
     form.sens = d.sens; form.libelleId = '';
@@ -2656,6 +2694,7 @@ document.addEventListener('input', function (e) {
 /* Sauvegarde à la fermeture + actualisation au retour                 */
 /* ================================================================== */
 function backupOnLeave() {
+  flushPointes();
   if (!D || !canEdit() || !dirty) return;
   dirty = false;
   try { google.script.run.withFailureHandler(function () { dirty = true; }).autoBackup(); } catch (e) {}
@@ -2675,6 +2714,16 @@ function toast(msg, err) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function () { t.hidden = true; }, err ? 4000 : 1800);
 }
+
+function setOffline(off) {
+  OFFLINE = off;
+  document.getElementById('offbar').hidden = !off;
+  if (D) { document.getElementById('fab').hidden = !canEdit(); render(); }
+  if (!off && D) load();
+}
+window.addEventListener('offline', function () { setOffline(true); });
+window.addEventListener('online', function () { setOffline(false); toast('Connexion rétablie'); });
+document.getElementById('offbar').hidden = !OFFLINE;
 
 applyTheme();
 bootFromCache();

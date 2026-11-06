@@ -1,4 +1,4 @@
-# 💶 Gestion de Budget — web app Google Drive · v0.7.0 (test)
+# 💶 Gestion de Budget — web app Google Drive · v1.0.0
 
 Appli mobile/ordinateur pour gérer le budget du foyer à plusieurs.
 Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
@@ -16,7 +16,7 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
    - vous déclare **administrateur**,
    - crée le fichier **« Budget — Sauvegardes »** dans votre Drive,
    - installe la sauvegarde de nuit.
-4. **Déployer → Nouveau déploiement → Application Web**, description `v0.7.0` :
+4. **Déployer → Nouveau déploiement → Application Web**, description `v1.0.0` :
    - Exécuter en tant que : **Utilisateur accédant à l'application Web**
    - Qui a accès : **Tout utilisateur disposant d'un compte Google**
 5. Dans l'appli : **Plus → Utilisateurs & accès → Ajouter** votre femme (adresse Gmail, nom, rôle, couleur).
@@ -91,4 +91,4 @@ Toutes les actions (ajout, modification avec valeur précédente, suppression, p
 sauvegardes, utilisateurs…) sont tracées dans la feuille `Journal`, consultable dans **Plus → Journal**.
 
 ## Versionnage
-Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.7.0 — test**.
+Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **1.0.0**.

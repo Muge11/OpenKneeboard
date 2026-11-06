@@ -123,8 +123,8 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
 - [x] **Imputation de l'épargne sur chaque compte d'épargne**
   - les mouvements du libellé *Epargne* (et des libellés de type « épargne ») se rattachent à un compte
-    (Trade Republic, Crédit Agricole LLD, Assurance vie Elise, Epargne Elia, Epargne Thomas…), comme les véhicules ;
-  - choix du compte dans la fiche (mémorisé pour les fixes : « Epargne Elia 25 € » → compte Epargne Elia),
+    (livret, assurance vie, épargne des enfants…), comme les véhicules ;
+  - choix du compte dans la fiche (mémorisé pour les fixes : « Epargne enfant 25 € » → compte Epargne enfant),
     reconnu à la dictée ;
   - **solde suivi automatiquement** : solde de référence (saisi à une date) + versements − retraits ;
     libellé d'entrée « Retrait épargne » pour les retraits ; mise à jour manuelle du solde toujours possible ;

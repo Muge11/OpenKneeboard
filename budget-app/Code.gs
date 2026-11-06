@@ -16,8 +16,8 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.7.0';
-var APP_STAGE = 'test';
+var APP_VERSION = '1.0.0';
+var APP_STAGE = '';
 
 var SH = {
   LIB: 'Libelles',
@@ -189,14 +189,26 @@ function menuBackup() {
 function getAll() {
   ensureSetup_();
   var me = ctx_(0);
-  if (ROLES[me.role] >= ROLES.editeur) {
+  // Le mois suivant aussi : un salaire versé fin de mois pour le mois suivant doit pouvoir être pointé.
+  // Le verrou n'est pris que s'il y a réellement des fixes à reporter (ouverture plus rapide, sans attente).
+  var cur = currentMonth_(), nxt = shiftMonth_(cur, 1);
+  if (ROLES[me.role] >= ROLES.editeur && (monthNeedsFixes_(cur) || monthNeedsFixes_(nxt))) {
     withLock_(function () {
-      // Le mois suivant aussi : un salaire versé fin de mois pour le mois suivant doit pouvoir être pointé.
-      ensureMonth_(currentMonth_(), me);
-      ensureMonth_(shiftMonth_(currentMonth_(), 1), me);
+      _memo = { tables: {}, headers: {}, sheets: {} };
+      ensureMonth_(cur, me);
+      ensureMonth_(nxt, me);
     });
   }
   return data_(me);
+}
+
+/** Vrai si un fixe actif sur `mois` n'a pas encore d'occurrence (lecture seule, sans verrou). */
+function monthNeedsFixes_(mois) {
+  var recs = readTable_(SH.REC).filter(function (r) { return inRange_(r, mois); });
+  if (!recs.length) return false;
+  var have = {};
+  readTable_(SH.MVT).forEach(function (m) { if (m.mois === mois && m.recurrentId) have[m.recurrentId] = true; });
+  return recs.some(function (r) { return !have[r.id]; });
 }
 
 /** Toutes les données (sans verrou : utilisable depuis une fonction déjà verrouillée). */
@@ -340,6 +352,30 @@ function restoreOccurrence(id) {
     upsert_(SH.MVT, m);
     log_(me, 'Rétablissement', 'Mouvement fixe', describeMvt_(m, findBy_(SH.LIB, 'id', m.libelleId)));
     return m;
+  });
+}
+
+/** Pointage groupé : [{ id, pointe }] en un seul envoi (pointage d'un relevé). */
+function setPointes(list) {
+  var me = ctx_(ROLES.editeur);
+  if (!list || !list.length) return 0;
+  return withLock_(function () {
+    _memo = { tables: {}, headers: {}, sheets: {} };
+    var sh = sheet_(SH.MVT);
+    readTable_(SH.MVT); // remplit le repère des lignes
+    var col = header_(SH.MVT).indexOf('pointe') + 1;
+    var rows = _memo.rows[SH.MVT] || {};
+    var n = 0, on = 0;
+    list.forEach(function (it) {
+      var row = rows[String(it.id).toLowerCase()];
+      if (!row) return;
+      sh.getRange(row, col).setValue(!!it.pointe);
+      n++; if (it.pointe) on++;
+    });
+    invalidate_(SH.MVT);
+    if (n) log_(me, 'Pointage', 'Mouvements', n === 1 ? (on ? '1 mouvement pointé' : '1 mouvement dépointé') :
+      n + ' mouvements (' + on + ' pointé(s), ' + (n - on) + ' dépointé(s))');
+    return n;
   });
 }
 
@@ -1031,6 +1067,13 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.0.0', titre: 'Version 1.0', items: [
+    'Ouverture plus rapide : l\'appli n\'attend plus quand quelqu\'un d\'autre enregistre au même moment.',
+    'Pointage d\'un relevé plus fluide : les cases cochées à la suite partent en un seul envoi.',
+    'Graphiques et conseils plus réactifs.',
+    'Hors connexion : un bandeau le signale et la saisie est mise en pause jusqu\'au retour du réseau.',
+    'Sauvegardes mieux étalées : environ 3 mois d\'historique de sauvegardes de nuit.'
+  ] },
   { v: '0.7.0', titre: 'Une vraie appli sur votre Pixel', items: [
     'Appli installable : icône sur l\'écran d\'accueil, plein écran, sans barre de navigateur (voir Plus › Mes préférences › Installer l\'appli).',
     'Ouverture instantanée : les dernières données s\'affichent tout de suite, puis se mettent à jour.',
@@ -1258,7 +1301,7 @@ function autoBackup() {
   var lastModif = Number(p.getProperty('lastModif') || 0);
   var lastBackupTs = Number(p.getProperty('lastBackupTs') || 0);
   if (lastModif <= lastBackupTs) return { done: false, reason: 'aucune modification' };
-  if (Date.now() - lastBackupTs < 60 * 1000) return { done: false, reason: 'trop récent' };
+  if (Date.now() - lastBackupTs < 10 * 60 * 1000) return { done: false, reason: 'trop récent' }; // au plus une toutes les 10 min
   return withLock_(function () { return { done: true, backup: backup_('fermeture de l\'appli', me.email) }; });
 }
 
@@ -1268,6 +1311,14 @@ function dailyBackup() {
   if (Number(p.getProperty('lastModif') || 0) > Number(p.getProperty('lastBackupTs') || 0)) {
     backup_('quotidienne', 'système');
   }
+  trimJournal_();
+}
+
+/** Le journal est plafonné (les 15 000 dernières actions sont gardées) pour que la Sheet reste rapide. */
+function trimJournal_() {
+  var sh = sheet_(SH.JOURNAL);
+  var last = sh.getLastRow();
+  if (last > 20001) sh.deleteRows(2, last - 15001);
 }
 
 function backupNow() {
@@ -1342,14 +1393,29 @@ function backup_(raison, who) {
   var resume = snap.sheets[SH.MVT].length + ' mouvements, ' + snap.sheets[SH.REC].length + ' fixes';
   sh.appendRow([id, horodatage, who || '', raison, APP_VERSION, Math.round(json.length / 1024) + ' Ko', resume].concat(chunks));
 
-  var extra = sh.getLastRow() - 1 - BACKUP_KEEP;
-  if (extra > 0) sh.deleteRows(2, extra);
+  pruneBackups_(sh);
 
   var p = PropertiesService.getScriptProperties();
   p.setProperty('lastBackupTs', String(Date.now()));
   p.setProperty('lastBackup', horodatage);
   appendJournal_(who || 'système', 'Sauvegarde', 'Données', raison + ' — ' + resume);
   return { id: id, horodatage: horodatage };
+}
+
+/**
+ * Conservation des sauvegardes : les 90 dernières sauvegardes de nuit (≈ 3 mois d'activité)
+ * et les 40 dernières autres (fermeture de l'appli, manuelles, avant restauration).
+ */
+function pruneBackups_(sh) {
+  var last = sh.getLastRow();
+  if (last < 2) return;
+  var raisons = sh.getRange(2, 4, last - 1, 1).getValues().map(function (r) { return String(r[0]); });
+  var keepDaily = 90, keepOther = 40, del = [];
+  for (var i = raisons.length - 1; i >= 0; i--) {
+    if (raisons[i] === 'quotidienne') { if (keepDaily-- <= 0) del.push(i + 2); }
+    else if (keepOther-- <= 0) del.push(i + 2);
+  }
+  del.forEach(function (row) { sh.deleteRow(row); }); // du bas vers le haut
 }
 
 function ensureBackupFile_() {
