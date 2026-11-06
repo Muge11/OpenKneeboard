@@ -184,6 +184,17 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - **Fiche d'un mouvement** : champs essentiels visibles (montant, libellé, description) ;
     date, mois de budget, répétition, pointage et outils regroupés sous « Plus d'options ».
 
+- [ ] **Thème clair au choix + préférences propres à chaque utilisateur**
+  - thème au choix : **Sombre** (par défaut), **Clair**, ou **Automatique** (suit le réglage du téléphone) ;
+    thème clair soigné et cohérent avec le sombre (mêmes repères visuels, couleurs des graphiques
+    revalidées pour fond clair) ; bascule instantanée, sans rechargement ;
+  - **préférences enregistrées par utilisateur sur le serveur** (elles suivent la personne sur tous ses appareils) :
+    thème, sections ouvertes / repliées, tri des fixes, filtre et portée de recherche par défaut,
+    onglet d'ouverture, période des graphiques, base des conseils (mois / 3 mois),
+    réception du compte rendu mensuel ;
+  - page **Plus › Mes préférences** ; chacun règle les siennes sans toucher à celles des autres ;
+  - l'administrateur garde la main sur les réglages communs (libellés, repères, comptes, destinataires).
+
 ### Confidentialité réelle — option B retenue
 Tous les utilisateurs ont accès en modification à la Google Sheet (nécessaire au fonctionnement de l'appli).
 - **Option A — masquage dans l'appli** : simple ; mais les données restent lisibles par quelqu'un qui ouvre
