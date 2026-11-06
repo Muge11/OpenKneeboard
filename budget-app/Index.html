@@ -3499,8 +3499,7 @@ function helloName(n) {
 }
 function helloReady() {
   if (helloGone || !D) return;
-  var first = String(D.me.nom || '').split(' ')[0];
-  first = first.charAt(0).toUpperCase() + first.slice(1);
+  var first = firstName(D.me.nom || D.me.email);
   lsSet('budget.name', first); helloName(first);
   try {
     var P0 = periodOf(mois), b = compute(mois).bilan;
@@ -3513,7 +3512,12 @@ function helloReady() {
   }, Math.max(0, 1500 - (Date.now() - helloT0)));
 }
 function helloAbort() { helloGone = true; var h = document.getElementById('hello'); if (h) h.remove(); }
-helloName(lsGet('budget.name') || '');
+/** Prénom seul : « guillaume.gindre », « Guillaume Gindre » ou « jean-pierre_d » → « Guillaume », « Jean-Pierre ». */
+function firstName(n) {
+  var f = String(n || '').split(/[\s._@]+/).filter(String)[0] || '';
+  return f.toLowerCase().replace(/(^|-)(\S)/g, function (m, d, ch) { return d + ch.toUpperCase(); });
+}
+helloName(firstName(lsGet('budget.name')));
 
 applyTheme();
 bootFromCache();

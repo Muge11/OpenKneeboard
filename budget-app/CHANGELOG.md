@@ -5,7 +5,7 @@ Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-têt
 
 ## [1.2.0] — 2026-11-06
 
-- **Écran d'accueil** « Bonjour, Prénom. » : prénom écrit lettre par lettre (bascule 3D), trait d'accent,
+- **Écran d'accueil** « Bonjour, Prénom. » (prénom seul, même si la fiche contient « prénom.nom ») : prénom écrit lettre par lettre (bascule 3D), trait d'accent,
   reste à vivre du jour, puis lever de rideau sur l'appli ; suit le thème (noir en sombre, crème en clair) et la couleur d'accent.
 - **Navigation A** : Synthèse · Mouvements · Budget · Épargne · Plus en icônes, bouton + surélevé au centre
   (trou toujours centré à l'écran) ; « Budget » regroupe Enveloppes et Fixes en sous-onglets.
