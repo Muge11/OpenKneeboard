@@ -135,7 +135,8 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - pour chaque compte : « visible par tous » ou liste des personnes autorisées ;
   - un utilisateur non autorisé ne voit ni le compte, ni son solde, ni l'imputation des versements
     (il voit seulement « Épargne » dans le budget commun) ; totaux épargne calculés sur ses comptes visibles ;
-  - **niveau de confidentialité à choisir** (voir ci-dessous).
+  - **décision : confidentialité réelle (option B)** — chaque utilisateur ne voit que les comptes autorisés
+    par l'administrateur, y compris en dehors de l'appli (voir ci-dessous).
 
 - [ ] **Nouveautés de chaque mise à jour affichées dans l'appli**
   - à la première ouverture après une mise à jour : fenêtre « Quoi de neuf en v0.x.0 ? » avec les nouveautés
@@ -145,11 +146,21 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - pastille « Nouveau » sur les fonctions ajoutées tant qu'elles n'ont pas été ouvertes (facultatif) ;
   - le contenu suit le CHANGELOG, rédigé pour l'utilisateur (sans termes techniques).
 
-### Point à trancher : confidentialité réelle
+- [ ] **Détail des coûts de chaque véhicule** (fiche véhicule, depuis Plus › Véhicules ou les graphiques)
+  - période au choix : mois, année, 12 derniers mois, depuis le début ; navigation année par année ;
+  - **répartition par poste** (carburant, prêt, entretien / réparations, autres) en anneau + montants et % ;
+  - **tableau mois par mois** : une ligne par mois, une colonne par poste, total et moyenne ;
+  - **liste complète des dépenses** du véhicule (avec recherche), chaque ligne ouvrant la fiche du mouvement ;
+  - indicateurs : coût total, coût moyen mensuel, carburant moyen par mois, plus grosse dépense,
+    comparaison avec l'année précédente et avec l'autre véhicule ;
+  - fin de prêt prévue (si le prêt est un fixe avec échéance) et coût restant à payer ;
+  - option : kilométrage relevé au plein → consommation et coût au kilomètre.
+
+### Confidentialité réelle — option B retenue
 Tous les utilisateurs ont accès en modification à la Google Sheet (nécessaire au fonctionnement de l'appli).
 - **Option A — masquage dans l'appli** : simple ; mais les données restent lisibles par quelqu'un qui ouvre
   directement la Google Sheet.
-- **Option B — confidentialité réelle** : chaque compte restreint est stocké dans un fichier Google séparé,
+- **Option B — confidentialité réelle (RETENUE)** : chaque compte restreint est stocké dans un fichier Google séparé,
   partagé uniquement avec les personnes autorisées (géré automatiquement par l'appli) ; personne d'autre ne peut
   le lire, ni par l'appli ni par Drive.
 
