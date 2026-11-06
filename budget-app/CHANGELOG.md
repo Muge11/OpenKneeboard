@@ -3,6 +3,20 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.7.0] — 2026-11-06 — *test*
+
+- **Appli installable (PWA)** : coquille `pwa/` (manifeste, service worker, icônes, écran de démarrage,
+  raccourci « Nouvelle dépense ») qui affiche la web app en plein écran, sans barre de navigateur ;
+  la barre d'état suit le thème clair / sombre. La web app autorise désormais cet affichage.
+- **Ouverture instantanée** : dernières données mémorisées sur le téléphone, affichées tout de suite puis actualisées.
+- **Gestes** : tirer pour actualiser, glisser à gauche / droite pour changer de mois, glisser une fiche vers le bas
+  pour la fermer ; **bouton retour Android** (ferme fiche / page / revient à l'onglet de départ) ; vibrations légères.
+- **Smartphone (Pixel)** : barre de navigation type Material (indicateur), zones tactiles ≥ 56 px, sélecteur de mois
+  natif (toucher le mois), écran de chargement en squelette, hauteurs adaptées à l'écran (dvh).
+- **Rapidité** : comptes d'épargne mis en cache côté serveur (10 min, vidé à chaque modification).
+- **Saisie vocale « Hey Google » supprimée** (et autorisation Google Tasks retirée) ; les anciens déclencheurs
+  se suppriment d'eux-mêmes. La saisie rapide au clavier reste.
+
 ## [0.6.0] — 2026-11-06 — *test*
 
 - **Commande vocale « Hey Google »** (via Google Tasks) : « Hey Google, ajoute une tâche : budget 45 euros

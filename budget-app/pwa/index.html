@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="color-scheme" content="dark light">
+<title>Budget</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  /* Coquille de l'appli installée : affiche la web app Apps Script en plein écran, sans barre de navigateur. */
+  :root { --bg: #0b0d10; --surface: #15181d; --line: #262b33; --text: #e9ebee; --muted: #7d8592; --accent: #4c8dff; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    padding: 24px; text-align: center; background: var(--bg); z-index: 2; }
+  .screen[hidden] { display: none; }
+  .screen img { width: 88px; height: 88px; border-radius: 22px; }
+  .screen h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  .muted { color: var(--muted); font-size: 14px; max-width: 420px; }
+  input { width: 100%; max-width: 420px; box-sizing: border-box; font: inherit; font-size: 15px; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  button, a.btn { font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 12px 18px; background: var(--accent); color: #fff;
+    cursor: pointer; text-decoration: none; }
+  button.ghost, a.ghost { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .err { color: #f2706b; font-size: 14px; }
+  .dots { display: flex; gap: 6px; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: b 1s infinite; }
+  .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes b { 50% { opacity: .2; transform: translateY(-3px); } }
+</style>
+</head>
+<body>
+<iframe id="app" title="Budget" allow="clipboard-write"></iframe>
+
+<div class="screen" id="splash">
+  <img src="icon-192.png" alt="">
+  <h1>Budget</h1>
+  <div class="dots"><i></i><i></i><i></i></div>
+  <div id="slow" class="row" hidden style="margin-top:18px">
+    <div class="muted" style="width:100%">Le chargement est long ?</div>
+    <a class="btn ghost" id="openBrowser" target="_blank" rel="noopener">Ouvrir dans Chrome</a>
+    <button class="ghost" onclick="showSetup()">Changer l'adresse</button>
+  </div>
+</div>
+
+<div class="screen" id="setup" hidden>
+  <img src="icon-192.png" alt="">
+  <h1>Bienvenue dans Budget</h1>
+  <div class="muted">Collez l'adresse de votre appli (dans l'appli : <b>Plus › Mes préférences › Installer l'appli › Copier l'adresse</b>).
+    Elle commence par https://script.google.com/macros/s/…</div>
+  <input id="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" inputmode="url">
+  <div class="err" id="err" hidden>Adresse invalide : elle doit commencer par https://script.google.com/ et finir par /exec</div>
+  <button onclick="saveUrl()">Ouvrir l'appli</button>
+</div>
+
+<div class="screen" id="offline" hidden>
+  <img src="icon-192.png" alt="">
+  <h1>Hors connexion</h1>
+  <div class="muted">Budget a besoin d'internet pour lire et enregistrer vos données dans Google Sheets.</div>
+  <button onclick="location.reload()">Réessayer</button>
+</div>
+
+<script>
+  var KEY = 'budget.appUrl';
+  var $ = function (id) { return document.getElementById(id); };
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[\w-]+\/(exec|dev)(\?.*)?$/.test(u || ''); }
+  function get() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function showSetup() {
+    $('splash').hidden = true; $('setup').hidden = false;
+    $('url').value = get() || '';
+  }
+  function saveUrl() {
+    var u = $('url').value.trim();
+    if (!valid(u)) { $('err').hidden = false; return; }
+    try { localStorage.setItem(KEY, u.replace(/\?.*$/, '')); } catch (e) {}
+    location.replace(location.pathname);
+  }
+  function start() {
+    var qs = new URLSearchParams(location.search);
+    if (valid(qs.get('app'))) { try { localStorage.setItem(KEY, qs.get('app').replace(/\?.*$/, '')); } catch (e) {} }
+    var u = get();
+    if (location.hash === '#config' || !valid(u)) return showSetup();
+    if (!navigator.onLine) { $('splash').hidden = true; $('offline').hidden = false; return; }
+    var src = u + (qs.get('saisie') ? '?saisie=1' : '');
+    $('openBrowser').href = src;
+    var app = $('app');
+    app.addEventListener('load', function () { setTimeout(function () { $('splash').hidden = true; }, 250); });
+    app.src = src;
+    setTimeout(function () { $('slow').hidden = false; }, 9000);
+    setTimeout(function () { $('splash').hidden = true; }, 15000);
+  }
+  // L'appli envoie son thème (clair / sombre) : la barre d'état du téléphone suit.
+  window.addEventListener('message', function (e) {
+    if (!e.data || !e.data.budgetTheme || !/^#[0-9a-f]{6}$/i.test(e.data.color)) return;
+    document.querySelector('meta[name=theme-color]').setAttribute('content', e.data.color);
+    document.documentElement.style.background = document.body.style.background = e.data.color;
+    $('app').style.background = e.data.color;
+  });
+  window.addEventListener('offline', function () { /* l'appli affiche ses propres messages */ });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+  start();
+</script>
+</body>
+</html>

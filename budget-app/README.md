@@ -1,4 +1,4 @@
-# 💶 Gestion de Budget — web app Google Drive · v0.6.0 (test)
+# 💶 Gestion de Budget — web app Google Drive · v0.7.0 (test)
 
 Appli mobile/ordinateur pour gérer le budget du foyer à plusieurs.
 Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
@@ -16,13 +16,16 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
    - vous déclare **administrateur**,
    - crée le fichier **« Budget — Sauvegardes »** dans votre Drive,
    - installe la sauvegarde de nuit.
-4. **Déployer → Nouveau déploiement → Application Web**, description `v0.6.0` :
+4. **Déployer → Nouveau déploiement → Application Web**, description `v0.7.0` :
    - Exécuter en tant que : **Utilisateur accédant à l'application Web**
    - Qui a accès : **Tout utilisateur disposant d'un compte Google**
 5. Dans l'appli : **Plus → Utilisateurs & accès → Ajouter** votre femme (adresse Gmail, nom, rôle, couleur).
    La Sheet et le fichier de sauvegarde lui sont **partagés automatiquement**. Envoyez-lui l'URL de l'appli.
 6. Sur chaque smartphone : ouvrir l'URL → **Ajouter à l'écran d'accueil**.
 
+> **Passage en v0.7.0** : recollez les 3 fichiers (le manifeste retire Google Tasks), nouvelle version de déploiement,
+> puis installez l'appli sur les téléphones : voir [`pwa/README.md`](pwa/README.md).
+>
 > **Passage en v0.6.0** : recollez `appsscript.json` (service Google Tasks) et relancez `setup`, puis chacun active
 > la saisie vocale dans Plus › Mes préférences.
 >
@@ -88,4 +91,4 @@ Toutes les actions (ajout, modification avec valeur précédente, suppression, p
 sauvegardes, utilisateurs…) sont tracées dans la feuille `Journal`, consultable dans **Plus → Journal**.
 
 ## Versionnage
-Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.6.0 — test**.
+Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.7.0 — test**.

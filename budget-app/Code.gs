@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.6.0';
+var APP_VERSION = '0.7.0';
 var APP_STAGE = 'test';
 
 var SH = {
@@ -135,7 +135,10 @@ function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Budget v' + APP_VERSION)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .setFaviconUrl('https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico');
+    .setFaviconUrl('https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico')
+    // Autorise l'affichage dans l'appli installée (PWA « Budget », sans barre de navigateur).
+    // Les données restent protégées : il faut être connecté avec un compte autorisé.
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function onOpen() {
@@ -609,177 +612,17 @@ function deleteAttente(id) {
 }
 
 /* ================================================================== */
-/* Saisie vocale : « Hey Google » → Google Tasks → mouvement             */
+/* Saisie vocale : supprimée en v0.7.0                                  */
 /* ================================================================== */
-/*
- * Sur le téléphone : « Hey Google, ajoute une tâche : budget 45 euros Leclerc ».
- * L'assistant crée une tâche dans Google Tasks. Toutes les 5 minutes, un déclencheur
- * (installé par chaque utilisateur depuis l'appli, il s'exécute avec SON compte) lit ses tâches,
- * crée les mouvements reconnus (marqués « dicté, à vérifier ») et coche les tâches traitées.
- * Tâches prises en compte : celles de la liste « Budget », ou dont le texte commence par
- * budget / dépense / achat / payé / entrée / reçu / retrait.
+
+/**
+ * Ancien déclencheur de la saisie vocale (v0.6.0). S'il existe encore sur le compte d'un utilisateur,
+ * il se supprime lui-même à sa prochaine exécution.
  */
-var VOICE_PREFIX = /^(budget|depense|achat|paye|payer|entree|recu|recette|retrait|epargne)\b/;
-var VOICE_KEYWORDS = {
-  'alimentaire': ['courses', 'leclerc', 'carrefour', 'auchan', 'intermarche', 'lidl', 'aldi', 'spar', 'casino', 'boulangerie', 'supermarche', 'epicerie', 'drive', 'marche', 'coccinelle'],
-  'carburant': ['essence', 'gasoil', 'gazole', 'diesel', 'station', 'plein', 'total', 'esso', 'carbu'],
-  'resto': ['restaurant', 'pizza', 'pizzeria', 'mcdo', 'mcdonald', 'brasserie', 'kebab', 'sushi', 'burger', 'traiteur'],
-  'loisirs': ['cinema', 'cine', 'sport', 'jeu', 'jouet', 'concert', 'yoga', 'padel', 'sortie'],
-  'voyage / vacances': ['voyage', 'vacances', 'hotel', 'avion', 'billet', 'location', 'ski', 'airbnb'],
-  'electricite': ['edf', 'electricite', 'engie'],
-  'eau': ['eau'],
-  'impots': ['impot', 'impots', 'taxe'],
-  'abonnements': ['abonnement', 'netflix', 'spotify', 'disney', 'orange', 'sfr', 'free', 'bouygues', 'youtube'],
-  'epargne': ['epargne', 'livret'],
-  'scolarite': ['ecole', 'cantine', 'scolarite', 'college', 'lycee', 'fournitures'],
-  'salaires': ['salaire', 'paie', 'paye'],
-  'remboursements medicaux': ['cpam', 'secu', 'mutuelle'],
-  'vehicules': ['vidange', 'garage', 'pneu', 'pneus', 'controle technique', 'entretien', 'reparation'],
-  'divers': ['amazon', 'pharmacie', 'divers', 'temu', 'shein', 'vinted']
-};
-var VOICE_STOP = ['budget', 'depense', 'achat', 'paye', 'payer', 'entree', 'recu', 'recette', 'de', 'du', 'des', 'le', 'la', 'les', 'un', 'une',
-  'pour', 'chez', 'a', 'au', 'aux', 'en', 'et', 'euros', 'euro', 'eur', 'centimes', 'ajoute', 'ajouter', 'mouvement', 'tache'];
-
-/** Analyse une phrase dictée → { montant, libelleId, sens, description, vehiculeId, compteId }. */
-function parseVoice_(text, me) {
-  var t = String(text || '').trim();
-  var out = { montant: null, libelleId: '', sens: '', description: '', vehiculeId: '', compteId: '' };
-  var m = t.match(/(-?\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?|eur\b)?(?:\s*(?:et\s*)?(\d{1,2})(?:\s*centimes?)?)?/i);
-  var rest = t;
-  if (m) {
-    var v = parseFloat(m[1].replace(',', '.'));
-    if (m[2] && !/[.,]/.test(m[1])) v += parseInt(m[2], 10) / 100;
-    out.montant = Math.round(Math.abs(v) * 100) / 100;
-    rest = t.replace(m[0], ' ');
-  }
-  var n = ' ' + norm_(rest).replace(/[^a-z0-9\/ ]/g, ' ') + ' ';
-  if (/ (recu|entree|rentree|recette|rembourse|remboursement|retrait) /.test(n)) out.sens = 'entree';
-  var libs = readTable_(SH.LIB).filter(function (l) { return l.actif; });
-  var best = null;
-  libs.forEach(function (l) {
-    var ln = norm_(l.nom), stem = ln.replace(/s$/, '');
-    if ((n.indexOf(' ' + ln + ' ') >= 0 || (stem.length > 3 && n.indexOf(' ' + stem) >= 0)) && (!best || ln.length > norm_(best.nom).length)) best = l;
-  });
-  if (!best) {
-    Object.keys(VOICE_KEYWORDS).some(function (k) {
-      if (VOICE_KEYWORDS[k].some(function (w) { return n.indexOf(' ' + w) >= 0; })) {
-        best = libs.filter(function (l) { return norm_(l.nom) === k; })[0] || null;
-      }
-      return !!best;
-    });
-  }
-  if (!best) {
-    // descriptions déjà utilisées (les plus récentes d'abord)
-    var mv = readTable_(SH.MVT).slice(-600).reverse();
-    mv.some(function (x) {
-      var d = norm_(x.description);
-      if (d.length > 2 && n.indexOf(' ' + d) >= 0) { best = libs.filter(function (l) { return l.id === x.libelleId; })[0] || null; }
-      return !!best;
-    });
-  }
-  readTable_(SH.VEH).filter(function (v) { return v.actif; }).forEach(function (v) { if (n.indexOf(' ' + norm_(v.nom)) >= 0) out.vehiculeId = v.id; });
-  try { comptes_(me).forEach(function (c) { if (n.indexOf(' ' + norm_(c.nom)) >= 0) out.compteId = c.id; }); } catch (e) {}
-  if (out.compteId && (!best || !best.parCompte)) {
-    var want = out.sens === 'entree' ? 'retrait epargne' : 'epargne';
-    best = libs.filter(function (l) { return norm_(l.nom) === want; })[0] || best;
-  }
-  if (out.vehiculeId && !best) best = libs.filter(function (l) { return norm_(l.nom) === 'vehicules'; })[0] || null;
-  if (best) { out.libelleId = best.id; out.sens = best.sens; }
-  var words = rest.split(/\s+/).filter(function (w) {
-    var nw = norm_(w).replace(/[^a-z0-9]/g, '');
-    if (!nw || VOICE_STOP.indexOf(nw) >= 0) return false;
-    if (best && nw === norm_(best.nom).replace(/[^a-z0-9]/g, '')) return false;
-    return true;
-  });
-  out.description = words.join(' ').replace(/^\w/, function (c) { return c.toUpperCase(); });
-  return out;
-}
-
-/** Crée un mouvement à partir d'une phrase dictée (libellé « Divers » si non reconnu). */
-function voiceToMovement_(me, text) {
-  var q = parseVoice_(text, me);
-  if (!q.montant) return null;
-  var lib = q.libelleId ? findBy_(SH.LIB, 'id', q.libelleId) : null;
-  if (!lib) {
-    lib = readTable_(SH.LIB).filter(function (l) { return l.actif && norm_(l.nom) === (q.sens === 'entree' ? 'entrees exceptionnelles' : 'divers'); })[0];
-    if (!lib) return null;
-  }
-  var today = nowIso_().substring(0, 10);
-  var mois = lib.moisSuivant ? shiftMonth_(today.substring(0, 7), 1) : today.substring(0, 7);
-  var m = { date: today, mois: mois, libelleId: lib.id, description: q.description || lib.nom, montant: q.montant,
-    vehiculeId: lib.parVehicule ? q.vehiculeId : '', source: 'vocal' };
-  if (lib.parCompte && q.compteId) m.compteId = q.compteId;
-  return saveMouvementAs_(me, m, null).mouvement;
-}
-
-/** Déclencheur (toutes les 5 min, propre à chaque utilisateur) : traite ses tâches Google Tasks. */
 function voiceCheck() {
-  _memo = { tables: {}, headers: {}, sheets: {} };
-  var email = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
-  var me = findBy_(SH.USERS, 'email', email);
-  if (!me || !me.actif || ROLES[me.role] < ROLES.editeur) return { traites: 0, erreurs: 0 };
-  return withLock_(function () { return processVoiceTasks_(me); });
-}
-
-/** Bouton « Traiter maintenant » dans l'appli. */
-function voiceCheckNow() {
-  var me = ctx_(ROLES.editeur);
-  return withLock_(function () { return processVoiceTasks_(me); });
-}
-
-function processVoiceTasks_(me) {
-  var res = { traites: 0, erreurs: 0, mouvements: [] };
-  var lists = (Tasks.Tasklists.list({ maxResults: 100 }).items || []);
-  lists.forEach(function (tl) {
-    var isBudgetList = norm_(tl.title) === 'budget';
-    var tasks = Tasks.Tasks.list(tl.id, { showCompleted: false, showHidden: false, maxResults: 100 }).items || [];
-    tasks.forEach(function (tk) {
-      var title = String(tk.title || '').trim();
-      if (!title || /^⚠️/.test(title)) return;
-      var nt = norm_(title);
-      if (!isBudgetList && !VOICE_PREFIX.test(nt)) return;
-      var mv = null;
-      try { mv = voiceToMovement_(me, title); } catch (e) { mv = null; }
-      if (mv) {
-        var lib = findBy_(SH.LIB, 'id', mv.libelleId);
-        Tasks.Tasks.patch({ status: 'completed', notes: 'Ajouté au budget : ' + (lib ? lib.nom : '') + ' — ' + fmtEur_(mv.montant) + ' (' + mv.mois + ')' }, tl.id, tk.id);
-        res.traites++;
-        res.mouvements.push(mv);
-      } else {
-        Tasks.Tasks.patch({ title: '⚠️ ' + title, notes: 'Budget : montant non compris. Ajoutez le mouvement dans l\'appli, puis supprimez cette tâche.' }, tl.id, tk.id);
-        res.erreurs++;
-      }
-    });
-  });
-  if (res.traites || res.erreurs) {
-    log_(me, 'Saisie vocale', 'Mouvements', res.traites + ' ajouté(s)' + (res.erreurs ? ', ' + res.erreurs + ' non compris' : ''));
-  }
-  return res;
-}
-
-/** Active / désactive la saisie vocale pour l'utilisateur courant (déclencheur à son nom). */
-function setVoice(on) {
-  var me = ctx_(ROLES.editeur);
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'voiceCheck') ScriptApp.deleteTrigger(t);
   });
-  if (on) {
-    Tasks.Tasklists.list({ maxResults: 1 }); // vérifie l'accès à Google Tasks (autorisation)
-    ScriptApp.newTrigger('voiceCheck').timeBased().everyMinutes(5).create();
-  }
-  return withLock_(function () {
-    var u = findBy_(SH.USERS, 'email', me.email);
-    var pr = parsePrefs_(u.prefs); pr.voice = !!on; u.prefs = JSON.stringify(pr);
-    upsert_(SH.USERS, u, 'email');
-    CacheService.getScriptCache().remove('users');
-    log_(me, on ? 'Activation' : 'Désactivation', 'Saisie vocale', me.nom);
-    return !!on;
-  });
-}
-
-function voiceStatus() {
-  ctx_(ROLES.editeur);
-  return ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'voiceCheck'; });
 }
 
 /* ================================================================== */
@@ -972,12 +815,32 @@ function readCompte_(id) {
   };
 }
 
+/**
+ * Lecture d'un compte avec cache serveur (10 min), vidé à chaque modification.
+ * Le cache n'est jamais renvoyé sans le contrôle de visibilité de publicCompte_.
+ */
+function compteCached_(id) {
+  var cache = CacheService.getScriptCache(), k = 'cpt_' + id;
+  var hit = cache.get(k);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var x = readCompte_(id);
+  if (!x) return null;
+  var o = { id: x.id, nom: x.nom, emoji: x.emoji, soldeRef: x.soldeRef, dateRef: x.dateRef, visibles: x.visibles,
+    ordre: x.ordre, imputations: x.imputations, url: x.file.getUrl() };
+  try { cache.put(k, JSON.stringify(o), 600); } catch (e) { /* trop volumineux : pas de cache */ }
+  return o;
+}
+
+function uncacheComptes_() {
+  try { CacheService.getScriptCache().removeAll(compteFiles_().map(function (c) { return 'cpt_' + c.id; })); } catch (e) {}
+}
+
 /** Comptes visibles par `me` (l'administrateur voit tout). */
 function comptes_(me) {
   if (!_comptes) {
     _comptes = [];
     compteFiles_().forEach(function (c) {
-      var x = readCompte_(c.id);
+      var x = compteCached_(c.id);
       if (x) _comptes.push(x);
     });
   }
@@ -993,7 +856,7 @@ function canSeeCompte_(c, email) {
 function publicCompte_(c, me) {
   if (!canSeeCompte_(c, me.email)) return null;
   var o = { id: c.id, nom: c.nom, emoji: c.emoji, soldeRef: c.soldeRef, dateRef: c.dateRef, ordre: c.ordre, imputations: c.imputations };
-  if (me.role === 'admin') { o.visibles = c.visibles; o.url = c.file.getUrl(); }
+  if (me.role === 'admin') { o.visibles = c.visibles; o.url = c.url || (c.file ? c.file.getUrl() : ''); }
   return o;
 }
 
@@ -1062,6 +925,7 @@ function saveCompte(c) {
     });
     if (c.id) f.rename('Budget — Épargne · ' + nom);
     shareCompte_(f, visibles);
+    uncacheComptes_();
     _comptes = null;
     // Journal volontairement sans nom ni montant (il est lisible par tous les utilisateurs).
     log_(me, c.id ? 'Modification' : 'Création', 'Compte d\'épargne', 'détails confidentiels');
@@ -1078,6 +942,7 @@ function deleteCompte(id) {
     if (x) { x.file.rename('[Archivé] Budget — Épargne · ' + x.nom); shareCompte_(x.file, []); }
     reg.actif = false;
     upsert_(SH.CPT, reg);
+    uncacheComptes_();
     _comptes = null;
     log_(me, 'Archivage', 'Compte d\'épargne', 'détails confidentiels');
     return comptes_(me);
@@ -1107,6 +972,7 @@ function setImputation_(me, compteId, kind, refId) {
     if (!target) throw new Error('Compte d\'épargne inaccessible');
     target.file.getSheetByName('Imputations').appendRow([kind, refId, me.email, nowIso_()]);
   }
+  uncacheComptes_();
   _comptes = null;
 }
 
@@ -1128,6 +994,7 @@ function migrateEpargne_(adminEmail) {
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
   invalidate_(SH.EPARGNE);
   setConfig_('mig050_epargne', nowIso_());
+  uncacheComptes_();
   _comptes = null;
   appendJournal_(adminEmail, 'Migration v0.5.0', 'Épargne', old.length + ' compte(s) passés en fichiers privés (visibles par l\'administrateur uniquement)');
 }
@@ -1164,6 +1031,14 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '0.7.0', titre: 'Une vraie appli sur votre Pixel', items: [
+    'Appli installable : icône sur l\'écran d\'accueil, plein écran, sans barre de navigateur (voir Plus › Mes préférences › Installer l\'appli).',
+    'Ouverture instantanée : les dernières données s\'affichent tout de suite, puis se mettent à jour.',
+    'Gestes : tirez vers le bas pour actualiser, glissez à gauche / à droite pour changer de mois, glissez une fiche vers le bas pour la fermer.',
+    'Le bouton retour du téléphone ferme les fiches et les pages ouvertes.',
+    'Présentation retravaillée pour le smartphone : navigation plus lisible, zones tactiles plus grandes.',
+    'Commande vocale « Hey Google » retirée (reconnaissance pas assez fiable). La saisie rapide au clavier reste disponible.'
+  ] },
   { v: '0.6.0', titre: 'Commande vocale « Hey Google »', items: [
     'Dites « Hey Google, ajoute une tâche : budget 45 euros Leclerc » : le mouvement est ajouté au budget automatiquement (en quelques minutes).',
     'À activer une fois par chacun : Plus › Mes préférences › Saisie vocale.',
