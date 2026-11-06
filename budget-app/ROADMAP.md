@@ -2,52 +2,55 @@
 
 Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
-## Prochaine version (v1.2.0) — retours du 06/11/2026 · *pas de déploiement avant le feu vert*
+## v1.2.0 — retours du 06/11/2026 (livrée, sauf notifications → v1.3.0)
 
 Décisions validées sur maquettes : **navigation A** (5 onglets Synthèse · Mouvements · Budget · Épargne · Plus en icônes,
 bouton + surélevé au centre de la barre, onglet actif sur fond clair) ; **écran d'accueil asservi au thème**
 (noir en sombre, crème en clair) ; **vraies notifications** (Web Push depuis Apps Script, prototype à valider sur Pixel,
 livrées dans une version séparée v1.3.0).
 
-- [ ] **IMPORTANT — rigueur typographique et géométrique** (priorité n° 1)
+- [x] **IMPORTANT — rigueur typographique et géométrique** (priorité n° 1)
   - grille d'espacement unique (multiples de 4 px) pour marges, écarts entre tuiles et paddings ;
   - alignement optique du texte dans les formes : pilules, puces, pastilles d'initiales, boutons ronds, icônes
     (centrage vertical réel selon la police, hauteur de ligne fixée, chiffres tabulaires partout) ;
   - échelle typographique limitée (5–6 tailles max) avec graisses cohérentes ; rayons d'angle cohérents
     (rayon intérieur = rayon extérieur − marge) ;
   - vérification écran par écran à fort zoom (Pixel et PC), avant / après.
-- [ ] **Contenu des tuiles mieux centré / mieux réparti** : hauteur des tuiles d'une même rangée harmonisée,
+- [x] **Contenu des tuiles mieux centré / mieux réparti** : hauteur des tuiles d'une même rangée harmonisée,
   contenu réparti verticalement (titre en haut, chiffre clé au centre, détail en bas), plus de vide en bas de tuile.
-- [ ] **Moins d'informations d'un coup sur les pages** (sauf la Synthèse, jugée impeccable) :
+- [x] **Moins d'informations d'un coup sur les pages** (sauf la Synthèse, jugée impeccable) :
   Mouvements, Enveloppes, Fixes, Plus → un résumé court en tête, détails repliés ou accessibles en un appui,
   moins d'étiquettes par ligne (garder l'essentiel : libellé, montant, personne), aides et textes explicatifs masqués.
-- [ ] **Synthèse & répartition** : supprimer le mot « détail » ; l'appui sur la ligne d'un groupe ouvre son détail
+- [x] **Synthèse & répartition** : supprimer le mot « détail » ; l'appui sur la ligne d'un groupe ouvre son détail
   (le chevron seul sert à déplier / replier les libellés).
-- [ ] **« À pointer » plus intelligent** : ouvrir la liste directement au bon endroit — au jour qui suit le dernier
+- [x] **« À pointer » plus intelligent** : ouvrir la liste directement au bon endroit — au jour qui suit le dernier
   mouvement pointé (là où le pointage s'est arrêté), sinon autour de la date du jour ; mouvements futurs repliés.
-- [ ] **Glissement gauche / droite plus fiable** : seuils de détection revus (vitesse + distance), pas de conflit
+- [x] **Glissement gauche / droite plus fiable** : seuils de détection revus (vitesse + distance), pas de conflit
   avec le défilement vertical ni les listes horizontales, l'écran suit le doigt et la page voisine apparaît
   pendant le geste ; tests sur Pixel réel.
-- [ ] **Écran d'accueil « Bonjour Guillaume » / « Bonjour Elise »** à l'ouverture (téléphone et PC) :
+- [x] **Écran d'accueil « Bonjour Guillaume » / « Bonjour Elise »** à l'ouverture (téléphone et PC) :
   fond noir aux couleurs du thème, prénom de l'utilisateur connecté, courte animation pendant le chargement
   (remplace l'écran de chargement actuel, ne rallonge pas l'ouverture).
-- [ ] **Conseil du jour calibré sur les habitudes** :
+- [x] **Conseil du jour calibré sur les habitudes** :
   - ne s'appuyer que sur les **dépenses ponctuelles** (les fixes et prélèvements sont exclus) ;
   - apprendre le rythme de chaque libellé / commerçant sur les mois précédents (ex. fréquence des pleins de
     carburant, restos habituels) et ne signaler que ce qui sort de l'habitude
     (« 3ᵉ resto ce mois-ci, d'habitude 1 », « plein plus tôt que d'habitude ») ;
   - rythme de dépense comparé au même jour des mois précédents plutôt qu'à une moyenne linéaire.
-- [ ] **Épargne dans un onglet dédié** — proposition à valider :
+- [x] **Épargne dans un onglet dédié** — proposition à valider :
   barre du bas = **Synthèse · Mouvements · Budget · Épargne · Plus**, où « Budget » regroupe Enveloppes et Fixes
   (deux sous-onglets) ; l'onglet Épargne regroupe les comptes, soldes, évolution et imputations
   (visible seulement pour les comptes autorisés ; masqué pour un utilisateur sans compte autorisé).
-- [ ] **Notifications paramétrables** (par utilisateur, dans Préférences) :
+- [ ] **Notifications paramétrables** *(v1.3.0, vraie notification Web Push)* (par utilisateur, dans Préférences) :
   - rappel de saisie (ex. le soir si rien n'a été saisi depuis X jours, heure et fréquence au choix) ;
   - alertes budget (enveloppe à 80 % / dépassée, reste à vivre bas, rythme de dépense trop rapide) ;
   - à étudier : canal de diffusion — notifications du téléphone via l'appli installée (nécessite un service
     d'envoi « push »), ou e-mail (notification Gmail sur le Pixel), ou application de notifications dédiée ;
     choisir la solution la plus fiable sans exposer de données (contenu des notifications sans montant si besoin).
-- [ ] **Couleur du thème au choix** : remplacer l'accent actuel (vert citron, et le jaune du « Conseil du jour »)
+- [x] **Jour de paye paramétrable** (il peut varier d'un mois sur l'autre) : jour habituel, option « avancé si
+  week-end », et date réelle modifiable pour un mois donné ; la période de budget va d'une paye à la suivante,
+  ce qui donne le vrai décompte des jours restants (reste à vivre par jour, avancement du mois, conseils).
+- [x] **Couleur du thème au choix** : remplacer l'accent actuel (vert citron, et le jaune du « Conseil du jour »)
   par une couleur choisie dans une palette (citron, menthe, corail, lavande, ciel, ambre…) ; réglage par
   utilisateur, appliqué au clair comme au sombre, contrastes vérifiés automatiquement.
 

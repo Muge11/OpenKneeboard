@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.1.1';
+var APP_VERSION = '1.2.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -231,6 +231,7 @@ function data_(me) {
     enveloppes: readTable_(SH.ENV),
     vehicules: readTable_(SH.VEH),
     reperes: getConfig_('reperes'),
+    paie: getConfig_('paie'),
     sheetUrl: SpreadsheetApp.getActive().getUrl(),
     appUrl: (function () { try { return ScriptApp.getService().getUrl(); } catch (e) { return ''; } })(),
     lastBackup: props.getProperty('lastBackup') || ''
@@ -752,6 +753,28 @@ function saveVehicule(v) {
 /* Repères budgétaires (conseils)                                        */
 /* ================================================================== */
 
+/**
+ * Jour de paye du foyer : { jour: 1-31 (vide = mois calendaire), weekend: avancer au vendredi,
+ * mois: { 'AAAA-MM' (mois de budget financé) : 'AAAA-MM-JJ' (date réelle de la paye) } }.
+ */
+function savePaie(paie) {
+  var me = ctx_(ROLES.editeur);
+  paie = paie || {};
+  var jour = parseInt(paie.jour, 10);
+  var out = { jour: jour >= 1 && jour <= 31 ? jour : '', weekend: !!paie.weekend, mois: {} };
+  Object.keys(paie.mois || {}).forEach(function (m) {
+    var d = String(paie.mois[m] || '');
+    if (/^\d{4}-\d{2}$/.test(m) && /^\d{4}-\d{2}-\d{2}$/.test(d)) out.mois[m] = d;
+  });
+  var json = JSON.stringify(out);
+  if (json.length > 20000) throw new Error('Trop de dates de paye');
+  return withLock_(function () {
+    setConfig_('paie', json);
+    log_(me, 'Modification', 'Jour de paye', json.substring(0, 300));
+    return json;
+  });
+}
+
 function saveReperes(reperes) {
   var me = ctx_(ROLES.admin);
   var json = JSON.stringify(reperes || {});
@@ -1067,6 +1090,17 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.2.0', titre: 'Plus clair, plus personnel', items: [
+    'Écran d\'accueil « Bonjour » à l\'ouverture, aux couleurs de votre thème.',
+    'Nouvelle barre : Synthèse, Mouvements, Budget (enveloppes et fixes), Épargne, Plus — et le bouton + au centre.',
+    'L\'épargne a son propre onglet.',
+    'Jour de paye réglable (et modifiable pour un mois donné) : le décompte des jours restants suit vos payes.',
+    'Conseil du jour calé sur vos habitudes, uniquement sur les dépenses ponctuelles.',
+    'À pointer : la liste reprend là où vous vous êtes arrêté.',
+    'Pages allégées, tuiles mieux équilibrées, textes mieux alignés.',
+    'Glisser d\'une page à l\'autre plus fiable.',
+    'Couleur du thème au choix dans Mes préférences.'
+  ] },
   { v: '1.1.1', titre: 'Animations et effet 3D', items: [
     'Sur le téléphone, glisser vers la gauche ou la droite change maintenant de page (Synthèse, Mouvements, Enveloppes, Fixes, Plus). Le mois se change avec les flèches ou en touchant son nom.',
     'Changements de page animés, avec un léger effet de perspective, et tuiles qui apparaissent une à une.',

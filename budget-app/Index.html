@@ -10,6 +10,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('budget.theme') || 'dark';
+      if (t === 'auto') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      var a = JSON.parse(localStorage.getItem('budget.accent') || 'null');
+      if (a) for (var k in a) document.documentElement.style.setProperty(k, a[k]);
+    } catch (e) {}
+  })();
+</script>
 <style>
   /* Thème sombre (par défaut) ; thème clair via html[data-theme="light"] (préférence de chaque utilisateur). */
   /* Direction « Bento » : sombre chaud par défaut, clair crème via html[data-theme="light"]. */
@@ -506,7 +517,7 @@
     color: #8f897c; font-size: 13px; font-weight: 800; transition: flex-grow .2s, background .2s; }
   nav .pill { width: auto; height: auto; background: none !important; }
   nav .tl { display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  nav button.on { flex: 3.4 1 0; background: #c8f169; color: #1a1916; padding: 0 10px; }
+  nav button.on { flex: 3.4 1 0; background: var(--acc); color: #1a1916; padding: 0 10px; }
   nav button.on svg { color: #1a1916; }
   nav button.on .tl { display: inline; }
   .fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); width: 62px; height: 62px; border-radius: 50%;
@@ -549,7 +560,7 @@
   .t.hero .big.neg { color: #ff8a6a; }
   .t.hero .chips2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; position: relative; z-index: 1; }
   .pchip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 10px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
-  .pchip.lime { background: #c8f169; color: #1a1916; } .pchip.red { background: #ff8a6a; color: #1a1916; } .pchip.ghost { background: rgba(255, 255, 255, .1); color: #e8e3d8; }
+  .pchip.lime { background: var(--acc); color: var(--acc-ink); } .pchip.red { background: #ff8a6a; color: #1a1916; } .pchip.ghost { background: rgba(255, 255, 255, .1); color: #e8e3d8; }
   .t.hero .spark { position: absolute; right: 10px; top: 16px; width: 44%; max-width: 230px; height: 66px; }
   .t.hero .spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
   .t.hero .sdot { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #c8f169; border: 2px solid #1a1916; }
@@ -604,7 +615,7 @@
     nav button:hover { color: var(--text); background: var(--surface-2); }
     nav button.on:hover { color: var(--bg); }
     .fab { top: 72px; left: 14px !important; right: auto !important; bottom: auto; width: 204px; height: 50px; border-radius: 16px;
-      background: #c8f169 !important; color: #1a1916 !important; font-weight: 800; font-size: 14px; box-shadow: none; justify-content: flex-start; gap: 8px; padding: 0 16px; white-space: nowrap; }
+      background: var(--acc) !important; color: var(--acc-ink) !important; font-weight: 800; font-size: 14px; box-shadow: none; justify-content: flex-start; gap: 8px; padding: 0 16px; white-space: nowrap; }
     .toast { bottom: 28px; }
     .bento { grid-template-columns: 1.5fr 1fr 1fr; grid-template-areas: "hero ent sor" "hero tip tip" "rep env env"; column-span: all; -webkit-column-span: all; margin-bottom: 18px; gap: 12px; }
     .bento .hero { grid-area: hero; } .bento .sage { grid-area: ent; } .bento .peach { grid-area: sor; }
@@ -667,7 +678,136 @@
   @keyframes tileIn { from { opacity: 0; transform: perspective(900px) translateY(22px) rotateX(14deg) scale(.97); } }
   @keyframes tlIn { from { opacity: 0; transform: translateX(-6px); } }
   @keyframes draw { from { opacity: 0; transform: translateY(10px); } }
-  #view { transform-origin: 50% 30%; }
+  #view { transform-origin: 50% 30%; touch-action: pan-y pinch-zoom; }
+
+
+  /* ================= v1.2.0 ================= */
+  /* Couleur d'accent au choix : --acc (fond), --tip / --tip-t (tuile Conseil). Valeurs par défaut = citron. */
+  :root { --acc: #c8f169; --acc-ink: #1a1916; --tip: #34301c; --tip-t: #d9c77c; --tip-p: #f1e7bd; }
+  html[data-theme="light"] { --tip: #f6e7a8; --tip-t: #6b5a17; --tip-p: #1a1916; }
+  .t.butter { background: var(--tip); } .t.butter .k { color: var(--tip-t); }
+  .t.tipt p, html:not([data-theme="light"]) .t.tipt p { color: var(--tip-p); }
+  .pchip.lime, nav button.on, .badge-new, html[data-theme="light"] .badge-new { background: var(--acc); color: var(--acc-ink); }
+  .t.hero .mprog b, .t.hero .sdot { background: var(--acc); }
+  html:not([data-theme="light"]) .bar > span { background: var(--acc); }
+  html:not([data-theme="light"]) :root, html:not([data-theme="light"]) { --accent: var(--acc); --accent-text: var(--acc); --lime: var(--acc); }
+
+  /* Rigueur : hauteurs fixes et centrage géométrique des pastilles, puces et boutons */
+  .chip, .pchip, .tag, .badge-new, .seg button, .btn, nav button, .who, .check, header .month b { line-height: 1; }
+  .chip { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px; }
+  .pchip { height: 24px; padding: 0 10px; }
+  .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; }
+  .who { display: inline-flex; align-items: center; gap: 4px; height: 16px; }
+  .who i { width: 16px; height: 16px; flex: none; padding-top: 1px; }
+  .seg button { height: 40px; padding: 0 8px; display: flex; align-items: center; justify-content: center; }
+  .btn { min-height: 48px; padding: 0 20px; }
+  .btn.sm { min-height: 36px; padding: 0 14px; }
+  header .month { display: flex; align-items: center; height: 44px; padding: 0 20px; }
+  header .month b { display: inline; }
+  header button { width: 44px; height: 44px; }
+  .emo { width: 44px; height: 44px; border-radius: 16px; font-size: 20px; line-height: 1; }
+  .item { gap: 12px; padding: 12px 0; }
+  .item .title { font-size: 15px; line-height: 20px; }
+  .item .meta { font-size: 12px; line-height: 16px; margin-top: 4px; gap: 4px 8px; }
+  .item .amt { font-size: 15px; line-height: 20px; }
+  .card { padding: 16px; }
+  .card h2, .h2 { font-size: 11px; line-height: 16px; margin-bottom: 12px; }
+  .fold > .fh { min-height: 24px; }
+  .day { padding: 16px 0 4px; line-height: 16px; }
+
+  /* Tuiles : contenu réparti (titre en haut, chiffre, détail calé en bas) */
+  .bento { gap: 12px; }
+  .bento .t { display: flex; flex-direction: column; padding: 16px; }
+  .bento .k { height: 24px; line-height: 24px; }
+  .bento .corner { top: 15px; right: 14px; width: 26px; height: 26px; }
+  .bento .v { margin-top: 4px; line-height: 1.1; }
+  .bento .t > .vs { margin-top: auto; }
+  .bento .t.sage .v, .bento .t.peach .v { margin-bottom: 12px; }
+  .bento .t > .s:last-child { margin-top: 8px; }
+  .bento .donut { flex: 1; margin: 8px 0; }
+  .bento .env3 > .s:last-child { margin-top: auto; padding-top: 8px; }
+  .bento .tipt p { margin-top: 4px; }
+
+  /* Navigation A : 5 onglets en icônes, bouton + surélevé au centre */
+  nav { right: 12px; padding: 6px; justify-content: space-between; }
+  nav button { flex: 1 1 0; }
+  nav button.on { flex: 1 1 0; padding: 0; background: transparent; color: #1a1916; }
+  nav button.on .tl { display: none; }
+  nav button.on .pill { background: #f4f1ea !important; width: 56px; height: 46px; border-radius: 999px; display: grid; place-items: center; }
+  /* Trou du bouton + toujours au centre de l'écran : les deux côtés de la barre ont la même largeur. */
+  nav[data-n="5"] > button:nth-of-type(-n+2) { flex-grow: 1.5; }
+  [hidden] { display: none !important; }
+  header button[hidden] { display: grid !important; visibility: hidden; }
+  nav .navgap { flex: none; width: 72px; }
+  .fab { left: 50%; right: auto; translate: -50% 0; bottom: calc(33px + env(safe-area-inset-bottom)); width: 60px; height: 60px; border-radius: 50%;
+    background: var(--acc) !important; color: var(--acc-ink) !important; box-shadow: 0 0 0 5px var(--bg), 0 10px 22px rgba(26, 25, 22, .3); }
+  html[data-theme="light"] .fab { background: var(--acc); color: var(--acc-ink); }
+  .fab[hidden] ~ nav .navgap { display: none; }
+  @media (min-width: 840px) {
+    nav { left: 50%; transform: translateX(-50%); width: 480px; }
+    .fab { left: 50%; }
+  }
+  @media (min-width: 1100px) {
+    nav { transform: none; width: 232px; left: 0; }
+    nav .navgap { display: none; }
+    nav button.on { background: var(--ink) !important; color: var(--bg); }
+    nav button.on .tl { display: inline; }
+    nav button.on .pill { background: none !important; width: auto; height: auto; display: inline; }
+    nav[data-n="5"] > button:nth-of-type(-n+2), nav button, nav button.on { flex: none !important; }
+    nav { justify-content: flex-start !important; }
+    nav button, nav button.on { padding: 0 12px !important; justify-content: flex-start !important; }
+    .fab { translate: none; left: 14px !important; bottom: auto; width: 204px; height: 50px; border-radius: 16px; box-shadow: none; }
+    html:not([data-theme="light"]) nav::before { background: var(--acc); }
+    nav::before { color: var(--acc); }
+  }
+
+  /* Écran d'accueil « Bonjour » */
+  #hello { position: fixed; inset: 0; z-index: 200; background: var(--bg); color: var(--text); pointer-events: none;
+    display: flex; flex-direction: column; justify-content: center; padding: 0 36px; overflow: hidden; }
+  #hello .glow { position: absolute; width: 440px; height: 440px; left: -70px; top: calc(50% - 250px); border-radius: 50%; filter: blur(10px);
+    background: radial-gradient(circle, color-mix(in srgb, var(--acc) 30%, transparent), transparent 62%); animation: hGlow 1.6s ease-out both; }
+  html[data-theme="light"] #hello .glow { background: radial-gradient(circle, color-mix(in srgb, var(--acc) 70%, transparent), transparent 62%); }
+  #hello .in { position: relative; max-width: 560px; margin: 0 auto; width: 100%; }
+  #hello .hi { font-size: 22px; font-weight: 500; color: var(--muted); overflow: hidden; height: 30px; }
+  #hello .hi span { display: inline-block; animation: hUp .7s cubic-bezier(.2, .8, .2, 1) both; }
+  #hello .nm { font-size: 56px; font-weight: 800; letter-spacing: -.045em; line-height: 1.05; min-height: 60px; perspective: 400px; }
+  #hello .nm span { display: inline-block; animation: hLetter .7s cubic-bezier(.2, .8, .2, 1) both; }
+  #hello .nm .dot { color: var(--acc); }
+  html[data-theme="light"] #hello .nm .dot { color: color-mix(in srgb, var(--acc) 70%, #1a1916); }
+  #hello .ln { height: 3px; width: 64px; border-radius: 2px; background: var(--acc); margin-top: 24px; transform-origin: left; animation: hLine .7s .45s cubic-bezier(.6, 0, .2, 1) both; }
+  #hello .sb2 { margin-top: 16px; font-size: 14px; font-weight: 600; color: var(--muted); min-height: 20px; animation: hFade .5s .6s ease both; }
+  #hello .sb2 b { color: var(--text); }
+  #hello .br { position: absolute; left: 0; right: 0; bottom: calc(44px + env(safe-area-inset-bottom)); display: flex; justify-content: center; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 800; color: var(--muted); animation: hFade .5s .3s ease both; }
+  #hello .br i { width: 24px; height: 24px; border-radius: 8px; background: var(--acc); color: var(--acc-ink); display: grid; place-items: center; font-style: normal; font-size: 12px; }
+  #hello.out { animation: hOut .65s cubic-bezier(.7, 0, .2, 1) forwards; }
+  @keyframes hUp { from { transform: translateY(110%); opacity: 0; } }
+  @keyframes hLetter { from { opacity: 0; transform: translateY(26px) rotateX(-70deg); filter: blur(6px); } }
+  @keyframes hLine { from { transform: scaleX(0); } }
+  @keyframes hFade { from { opacity: 0; transform: translateY(6px); } }
+  @keyframes hGlow { from { opacity: 0; transform: scale(.7); } }
+  @keyframes hOut { to { transform: translateY(-104%); border-radius: 0 0 40px 40px; } }
+  @media (prefers-reduced-motion: reduce) { #hello *, #hello.out { animation-duration: .01s !important; animation-delay: 0s !important; } }
+
+  /* Pages allégées */
+  .mfilters { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 12px; padding-bottom: 2px; }
+  .mfilters::-webkit-scrollbar { display: none; }
+  .mfilters .chip { white-space: nowrap; flex: none; }
+  .mfilters select { flex: none; width: auto; height: 36px; padding: 0 30px 0 14px; border-radius: 999px; font-size: 13px; font-weight: 700; border: 0;
+    background-color: var(--surface); color: var(--text-2); }
+  .mfilters select.on { background-color: var(--ink); color: var(--bg); }
+  .ptmark { list-style: none; display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 11px; font-weight: 800; }
+  .ptmark::before, .ptmark::after { content: ""; flex: 1; height: 2px; border-radius: 1px; background: var(--acc); }
+  .ptmark b { background: var(--acc); color: var(--acc-ink); height: 24px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; }
+  .ptinfo { font-size: 12px; font-weight: 600; color: var(--muted); margin: -4px 0 8px; }
+  svg.ic.rec-ic { width: 13px; height: 13px; vertical-align: -2px; stroke-width: 2.2; margin-right: 2px; }
+  .fchev { display: inline-grid; place-items: center; width: 24px; height: 24px; margin: -4px 0 -4px -4px; border-radius: 8px; cursor: pointer; }
+  .fchev:hover { background: var(--surface-3); }
+  .budseg { max-width: 420px; }
+  .swatches2 { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  .swatches2 button { width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+  .swatches2 button.on { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text); }
+  .t.ep { display: flex; flex-direction: column; }
 
   @media (min-width: 1700px) {
     #view[data-layout="cols"] { column-count: 3; }
@@ -676,6 +816,9 @@
 </style>
 </head>
 <body>
+<div id="hello" aria-hidden="true"><div class="glow"></div><div class="in">
+  <div class="hi"><span>Bonjour,</span></div><div class="nm" id="helloName"></div><div class="ln"></div><div class="sb2" id="helloSub"></div></div>
+  <div class="br"><i>€</i>Budget du foyer</div></div>
 <div class="loading" id="loading" style="display:block;padding:calc(70px + env(safe-area-inset-top)) 14px 0">
   <div class="skel" style="height:44px"></div><div class="skel" style="height:150px"></div><div class="skel" style="height:64px"></div>
   <div class="skel" style="height:220px"></div><div class="xs muted" style="text-align:center">Chargement…</div></div>
@@ -749,6 +892,9 @@ var REP_DEF = {
 };
 var SVG = {
   synthese: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  budget: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+  epargne: '<path d="M5 11a6 6 0 0 1 6-5h3a6 6 0 0 1 6 6v1a5 5 0 0 1-2 4v3h-3v-2h-4v2H8v-3a6 6 0 0 1-3-5z"/><path d="M19.5 9.5c.9.4 1.5 1.2 1.5 2"/><circle cx="15.5" cy="11" r=".7" fill="currentColor"/>',
+  recur: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   mouvements: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   enveloppes: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
   fixes: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
@@ -763,7 +909,11 @@ var SVG = {
   mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>'
 };
 function svg(name, cls) { return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24">' + SVG[name] + '</svg>'; }
-var TABS = [['synthese', 'Synthèse'], ['mouvements', 'Mouvements'], ['enveloppes', 'Enveloppes'], ['fixes', 'Fixes'], ['plus', 'Plus']];
+var TABS = [['synthese', 'Synthèse'], ['mouvements', 'Mouvements'], ['budget', 'Budget'], ['epargne', 'Épargne'], ['plus', 'Plus']];
+var budgetSub = 'enveloppes';
+/** Onglet de la barre correspondant à la page affichée (Enveloppes et Fixes sont dans « Budget »). */
+function navTab(t) { return t === 'enveloppes' || t === 'fixes' ? 'budget' : t; }
+function tabsShown() { return TABS.filter(function (t) { return t[0] !== 'epargne' || !D || isAdmin() || comptes().length; }); }
 
 var fmt = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
 function eur(n) { return fmt.format(Number(n) || 0); }
@@ -869,16 +1019,33 @@ function loadPrefs() {
 }
 function pref(k, d) { return P[k] === undefined ? d : P[k]; }
 var prefTimer;
-function setPref(k, v) { P[k] = v; clearTimeout(prefTimer); prefTimer = setTimeout(savePrefsNow, 700); if (k === 'theme') applyTheme(); }
+function setPref(k, v) { P[k] = v; clearTimeout(prefTimer); prefTimer = setTimeout(savePrefsNow, 700); if (k === 'theme' || k === 'accent') applyTheme(); }
 function savePrefsNow() {
   lsSet('budget.prefs', JSON.stringify(P));
   if (canEdit()) bg('savePrefs', [P], function () { D.me.prefs = JSON.stringify(P); });
+}
+var ACCENTS = {
+  citron: { nom: 'Citron', acc: '#c8f169', tl: '#f6e7a8', tlt: '#6b5a17', td: '#34301c', tdt: '#d9c77c', tdp: '#f1e7bd' },
+  menthe: { nom: 'Menthe', acc: '#7ee0b5', tl: '#cdeedd', tlt: '#2f6048', td: '#1d3329', tdt: '#8fd3b3', tdp: '#d3f3e3' },
+  corail: { nom: 'Corail', acc: '#ff9b85', tl: '#ffe1d8', tlt: '#8a3b28', td: '#3a231d', tdt: '#ffad99', tdp: '#ffe1d8' },
+  lavande: { nom: 'Lavande', acc: '#b9a8ff', tl: '#e4ddff', tlt: '#4f467e', td: '#282339', tdt: '#c3b6fb', tdp: '#e7e1ff' },
+  ciel: { nom: 'Ciel', acc: '#8cc8ff', tl: '#d6ebff', tlt: '#2f5677', td: '#1c2a38', tdt: '#a2cdf6', tdp: '#dcecfc' },
+  ambre: { nom: 'Ambre', acc: '#ffc94d', tl: '#ffeab3', tlt: '#7a5a00', td: '#3a3018', tdt: '#f0cd6e', tdp: '#fbeccb' }
+};
+function accentVars(t) {
+  var a = ACCENTS[(D ? pref('accent', 'citron') : 'citron')] || ACCENTS.citron, L = t === 'light';
+  return { '--acc': a.acc, '--tip': L ? a.tl : a.td, '--tip-t': L ? a.tlt : a.tdt, '--tip-p': L ? '#1a1916' : a.tdp };
 }
 function applyTheme() {
   var t = (D ? pref('theme', 'dark') : lsGet('budget.theme')) || 'dark';
   lsSet('budget.theme', t);
   if (t === 'auto') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   document.documentElement.dataset.theme = t;
+  if (D) {
+    var av = accentVars(t);
+    Object.keys(av).forEach(function (k) { document.documentElement.style.setProperty(k, av[k]); });
+    lsSet('budget.accent', JSON.stringify(av));
+  }
   var m = document.querySelector('meta[name=theme-color]');
   if (m) m.setAttribute('content', t === 'light' ? '#f4f1ea' : '#121110');
   // L'appli installée (coquille) adapte la couleur de la barre d'état du téléphone.
@@ -940,6 +1107,37 @@ function setLocalImputation(compteId, kind, refId) {
   });
 }
 
+/* ---------------- Jour de paye : la période d'un mois de budget va d'une paye à la suivante ---------------- */
+function paieCfg() { var p = {}; try { p = JSON.parse((D && D.paie) || '{}') || {}; } catch (e) {} p.mois = p.mois || {}; return p; }
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function dOf(s) { return new Date(+s.substring(0, 4), +s.substring(5, 7) - 1, +s.substring(8, 10)); }
+/** Date de la paye qui finance le mois de budget m (null si le jour de paye n'est pas réglé). */
+function payDate(m, cfg) {
+  cfg = cfg || paieCfg();
+  if (cfg.mois[m]) return cfg.mois[m];
+  if (!cfg.jour) return null;
+  var pm = cfg.jour >= 15 ? shiftMonth(m, -1) : m; // paye de fin de mois = budget du mois suivant
+  var y = +pm.substring(0, 4), mo = +pm.substring(5, 7);
+  var d = new Date(y, mo - 1, Math.min(cfg.jour, new Date(y, mo, 0).getDate()));
+  if (cfg.weekend) { var w = d.getDay(); if (w === 6) d.setDate(d.getDate() - 1); if (w === 0) d.setDate(d.getDate() - 2); }
+  return ymd(d);
+}
+/** Période du mois de budget m : { start, end, len, day (n° du jour aujourd'hui, 0 si hors période), state }. */
+function periodOf(m) {
+  var cfg = paieCfg(), a = payDate(m, cfg), b = payDate(shiftMonth(m, 1), cfg), start, end;
+  if (a && b) { start = dOf(a); end = dOf(b); end.setDate(end.getDate() - 1); }
+  else { start = new Date(+m.substring(0, 4), +m.substring(5, 7) - 1, 1); end = new Date(+m.substring(0, 4), +m.substring(5, 7), 0); }
+  var len = Math.round((end - start) / 864e5) + 1, t = dOf(todayStr()), st = t < start ? 'avenir' : t > end ? 'passe' : 'encours';
+  return { start: ymd(start), end: ymd(end), len: len, day: st === 'encours' ? Math.round((t - start) / 864e5) + 1 : 0, state: st, paie: !!(a && b) };
+}
+/** Mois de budget qui contient la date d (selon le jour de paye). */
+function budgetMonthOf(d) {
+  var m0 = d.substring(0, 7);
+  for (var k = -1; k <= 1; k++) { var m = shiftMonth(m0, k), p = periodOf(m); if (d >= p.start && d <= p.end) return m; }
+  return m0;
+}
+function fmtD(s) { return dOf(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+
 function reperes() {
   var r = {};
   try { r = JSON.parse(D.reperes || '{}'); } catch (e) {}
@@ -997,7 +1195,7 @@ function bootFromCache() {
     setData(c);
     shownFromCache = true;
     document.getElementById('loading').style.display = 'none';
-    render();
+    render(); helloReady();
   } catch (e) {}
 }
 function saveCache(data) {
@@ -1010,7 +1208,7 @@ function load() {
     saveCache(data);
     shownFromCache = false;
     document.getElementById('loading').style.display = 'none';
-    render();
+    render(); helloReady();
     ensureMonthClient();
     if (firstLoad) {
       firstLoad = false;
@@ -1026,7 +1224,7 @@ function load() {
     if (shownFromCache) { toast('Hors connexion : données du dernier chargement', true); return; }
     document.getElementById('loading').innerHTML = '<div>' + esc((e && e.message) || 'Impossible de charger les données.') +
       '<br><br><button class="btn" onclick="location.reload()">Réessayer</button></div>';
-    document.getElementById('loading').style.display = 'grid';
+    document.getElementById('loading').style.display = 'grid'; helloAbort();
   });
 }
 function setData(data) {
@@ -1036,7 +1234,8 @@ function setData(data) {
   if (!prefsApplied) {
     prefsApplied = true;
     vizPeriod = pref('vizPeriod', 1); advBasis = pref('advBasis', 1); mvtScope = pref('mvtScope', 'mois');
-    tab = pref('startTab', 'synthese');
+    tab = pref('startTab', 'synthese'); if (tab === 'budget') tab = 'enveloppes';
+    if (paieCfg().jour) mois = budgetMonthOf(todayStr());
   }
   document.getElementById('versionLabel').textContent = 'v' + D.version + (D.stage ? ' · ' + D.stage : '');
   document.getElementById('fab').hidden = !canEdit();
@@ -1141,16 +1340,18 @@ function computeRange(m, n) {
 function render() {
   if (!D) return;
   resetCalc();
-  var monthless = tab === 'fixes' || tab === 'plus';
-  document.getElementById('monthLabel').textContent = tab === 'fixes' ? 'Mouvements fixes' : tab === 'plus' ? 'Plus' : monthName(mois);
+  if (tab === 'epargne' && !tabsShown().some(function (t) { return t[0] === 'epargne'; })) tab = 'synthese';
+  var monthless = tab === 'fixes' || tab === 'plus' || tab === 'epargne';
+  document.getElementById('monthLabel').textContent = tab === 'fixes' ? 'Mouvements fixes' : tab === 'plus' ? 'Plus' : tab === 'epargne' ? 'Épargne' : monthName(mois);
   document.querySelector('header .month').classList.toggle('pickable', !monthless);
   document.getElementById('prevBtn').hidden = monthless;
   document.getElementById('nextBtn').hidden = monthless;
-  document.getElementById('nav').innerHTML = TABS.map(function (t) {
-    return '<button data-act="tab" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '"><span class="pill">' + svg(t[0]) + '</span><span class="tl">' + t[1] + '</span></button>';
+  document.getElementById('nav').dataset.n = tabsShown().length;
+  document.getElementById('nav').innerHTML = tabsShown().map(function (t, i) {
+    return (i === 2 ? '<span class="navgap"></span>' : '') + '<button data-act="tab" data-tab="' + t[0] + '" class="' + (navTab(tab) === t[0] ? 'on' : '') + '" aria-label="' + t[1] + '"><span class="pill">' + svg(t[0]) + '</span><span class="tl">' + t[1] + '</span></button>';
   }).join('');
   var c = compute(mois);
-  var v = tab === 'plus' && sub ? SUBVIEWS[sub] : { synthese: viewSynthese, mouvements: viewMouvements, enveloppes: viewEnveloppes, fixes: viewFixes, plus: viewPlus }[tab];
+  var v = tab === 'plus' && sub ? SUBVIEWS[sub] : { synthese: viewSynthese, mouvements: viewMouvements, enveloppes: viewEnveloppes, fixes: viewFixes, epargne: viewEpargne, plus: viewPlus }[tab];
   var view = document.getElementById('view');
   // Mise en page ordinateur : listes en une colonne large, le reste en colonnes.
   view.dataset.layout = (tab === 'mouvements' && !sub) || /^(journal|backups|rapport|users)$/.test(sub) ? 'wide' : 'cols';
@@ -1168,7 +1369,7 @@ var lastViewKey = '', navDir = 0;
 document.getElementById('view').addEventListener('animationend', function (e) {
   if (e.target === this) this.classList.remove('pg-l', 'pg-r', 'pg-f');
 });
-function tabIndex(t) { for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === t) return i; return 0; }
+function tabIndex(t) { var ts = tabsShown(); t = navTab(t); for (var i = 0; i < ts.length; i++) if (ts[i][0] === t) return i; return 0; }
 
 /* Effet 3D : les tuiles s'inclinent vers la souris (ou vers le doigt quand on appuie), avec un reflet. */
 (function () {
@@ -1219,9 +1420,9 @@ function viewSynthese(c) {
   h += bentoHtml(c);
 
   if (c.todo) {
-    var todoList = sortMvts(c.mv.filter(function (x) { return !x.pointe; }));
+    var todoList = sortMvts(c.mv.filter(function (x) { return !x.pointe && x.date <= todayStr(); })).reverse();
     h += fold('syn:todo', 'À pointer', '<b class="num">' + c.todo + '</b>',
-      mvtListHtml(todoList.slice(0, 15)) + (c.todo > 15 ? '<button class="link small" data-act="goFilter" data-f="apointer">Voir les ' + c.todo + ' mouvements ›</button>' : ''), false);
+      mvtListHtml(todoList.slice(0, 10)) + '<button class="link small" data-act="goFilter" data-f="apointer">Pointer le relevé ›</button>', false);
   }
 
   var revP = c.tot.entree.prevu, revR = c.tot.entree.reel;
@@ -1229,8 +1430,7 @@ function viewSynthese(c) {
   ['entree', 'sortie'].forEach(function (s) {
     Object.keys(c.groups).map(function (k) { return c.groups[k]; }).filter(function (g) { return g.sens === s; }).forEach(function (g) {
       var gk = 'syn:' + s + '|' + g.nom, gOpen = isOpen(gk, false);
-      h += '<tr class="grp click ' + (gOpen ? '' : 'closed') + '" data-act="foldRow" data-k="' + esc(gk) + '"><td>' + chev() + ' ' + esc(g.nom) +
-        ' <button class="link xs" data-act="grpDetail" data-k="' + esc(s + '|' + g.nom) + '">détail</button></td><td class="num">' + eur0(g.prevu) + '</td><td class="pc">' + pct(g.prevu / revP) +
+      h += '<tr class="grp click ' + (gOpen ? '' : 'closed') + '" data-act="grpDetail" data-k="' + esc(s + '|' + g.nom) + '"><td><span class="fchev" data-act="foldRow" data-k="' + esc(gk) + '" aria-label="Déplier">' + chev() + '</span> ' + esc(g.nom) + '</td><td class="num">' + eur0(g.prevu) + '</td><td class="pc">' + pct(g.prevu / revP) +
         '</td><td class="num ' + (s === 'sortie' && g.reel > g.prevu + 0.005 && g.prevu ? 'neg' : '') + '">' + eur0(g.reel) + '</td><td class="pc">' + pct(g.reel / revR) + '</td></tr>';
       g.libs.sort(function (a, b) { return a.lib.ordre - b.lib.ordre; }).forEach(function (p) {
         if (!p.prevu && !p.reel && !(s === 'entree' && p.lib.actif)) return;
@@ -1245,7 +1445,7 @@ function viewSynthese(c) {
   });
   h += '<tr class="total"><td>Reste à vivre</td><td class="num ' + (b.prevu < 0 ? 'neg' : 'pos') + '">' + eur0(b.prevu) + '</td><td class="pc">' + pct(b.prevu / revP) +
     '</td><td class="num ' + (b.reel < 0 ? 'neg' : 'pos') + '">' + eur0(b.reel) + '</td><td class="pc">' + pct(b.reel / revR) + '</td></tr>';
-  h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez un groupe pour le déplier, un libellé pour voir ses mouvements ou modifier son prévu.</div></div>';
+  h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez une ligne pour voir ses mouvements ; la flèche déplie le groupe.</div></div>';
   return h;
 }
 
@@ -1256,14 +1456,13 @@ function eurBig(n) {
 }
 /** Évolution du reste à vivre jour après jour (les mouvements datés avant le mois comptent au jour 0). */
 function sparkPts(c, m) {
-  var y = +m.substring(0, 4), mo = +m.substring(5, 7), nd = new Date(y, mo, 0).getDate();
-  var last = m === ymNow() ? new Date().getDate() : m < ymNow() ? nd : 0;
+  var P = periodOf(m), nd = P.len, last = P.state === 'encours' ? P.day : P.state === 'passe' ? nd : 0, s0 = dOf(P.start);
   if (!last) return null;
   var per = []; for (var d = 0; d <= nd; d++) per.push(0);
   c.mv.forEach(function (x) {
-    var d = x.date && x.date.substring(0, 7) === m ? +x.date.substring(8, 10) : (x.date < m ? 0 : nd);
-    if (x.date > todayStr()) return;
-    per[Math.min(d, nd)] += (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0);
+    if (!x.date || x.date > todayStr()) return;
+    var d = x.date < P.start ? 0 : Math.round((dOf(x.date) - s0) / 864e5) + 1;
+    per[Math.max(0, Math.min(d, nd))] += (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0);
   });
   var pts = [], acc = 0;
   for (var k = 0; k <= last; k++) { acc += per[k]; pts.push(acc); }
@@ -1276,31 +1475,89 @@ function sparkSvg(sp, cls) {
   var line = xy.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
   var lp = xy[xy.length - 1];
   return '<div class="' + cls + '"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
-    '<defs><linearGradient id="spg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f169" stop-opacity=".32"/><stop offset="1" stop-color="#c8f169" stop-opacity="0"/></linearGradient></defs>' +
+    '<defs><linearGradient id="spg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".32"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs>' +
     '<path d="' + line + ' L' + lp[0].toFixed(1) + ' ' + H + ' L4 ' + H + 'Z" fill="url(#spg)"/>' +
-    '<path d="' + line + '" fill="none" stroke="#c8f169" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>' +
+    '<path d="' + line + '" fill="none" stroke="var(--acc)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>' +
     '<b class="sdot" style="left:' + (lp[0] / W * 100).toFixed(1) + '%;top:' + (lp[1] / H * 100).toFixed(1) + '%"></b></div>';
 }
-/** Conseil du jour : le point le plus utile à regarder ce mois-ci. */
-function dailyTip(c, env, joursRestants) {
-  var over = env.filter(function (p) { return p.reel > p.env + 0.005; })
-    .sort(function (a, b) { return (b.reel - b.env) - (a.reel - a.env); });
-  var open = env.filter(function (p) { return p.reel <= p.env; }).sort(function (a, b) { return (b.reel / b.env) - (a.reel / a.env); });
-  var t = '';
-  if (over.length) t = '<b>' + esc(over[0].lib.nom) + ' dépassé de ' + eur0(over[0].reel - over[0].env) + '.</b>' + (over.length > 1 ? ' ' + (over.length - 1) + ' autre(s) enveloppe(s) aussi.' : '');
-  if (open.length && joursRestants > 0) {
-    var p = open[0], r = p.env - p.reel;
-    t += (t ? ' ' : '') + 'Il reste ' + eur0(r) + ' en ' + esc(p.lib.nom) + ' pour ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : '') + ' : environ <b>' + eur0(r / joursRestants) + ' par jour</b>.';
+/** Habitudes : dépenses ponctuelles des mois précédents, arrêtées au même jour de la période. */
+function habits(m, dayIdx) {
+  var H = { n: 0, tot: 0, libs: {} };
+  for (var k = 1; k <= 4; k++) {
+    var mk = shiftMonth(m, -k), pk = periodOf(mk), lim = ymd(new Date(dOf(pk.start).getTime() + (dayIdx - 1) * 864e5));
+    var mv = mvOfMonth(mk).filter(function (x) { return x.statut !== 'annule' && !x.recurrentId && lib(x.libelleId).sens === 'sortie'; });
+    if (!mv.length) continue;
+    H.n++;
+    mv.forEach(function (x) {
+      if (x.date > lim) return;
+      var L = H.libs[x.libelleId] || (H.libs[x.libelleId] = { n: 0, amt: 0 });
+      L.n++; L.amt += +x.montant || 0; H.tot += +x.montant || 0;
+    });
   }
-  if (!t && c.todo) t = '<b>' + c.todo + ' mouvement' + (c.todo > 1 ? 's' : '') + ' à pointer</b> sur le relevé du compte.';
-  if (!t && c.bilan.reel >= 0) t = '<b>Tout est sous contrôle.</b> Aucune enveloppe dépassée ce mois-ci.';
-  if (!t) t = '<b>Reste à vivre négatif.</b> Regardez les plus grosses sorties du mois dans les graphiques.';
-  return t;
+  return H;
+}
+/** Rythme d'un libellé : écart moyen entre deux dépenses ponctuelles sur 6 mois. */
+function rhythm(libId) {
+  var ds = D.mouvements.filter(function (x) { return x.libelleId === libId && !x.recurrentId && x.statut !== 'annule' && x.date <= todayStr() && x.date >= ymd(new Date(Date.now() - 183 * 864e5)); })
+    .map(function (x) { return x.date; }).sort();
+  if (ds.length < 5) return null;
+  var gaps = []; for (var i = 1; i < ds.length; i++) gaps.push((dOf(ds[i]) - dOf(ds[i - 1])) / 864e5);
+  var avg = gaps.slice(0, -1).reduce(function (s, g) { return s + g; }, 0) / (gaps.length - 1);
+  return { avg: avg, last: gaps[gaps.length - 1], lastDate: ds[ds.length - 1] };
+}
+/** Conseil du jour : ce qui sort de vos habitudes ce mois-ci (les fixes et prélèvements sont ignorés). */
+function dailyTip(c, env, joursRestants) {
+  var P = periodOf(mois), out = [];
+  var ponct = c.mv.filter(function (x) { return !x.recurrentId && lib(x.libelleId).sens === 'sortie'; });
+  // 1. Enveloppe dépassée (libellés avec des dépenses ponctuelles)
+  var over = env.filter(function (p) { return p.reel > p.env + 0.005 && ponct.some(function (x) { return x.libelleId === p.lib.id; }); })
+    .sort(function (a, z) { return (z.reel - z.env) - (a.reel - a.env); });
+  if (over.length) out.push({ s: 100, t: '<b>' + esc(over[0].lib.nom) + ' dépassé de ' + eur0(over[0].reel - over[0].env) + '.</b>' });
+  if (P.state === 'encours') {
+    var H = habits(mois, P.day);
+    if (H.n >= 2) {
+      // 2. Fréquence inhabituelle d'un libellé (ex. resto)
+      var cur = {};
+      ponct.forEach(function (x) { var q = cur[x.libelleId] || (cur[x.libelleId] = { n: 0, amt: 0, desc: {} }); q.n++; q.amt += +x.montant || 0; var dk = norm(x.description); if (dk) q.desc[dk] = (q.desc[dk] || 0) + 1; });
+      Object.keys(cur).forEach(function (id) {
+        var q = cur[id], avg = (H.libs[id] ? H.libs[id].n : 0) / H.n;
+        if (q.n >= 2 && q.n >= avg + 1.5) {
+          var top = Object.keys(q.desc).sort(function (a, z) { return q.desc[z] - q.desc[a]; })[0], same = top && q.desc[top] >= 2;
+          var d0 = same ? ponct.filter(function (x) { return norm(x.description) === top; })[0].description : '';
+          out.push({ s: 50 + (q.n - avg) * 10, t: '<b>' + q.n + (q.n === 1 ? 'ʳᵉ' : 'ᵉ') + ' dépense en ' + esc(lib(id).nom) + ' ce mois-ci</b>' + (same ? ' (dont ' + q.desc[top] + ' « ' + esc(d0) + ' »)' : '') +
+            ', d\'habitude ' + (avg < 0.5 ? 'aucune' : Math.round(avg)) + ' à cette date.' });
+        }
+      });
+      // 3. Rythme global des dépenses ponctuelles
+      var curTot = ponct.reduce(function (s2, x) { return s2 + (+x.montant || 0); }, 0), avgTot = H.tot / H.n;
+      if (avgTot > 50 && curTot > avgTot * 1.15 && curTot - avgTot > 40)
+        out.push({ s: 40 + (curTot / avgTot - 1) * 50, t: '<b>Dépenses du quotidien +' + Math.round((curTot / avgTot - 1) * 100) + ' %</b> par rapport à vos habitudes à cette date (' + eur0(curTot - avgTot) + ' de plus).' });
+      else if (avgTot > 50 && curTot < avgTot * 0.85)
+        out.push({ s: 15, t: '<b>Bien joué :</b> dépenses du quotidien ' + Math.round((1 - curTot / avgTot) * 100) + ' % sous vos habitudes à cette date.' });
+    }
+    // 4. Dépense plus tôt que d'habitude (ex. plein de carburant)
+    Object.keys(c.per).forEach(function (id) {
+      if (c.per[id].lib.sens !== 'sortie') return;
+      var r = rhythm(id);
+      if (r && r.avg >= 5 && r.last < r.avg * 0.6 && (dOf(todayStr()) - dOf(r.lastDate)) / 864e5 <= 3)
+        out.push({ s: 45, t: '<b>' + esc(lib(id).nom) + ' plus tôt que d\'habitude :</b> ' + Math.round(r.last) + ' jour' + (r.last >= 2 ? 's' : '') + ' depuis la précédente, ' + Math.round(r.avg) + ' en moyenne.' });
+    });
+    // 5. Reste par jour de l'enveloppe la plus entamée
+    var open = env.filter(function (p) { return p.reel <= p.env && ponct.some(function (x) { return x.libelleId === p.lib.id; }); })
+      .sort(function (a, z) { return (z.reel / z.env) - (a.reel / a.env); });
+    if (open.length && joursRestants > 0) {
+      var p = open[0], rr = p.env - p.reel;
+      out.push({ s: 20, t: 'Il reste ' + eur0(rr) + ' en ' + esc(p.lib.nom) + ' pour ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : '') + ' : environ <b>' + eur0(rr / joursRestants) + ' par jour</b>.' });
+    }
+  }
+  out.sort(function (a, z) { return z.s - a.s; });
+  if (out.length) return out.slice(0, 2).map(function (o) { return o.t; }).join(' ');
+  if (c.todo) return '<b>' + c.todo + ' mouvement' + (c.todo > 1 ? 's' : '') + ' à pointer</b> sur le relevé du compte.';
+  return c.bilan.reel >= 0 ? '<b>Tout est sous contrôle.</b> Rien d\'inhabituel dans vos dépenses ce mois-ci.' : '<b>Reste à vivre négatif.</b> Regardez les plus grosses sorties dans les graphiques.';
 }
 function bentoHtml(c) {
-  var b = c.bilan, isCur = mois === ymNow();
-  var y = +mois.substring(0, 4), mo = +mois.substring(5, 7), nd = new Date(y, mo, 0).getDate();
-  var today = isCur ? new Date().getDate() : (mois < ymNow() ? nd : 0);
+  var b = c.bilan, P = periodOf(mois), isCur = P.state === 'encours', nd = P.len;
+  var today = isCur ? P.day : (P.state === 'passe' ? nd : 0);
   var joursRestants = isCur ? nd - today + 1 : 0;
   var delta = b.reel - b.prevu;
   var h = '<div class="bento">';
@@ -1311,7 +1568,7 @@ function bentoHtml(c) {
     (isCur && b.reel > 0 ? '<span class="pchip ghost num">' + eur0(b.reel / joursRestants) + ' / jour</span>' : '') + '</div>' +
     sparkSvg(sparkPts(c, mois), 'spark') +
     (today ? '<div class="mprog"><i style="width:' + (today / nd * 100) + '%"></i><b style="left:' + (today / nd * 100) + '%"></b></div>' : '') +
-    '<div class="mpl"><span>' + (isCur ? 'Jour ' + today + ' / ' + nd + ' · ' + joursRestants + ' j restant' + (joursRestants > 1 ? 's' : '') : today ? 'Mois terminé' : 'Mois à venir') + '</span>' +
+    '<div class="mpl"><span>' + (isCur ? 'Jour ' + today + ' / ' + nd + ' · ' + joursRestants + ' j' + (P.paie ? ' jusqu\'à la paye' : ' restant' + (joursRestants > 1 ? 's' : '')) : today ? 'Période terminée' : 'Période à venir') + '</span>' +
     '<span class="num">Prévu ' + eur0(b.prevu) + '</span></div></div>';
   // Entrées / sorties
   var ent = Object.keys(c.per).map(function (k) { return c.per[k]; }).filter(function (p) { return p.lib.sens === 'entree' && (p.reel || p.prevu); })
@@ -1567,15 +1824,14 @@ function mvtItem(x) {
   var chk = canEdit()
     ? '<button class="check ' + (x.pointe ? 'on' : '') + '" data-act="togglePointe" data-id="' + x.id + '" aria-label="Pointer">' + (x.pointe ? svg('check') : '') + '</button>'
     : '<span class="check ' + (x.pointe ? 'on' : '') + '">' + (x.pointe ? svg('check') : '') + '</span>';
-  var meta = esc(l.nom) + ' · ' + whoBadge(x.saisiPar, x.saisiPar === 'auto' ? '' : '');
-  if (x.recurrentId) meta += ' <span class="tag acc">fixe</span>';
+  // Ligne allégée : libellé, personne (initiale), et seulement les étiquettes qui demandent une action.
+  var u = x.saisiPar && x.saisiPar !== 'auto' && x.saisiPar !== 'système' ? user(x.saisiPar) : null;
+  var meta = (x.recurrentId ? '<span>' + svg('recur', 'rec-ic') + ' ' : '<span>') + esc(l.nom) + '</span>' +
+    (u ? '<span class="who" title="' + esc(u.nom) + '"><i style="background:' + esc(u.couleur) + '">' + esc(u.nom.charAt(0).toUpperCase()) + '</i></span>' : '');
   if (x.recurrentId && +x.montant === 0 && +x.prevu) meta += ' <span class="tag warn">non réalisé</span>';
-  else if (x.recurrentId && x.modifie) meta += ' <span class="tag warn">modifié ce mois</span>';
-  if (x.vehiculeId) meta += ' <span class="tag">' + esc(vehLabel(x.vehiculeId)) + '</span>';
+  if (x.vehiculeId) meta += ' <span>' + esc((veh(x.vehiculeId) || {}).emoji || '🚗') + '</span>';
   else if (l.parVehicule && vehs().length) meta += ' <span class="tag warn">véhicule ?</span>';
-  if (l.parCompte) { var cid = compteOf(x); if (cid) meta += ' <span class="tag">' + esc(cptLabel(cid)) + '</span>'; }
-  if (x.date.substring(0, 7) !== x.mois) meta += ' <span class="tag">↪ ' + esc(monthName(x.mois)) + '</span>';
-  if (x.modifPar && x.modifPar !== x.saisiPar) meta += ' ' + whoBadge(x.modifPar, 'modifié par ');
+  if (x.date.substring(0, 7) !== x.mois) meta += ' <span class="tag">↪ ' + esc(monthName(x.mois, true)) + '</span>';
   return '<li class="item" data-act="openMvt" data-id="' + x.id + '">' + chk + emo(l) +
     '<div class="main"><div class="title">' + esc(x.description || l.nom) + '</div><div class="meta">' + meta + '</div></div>' +
     '<div class="amt num ' + (entree ? 'pos' : '') + '">' + (entree ? '+' : '−') + eur(Math.abs(x.montant)).replace('-', '') + '</div></li>';
@@ -1599,23 +1855,27 @@ function viewMouvements(c) {
     return '<button class="chip ' + (mvtScope === o[0] ? 'on' : '') + '" data-act="mvtScope" data-v="' + o[0] + '">' + o[1] + '</button>';
   }).join('') + '</div>';
   var opt = function (v, t) { return '<option value="' + esc(v) + '" ' + (mvtFilter === v ? 'selected' : '') + '>' + esc(t) + '</option>'; };
-  var sel = '';
+  var quick = [['tous', 'Tous'], ['apointer', 'À pointer' + (c.todo ? ' · ' + c.todo : '')], ['sortie', 'Sorties'], ['entree', 'Entrées'], ['fixes', 'Fixes']];
+  var isQuick = quick.some(function (q) { return q[0] === mvtFilter; });
+  var sel = '<option value="tous"' + (isQuick ? ' selected' : '') + '>Autres filtres ▾</option>';
   if (/^(lib|grp):/.test(mvtFilter)) {
     sel += opt(mvtFilter, mvtFilter.indexOf('lib:') === 0 ? icon(lib(mvtFilter.slice(4))) + ' ' + lib(mvtFilter.slice(4)).nom : mvtFilter.slice(4).split('|')[1]);
   }
-  Object.keys(F).forEach(function (k) { sel += opt(k, F[k] + (k === 'apointer' ? ' (' + c.todo + ')' : '')); });
+  Object.keys(F).forEach(function (k) { if (!isQuick || k !== mvtFilter) sel += opt(k, F[k] + (k === 'apointer' ? ' (' + c.todo + ')' : '')); });
   if (vehs().length) sel += '<optgroup label="Véhicules">' + vehs().map(function (v) { return opt('veh:' + v.id, vehLabel(v.id)); }).join('') + '</optgroup>';
   if (comptes().length) sel += '<optgroup label="Comptes d\'épargne">' + comptes().map(function (cp) { return opt('cpt:' + cp.id, cptLabel(cp.id)); }).join('') + '</optgroup>';
-  h += '<div class="filterbar"><span class="lbl">Filtrer</span><select id="mvtFilterSel" data-input="mvtFilterSel">' + sel + '</select>' +
-    (mvtFilter !== 'tous' ? '<button class="btn ghost sm" data-act="mvtFilter" data-f="tous">✕</button>' : '') + '</div>';
+  h += '<div class="mfilters">' + quick.map(function (q) {
+    return '<button class="chip ' + (mvtFilter === q[0] ? 'on' : '') + '" data-act="mvtFilter" data-f="' + q[0] + '">' + q[1] + '</button>';
+  }).join('') + '<select id="mvtFilterSel" data-input="mvtFilterSel" class="' + (isQuick ? '' : 'on') + '" aria-label="Autres filtres">' + sel + '</select></div>';
   h += '<div id="mvtResults">' + mvtResultsHtml(c) + '</div>';
   return h;
 }
 
-function mvtListHtml(list) {
+function mvtListHtml(list, markId) {
   var h = '', day = '';
   list.forEach(function (x) {
     if (x.date !== day) { h += (day ? '</ul>' : '') + '<div class="day" data-act="dayFold">' + chev() + esc(dayName(x.date)) + '</div><ul class="list">'; day = x.date; }
+    if (x.id === markId) h += '<li class="ptmark"><b>✓ Pointé jusqu\'ici</b></li>';
     h += mvtItem(x);
   });
   return h + (day ? '</ul>' : '');
@@ -1648,10 +1908,28 @@ function mvtResultsHtml(c) {
     });
     return h + '</div>';
   }
+  // À pointer : dans l'ordre du relevé (du plus ancien au plus récent), à venir repliés.
+  if (mvtFilter === 'apointer' && !mvtQuery) {
+    var pts = c.mv.filter(function (x) { return x.pointe; }).map(function (x) { return x.date; }).sort();
+    var asc = list.slice().reverse(), fut = asc.filter(function (x) { return x.date > todayStr(); }), now = asc.filter(function (x) { return x.date <= todayStr(); });
+    h += '<div class="card"><div class="sec-head"><h2>' + list.length + ' à pointer</h2>' + totalsHtml(list) + '</div>' +
+      '<div class="ptinfo">' + (pts.length ? 'Reprise après le dernier pointage : ' + esc(dayName(pts[pts.length - 1])) : 'Dans l\'ordre du relevé, du plus ancien au plus récent') + '</div>';
+    if (!list.length) h += '<div class="empty">Tout est pointé 🎉</div>';
+    h += mvtListHtml(now);
+    if (fut.length) h += fold('pt:avenir', 'À venir', '<span class="tag">' + fut.length + '</span>', mvtListHtml(fut), false, { plain: true });
+    return h + '</div>';
+  }
+  // Repère « pointé jusqu'ici » : au-dessus du dernier mouvement pointé quand des plus récents restent à pointer.
+  var markId = '';
+  if (mvtFilter === 'tous' && !mvtQuery) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].pointe) { if (i > 0 && list.slice(0, i).some(function (x) { return !x.pointe && x.date <= todayStr(); })) markId = list[i].id; break; }
+    }
+  }
   h += '<div class="card"><div class="sec-head"><h2>' + list.length + ' mouvement' + (list.length > 1 ? 's' : '') + '</h2>' + totalsHtml(list) + '</div>';
   if (!list.length) h += '<div class="empty">' + (mvtQuery ? 'Aucun résultat ce mois-ci.<br><button class="link" data-act="mvtScope" data-v="tous">Chercher dans tous les mois</button>' :
     'Aucun mouvement.' + (canEdit() ? '<br>Touchez <b>+</b> pour en ajouter un.' : '')) + '</div>';
-  h += mvtListHtml(list);
+  h += mvtListHtml(list, markId);
   var annules = D.mouvements.filter(function (x) { return x.mois === mois && x.statut === 'annule'; });
   if (annules.length && canEdit() && !mvtQuery) {
     h += '<div class="xs muted" style="margin-top:10px">Fixes retirés ce mois : ' + annules.map(function (x) {
@@ -1681,20 +1959,27 @@ function envProg(p) {
   return h + '</div></li>';
 }
 
+function budgetSeg() {
+  return '<div class="seg budseg"><button data-act="tab" data-tab="enveloppes" class="' + (tab === 'enveloppes' ? 'on' : '') + '">Enveloppes</button>' +
+    '<button data-act="tab" data-tab="fixes" class="' + (tab === 'fixes' ? 'on' : '') + '">Fixes</button></div>';
+}
 function viewEnveloppes(c) {
   var envS = 0, prevS = 0;
   Object.keys(c.per).forEach(function (k) { var p = c.per[k]; if (p.lib.sens === 'sortie') { envS += p.env; prevS += p.prevu; } });
   var rest = c.tot.entree.prevu - prevS;
-  var h = '<div class="card hero"><div class="label">Reste à répartir</div>' +
-    '<div class="big num ' + (rest < 0 ? 'neg' : '') + '">' + eur(rest) + '</div>' +
-    '<div class="kpis"><div class="kpi"><div class="k">Entrées prévues</div><div class="v num">' + eur0(c.tot.entree.prevu) + '</div></div>' +
-    '<div class="kpi"><div class="k">Enveloppes</div><div class="v num">' + eur0(envS) + '</div></div>' +
-    '<div class="kpi"><div class="k">Dépensé</div><div class="v num">' + eur0(c.tot.sortie.reel) + '</div></div></div></div>';
-  h += '<div class="info">Chaque enveloppe est <b>reportée automatiquement</b> les mois suivants. Touchez un libellé pour la régler ' +
-    'pour ce mois uniquement ou à partir de ce mois. Les fixes du libellé sont compris dans son enveloppe.</div>';
+  var dispo = 0, nOver = 0;
+  Object.keys(c.per).forEach(function (k) { var p = c.per[k]; if (p.lib.sens === 'sortie' && p.env > 0) { dispo += Math.max(0, p.env - p.reel); if (p.reel > p.env + 0.005) nOver++; } });
+  var h = budgetSeg() + '<div class="bento"><div class="t sage w2"><div class="k">Encore disponible dans les enveloppes</div>' +
+    '<div class="v num">' + eur0(dispo) + '</div>' +
+    '<div class="s">' + (nOver ? nOver + ' enveloppe' + (nOver > 1 ? 's' : '') + ' dépassée' + (nOver > 1 ? 's' : '') + ' · ' : '') + 'reste à répartir ' + eur0(rest) + '</div></div></div>';
+  var unset = [];
   ['sortie', 'entree'].forEach(function (sens) {
     groupsOf(sens).forEach(function (g) {
-      var ps = libsSorted(sens).filter(function (l) { return l.groupe === g; }).map(function (l) { return c.per[l.id]; });
+      var all = libsSorted(sens).filter(function (l) { return l.groupe === g; }).map(function (l) { return c.per[l.id]; });
+      // Libellés sans enveloppe ni dépense : rangés à part pour alléger la page.
+      all.filter(function (p) { return !p.env && !p.reel; }).forEach(function (p) { unset.push(p); });
+      var ps = all.filter(function (p) { return p.env || p.reel; });
+      if (!ps.length) return;
       var tE = ps.reduce(function (s, p) { return s + p.env; }, 0), tR = ps.reduce(function (s, p) { return s + p.reel; }, 0);
       var over = ps.some(function (p) { return p.env > 0 && p.lib.sens === 'sortie' && p.reel > p.env + 0.005; });
       h += fold('env:' + sens + '|' + g, esc(g) + (over ? ' <span class="tag neg">dépassement</span>' : ''),
@@ -1702,6 +1987,8 @@ function viewEnveloppes(c) {
         '<ul class="list">' + ps.map(envProg).join('') + '</ul>', over);
     });
   });
+  if (unset.length) h += fold('env:unset', 'Sans enveloppe', '<span class="tag">' + unset.length + '</span>', '<ul class="list">' + unset.map(envProg).join('') + '</ul>' +
+    '<div class="xs muted" style="margin-top:8px">Une enveloppe est reportée automatiquement les mois suivants ; les fixes du libellé y sont compris.</div>', false);
   return h;
 }
 
@@ -1810,12 +2097,9 @@ function viewFixes() {
   var act = D.recurrents.filter(function (r) { return !recStatus(r).off; });
   var e = 0, s = 0;
   act.forEach(function (r) { if (lib(r.libelleId).sens === 'entree') e += +r.montant; else s += +r.montant; });
-  var h = '<div class="card hero"><div class="label">Solde des fixes · par mois</div>' +
-    '<div class="big num ' + (e - s < 0 ? 'neg' : '') + '">' + eur(e - s) + '</div>' +
-    '<div class="kpis" style="grid-template-columns:1fr 1fr"><div class="kpi"><div class="k">Entrées fixes</div><div class="v num pos">' + eur(e) + '</div></div>' +
-    '<div class="kpi"><div class="k">Sorties fixes</div><div class="v num">' + eur(s) + '</div></div></div></div>';
-  h += '<div class="sec-head" style="margin:4px 2px 8px"><span class="xs muted">Trier par</span></div>' +
-    '<div class="chips filters">' + [['libelle', 'Libellé'], ['montant', 'Montant ' + (fixSort === 'montant' ? (fixDir === 'desc' ? '↓' : '↑') : '')], ['date', 'Date de prélèvement']].map(function (o) {
+  var h = budgetSeg() + '<div class="bento"><div class="t sage"><div class="k">Entrées fixes</div><div class="v num">' + eur0(e) + '</div><div class="s">par mois</div></div>' +
+    '<div class="t peach"><div class="k">Sorties fixes</div><div class="v num">' + eur0(s) + '</div><div class="s">solde ' + eur0(e - s) + '</div></div></div>';
+  h += '<div class="chips filters">' + [['libelle', 'Libellé'], ['montant', 'Montant ' + (fixSort === 'montant' ? (fixDir === 'desc' ? '↓' : '↑') : '')], ['date', 'Date de prélèvement']].map(function (o) {
       return '<button class="chip ' + (fixSort === o[0] ? 'on' : '') + '" data-act="fixSort" data-v="' + o[0] + '">' + o[1] + '</button>';
     }).join('') + '</div>';
 
@@ -1861,7 +2145,7 @@ function fixListsHtml() {
 function importCardHtml() {
   var h = '';
   {
-    h += fold('fix:import', 'Importer des mouvements fixes', '', '' +
+    h += fold('fix:import', 'Importer une liste de fixes', '', '' +
       '<div class="xs muted" style="margin-bottom:8px">Une ligne par mouvement : <code>E ou S;Libellé;Description;Montant;Fin (AAAA-MM ou vide);Jour</code><br>' +
       'Ex. <code>S;Prêt maison;Banque;750,00;;5</code>. Un libellé inconnu est créé. Début : mois en cours.</div>' +
       '<textarea id="importTxt" rows="4" placeholder="E;Salaires;Salaire;2500,00;;28"></textarea>' +
@@ -1887,7 +2171,15 @@ function viewPlus() {
   attBody += '</ul>' + (canEdit() ? '<button class="link" data-act="openAttente">+ Ajouter</button>' : '');
   h += fold('plus:attente', 'Dépenses en attente', '<b class="num">' + eur(tAtt) + '</b>', attBody, false);
 
-  var cps = comptes(), tEp = cps.reduce(function (s, c) { return s + cptSolde(c); }, 0);
+  return h + viewPlusMenu();
+}
+function viewEpargne() {
+  var h = '', cps = comptes(), tEp = cps.reduce(function (s, c) { return s + cptSolde(c); }, 0);
+  var vMois = 0, vIn = 0, vOut = 0;
+  cps.forEach(function (c) { cptMvts(c.id).forEach(function (x) { if (x.mois === ymNow()) { var v = cptSign(x) * (+x.montant || 0); vMois += v; if (v > 0) vIn += v; else vOut -= v; } }); });
+  h += '<div class="bento"><div class="t hero w2"><div class="k">Total épargné · ' + cps.length + ' compte' + (cps.length > 1 ? 's' : '') + '</div>' +
+    '<div class="big num">' + eurBig(tEp) + '</div><div class="chips2">' + (vMois ? '<span class="pchip ' + (vMois >= 0 ? 'lime' : 'red') + ' num">' + (vMois >= 0 ? '▲ ' : '▼ ') + eur0(Math.abs(vMois)) + ' ce mois</span>' : '<span class="pchip ghost">Aucun mouvement ce mois</span>') + '</div></div>' +
+    (vIn || vOut ? '<div class="t sage"><div class="k">Versé ce mois</div><div class="v num">+' + eur0(vIn) + '</div></div><div class="t peach"><div class="k">Retiré ce mois</div><div class="v num">−' + eur0(vOut) + '</div></div>' : '') + '</div>';
   var epBody = '<ul class="list">';
   cps.forEach(function (c) {
     var vers = cptMvts(c.id).filter(function (x) { return x.mois === ymNow(); }).reduce(function (s, x) { return s + cptSign(x) * (+x.montant || 0); }, 0);
@@ -1898,12 +2190,17 @@ function viewPlus() {
   });
   if (!cps.length) epBody += '<li class="xs muted" style="padding:6px 0">' + (isAdmin() ? 'Aucun compte.' : 'Aucun compte partagé avec vous.') + '</li>';
   epBody += '</ul>' + (isAdmin() ? '<button class="link" data-act="openCompteEdit">+ Ajouter un compte</button>' : '');
-  h += fold('plus:epargne', 'Épargne', '<b class="num">' + eur(tEp) + '</b>', epBody, true);
+  h += '<div class="card"><h2>Comptes</h2>' + epBody + '</div>';
+  return h;
+}
+function viewPlusMenu() {
+  var h = '';
 
   var menu = '<ul class="list">';
   menu += menuItem('🎨', 'Mes préférences', 'Thème ' + ({ dark: 'sombre', light: 'clair', auto: 'automatique' })[pref('theme', 'dark')] + ' · affichage · compte rendu', 'prefs');
   menu += menuItem('✨', 'Nouveautés', 'Version ' + D.version + ' · historique des mises à jour', 'releases');
   menu += menuItem('🏷️', 'Libellés', libsSorted().length + ' libellés · emoji · types', 'libelles');
+  if (canEdit()) menu += menuItem('📅', 'Jour de paye', paieCfg().jour ? 'Le ' + paieCfg().jour + ' · période ' + fmtD(periodOf(mois).start) + ' → ' + fmtD(periodOf(mois).end) : 'Non réglé · mois calendaire', 'paie');
   menu += menuItem('🚗', 'Véhicules', vehs().map(function (v) { return v.nom; }).join(', ') + ' · coût par véhicule', 'vehicules');
   if (isAdmin()) {
     menu += menuItem('✉️', 'Compte rendu mensuel', 'Destinataires, aperçu, envoi', 'rapport');
@@ -2185,7 +2482,10 @@ var SUBVIEWS = {
     var h = backbar('Mes préférences');
     h += '<div class="info">Ces réglages ne concernent que vous et vous suivent sur tous vos appareils.</div>';
     h += '<div class="card"><h2>Thème</h2>' + segHtml('setTheme', pref('theme', 'dark'), [['dark', '🌙 Sombre'], ['light', '☀️ Clair'], ['auto', '⚙️ Auto']]) +
-      '<div class="xs muted">« Auto » suit le réglage clair / sombre du téléphone.</div></div>';
+      '<div class="xs muted">« Auto » suit le réglage clair / sombre du téléphone.</div>' +
+      '<div class="field" style="margin:16px 0 0"><label>Couleur du thème</label><div class="swatches2">' + Object.keys(ACCENTS).map(function (k) {
+        return '<button data-act="setAccent" data-v="' + k + '" class="' + (pref('accent', 'citron') === k ? 'on' : '') + '" style="background:' + ACCENTS[k].acc + '" aria-label="' + ACCENTS[k].nom + '" title="' + ACCENTS[k].nom + '"></button>';
+      }).join('') + '</div></div></div>';
     h += '<div class="card"><h2>Affichage</h2>' +
       '<div class="field"><label>Onglet à l\'ouverture</label><select data-input="prefSel" data-k="startTab">' + TABS.map(function (t) {
         return '<option value="' + t[0] + '" ' + (pref('startTab', 'synthese') === t[0] ? 'selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select></div>' +
@@ -2206,6 +2506,23 @@ var SUBVIEWS = {
     var rp = pref('rapport', D.me.role === 'admin');
     h += '<div class="card"><h2>Compte rendu mensuel</h2><label class="opt"><input type="checkbox" data-act="prefRapport" ' + (rp ? 'checked' : '') + '>Recevoir le compte rendu du mois par e-mail</label>' +
       '<div class="xs muted">Envoyé dès que le salaire du nouveau mois est saisi (ou le 5 du mois).</div></div>';
+    return h;
+  },
+  paie: function () {
+    var cfg = paieCfg(), m = mois, P = periodOf(m), nm = shiftMonth(m, 1);
+    var h = backbar('Jour de paye');
+    h += '<div class="card"><h2>Jour habituel</h2>' +
+      '<div class="field"><label>Jour du mois où la paye arrive</label><select id="paieJour">' + '<option value="">Non réglé (mois calendaire)</option>' +
+      Array.from({ length: 31 }, function (_, i) { return '<option value="' + (i + 1) + '"' + (+cfg.jour === i + 1 ? ' selected' : '') + '>Le ' + (i + 1) + '</option>'; }).join('') + '</select></div>' +
+      '<label class="opt"><input type="checkbox" id="paieWe"' + (cfg.weekend ? ' checked' : '') + '>Avancée au vendredi si elle tombe un week-end</label>' +
+      '<div class="xs muted" style="margin-top:6px">Une paye reçue à partir du 15 finance le mois suivant (ex. paye du 28 octobre = budget de novembre).</div></div>';
+    h += '<div class="card"><h2>Cette fois-ci, la date change ?</h2>' +
+      '<div class="field"><label>Paye qui finance ' + esc(monthName(nm)) + '</label><input type="date" id="paieNext" value="' + esc(cfg.mois[nm] || payDate(nm, cfg) || '') + '"></div>' +
+      '<div class="field"><label>Paye qui finance ' + esc(monthName(m)) + '</label><input type="date" id="paieCur" value="' + esc(cfg.mois[m] || payDate(m, cfg) || '') + '"></div>' +
+      '<div class="xs muted">Laissez la date proposée si elle est juste ; seules les dates modifiées sont retenues.</div></div>';
+    h += '<div class="info">Période de ' + esc(monthName(m)) + ' : <b>' + esc(fmtD(P.start)) + ' → ' + esc(fmtD(P.end)) + '</b> (' + P.len + ' jours)' +
+      (P.state === 'encours' ? ' · jour ' + P.day + ', ' + (P.len - P.day + 1) + ' jours restants' : '') + '</div>';
+    h += '<button class="btn block" data-act="savePaie">Enregistrer</button>';
     return h;
   },
   releases: function () {
@@ -2319,7 +2636,7 @@ try {
   google.script.history.setChangeHandler(function () {
     if (document.getElementById('overlay')) { closeSheet(); return; }
     if (sub) { sub = ''; render(); return; }
-    var start = pref('startTab', 'synthese');
+    var start = pref('startTab', 'synthese'); if (start === 'budget') start = 'enveloppes';
     if (tab !== start) { tab = start; render(); window.scrollTo(0, 0); }
   });
 } catch (e) {}
@@ -2353,33 +2670,41 @@ function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } c
 
 /* ---------------- Gestes : tirer pour actualiser, glisser pour changer de page, glisser une fiche pour la fermer ---------------- */
 (function () {
-  var sx = 0, sy = 0, mode = null, sheet = null, dx = 0, dy = 0;
+  var sx = 0, sy = 0, mode = null, sheet = null, dx = 0, dy = 0, t0 = 0;
   var ptr = document.getElementById('ptr'), view = document.getElementById('view');
   document.addEventListener('touchstart', function (e) {
     if (e.touches.length !== 1) { mode = 'none'; return; }
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = dy = 0; mode = null; sheet = null;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = dy = 0; mode = null; sheet = null; t0 = Date.now();
     var sh = e.target.closest('.sheet');
     if (sh) { sheet = sh; mode = sh.scrollTop <= 0 && !e.target.closest('input, select, textarea, .chips, table') ? null : 'none'; return; }
-    if (document.getElementById('overlay') || e.target.closest('input, select, textarea, .filters, .chips, .seg, nav, table, .vbars, .stack, .emojis')) mode = 'none';
+    if (document.getElementById('overlay') || e.target.closest('input, select, textarea, nav, .vbars, .stack, .emojis')) { mode = 'none'; return; }
+    // Une rangée qui défile vraiment à l'horizontale garde son propre geste.
+    var hs = e.target.closest('.filters, .mfilters, .chips');
+    if (hs && hs.scrollWidth > hs.clientWidth + 2) mode = 'none';
   }, { passive: true });
   document.addEventListener('touchmove', function (e) {
     if (mode === 'none' || e.touches.length !== 1) return;
     dx = e.touches[0].clientX - sx; dy = e.touches[0].clientY - sy;
     if (!mode) {
       if (sheet) mode = dy > 10 && Math.abs(dy) > Math.abs(dx) ? 'sheet' : (Math.abs(dy) > 10 || Math.abs(dx) > 10 ? 'none' : null);
-      else if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy) * 1.6 && !sub) mode = 'swipe';
+      else if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2 && !sub) mode = 'swipe';
       else if (dy > 12 && Math.abs(dy) > Math.abs(dx) && window.scrollY <= 0) mode = 'pull';
       else if (Math.abs(dx) > 12 || Math.abs(dy) > 12) mode = 'none';
     }
     if (mode === 'sheet') { sheet.style.transition = 'none'; sheet.style.transform = 'translateY(' + Math.max(0, dy) + 'px)'; }
     else if (mode === 'pull') { var h = Math.min(dy * 0.5, 80); ptr.style.transform = 'translateY(' + h + 'px) rotate(' + dy * 2 + 'deg)'; ptr.style.opacity = Math.min(1, h / 60); }
     else if (mode === 'swipe') {
-      var i = tabIndex(tab), edge = (dx > 0 && i === 0) || (dx < 0 && i === TABS.length - 1);
+      var i = tabIndex(tab), edge = (dx > 0 && i === 0) || (dx < 0 && i === tabsShown().length - 1);
       var k = edge ? 0.12 : 0.4;
       view.style.transition = 'none';
       view.style.transform = 'perspective(1400px) translateX(' + dx * k + 'px) rotateY(' + (dx * k / 30).toFixed(2) + 'deg)';
       view.style.opacity = 1 - Math.min(Math.abs(dx * k) / 500, .35);
     }
+  }, { passive: true });
+  document.addEventListener('touchcancel', function () {
+    if (mode === 'swipe') { view.style.transition = 'transform .18s ease-out, opacity .18s'; view.style.transform = ''; view.style.opacity = ''; }
+    if (mode === 'sheet' && sheet) { sheet.style.transform = ''; }
+    mode = null;
   }, { passive: true });
   document.addEventListener('touchend', function () {
     if (mode === 'sheet') {
@@ -2393,9 +2718,9 @@ function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } c
       setTimeout(function () { ptr.style.transition = ''; }, 250);
     } else if (mode === 'swipe') {
       view.style.transition = 'transform .18s ease-out, opacity .18s';
-      var j = tabIndex(tab) + (dx > 0 ? -1 : 1);
+      var j = tabIndex(tab) + (dx > 0 ? -1 : 1), ts = tabsShown(), dt = Math.max(1, Date.now() - t0), vel = Math.abs(dx) / dt;
       view.style.transform = ''; view.style.opacity = '';
-      if (Math.abs(dx) > 80 && j >= 0 && j < TABS.length) { buzz(); view.style.transition = ''; ACT.tab({ tab: TABS[j][0] }); }
+      if ((Math.abs(dx) > 70 || (Math.abs(dx) > 35 && vel > .35)) && j >= 0 && j < ts.length) { buzz(); view.style.transition = ''; ACT.tab({ tab: ts[j][0] }); }
     }
     mode = null;
   }, { passive: true });
@@ -2844,7 +3169,10 @@ var ACT = {
   tab: function (d) {
     if (tab !== d.tab && d.tab !== pref('startTab', 'synthese')) histPush('tab');
     navDir = tabIndex(d.tab) - tabIndex(tab);
-    tab = d.tab; sub = ''; if (tab !== 'mouvements') mvtFilter = 'tous'; closeSheet(); render(); window.scrollTo(0, 0);
+    var nt = d.tab === 'budget' ? budgetSub : d.tab;
+    if (nt === 'enveloppes' || nt === 'fixes') budgetSub = nt;
+    if (navTab(nt) === navTab(tab) && nt !== tab) navDir = nt === 'fixes' ? 1 : -1;
+    tab = nt; sub = ''; if (tab !== 'mouvements') mvtFilter = 'tous'; closeSheet(); render(); window.scrollTo(0, 0);
   },
   pickMonth: function () {
     if (tab === 'fixes' || tab === 'plus') return;
@@ -3000,6 +3328,7 @@ var ACT = {
     setOpen(d.k, !closed);
   },
   foldRow: function (d, el) {
+    el = el.closest('tr') || el;
     var closed = el.classList.toggle('closed');
     Array.prototype.forEach.call(document.querySelectorAll('tr.sub[data-p="' + d.k.replace(/"/g, '\\"') + '"]'), function (r) { r.classList.toggle('hid', closed); });
     setOpen(d.k, !closed);
@@ -3031,6 +3360,18 @@ var ACT = {
     if (canEdit()) { D.me.versionVue = D.version; bg('markSeen', []); } else lsSet('budget.versionVue', D.version);
   },
   setTheme: function (d) { setPref('theme', d.v); render(); },
+  setAccent: function (d) { setPref('accent', d.v); render(); },
+  savePaie: function () {
+    var cfg = paieCfg(), m = mois, nm = shiftMonth(m, 1);
+    var nc = { jour: val('paieJour') ? +val('paieJour') : '', weekend: checked('paieWe'), mois: JSON.parse(JSON.stringify(cfg.mois)) };
+    [[m, val('paieCur')], [nm, val('paieNext')]].forEach(function (q) {
+      var auto = payDate(q[0], { jour: nc.jour, weekend: nc.weekend, mois: {} });
+      if (q[1] && q[1] !== auto) nc.mois[q[0]] = q[1]; else delete nc.mois[q[0]];
+    });
+    D.paie = JSON.stringify(nc); resetCalc();
+    bg('savePaie', [nc], function (j) { D.paie = j; });
+    toast('Jour de paye enregistré'); sub = ''; render();
+  },
   resetFolds: function () { setPref('open', {}); render(); toast('Sections réinitialisées'); },
   prefRapport: function (d, el) { setPref('rapport', el.checked); toast(el.checked ? 'Vous recevrez le compte rendu' : 'Compte rendu désactivé'); },
   rapportUser: function (d, el) {
@@ -3146,6 +3487,33 @@ function setOffline(off) {
 window.addEventListener('offline', function () { setOffline(true); });
 window.addEventListener('online', function () { setOffline(false); toast('Connexion rétablie'); });
 document.getElementById('offbar').hidden = !OFFLINE;
+
+/* Écran d'accueil : « Bonjour, Prénom. » pendant le chargement, puis le rideau se lève. */
+var helloT0 = Date.now(), helloGone = false, helloShownName = '';
+function helloName(n) {
+  if (!n || n === helloShownName) return;
+  helloShownName = n;
+  var el = document.getElementById('helloName'); if (!el) return;
+  el.innerHTML = n.split('').map(function (ch, i) { return '<span style="animation-delay:' + (0.12 + i * 0.045).toFixed(3) + 's">' + esc(ch) + '</span>'; }).join('') +
+    '<span class="dot" style="animation-delay:' + (0.15 + n.length * 0.045).toFixed(3) + 's">.</span>';
+}
+function helloReady() {
+  if (helloGone || !D) return;
+  var first = String(D.me.nom || '').split(' ')[0];
+  first = first.charAt(0).toUpperCase() + first.slice(1);
+  lsSet('budget.name', first); helloName(first);
+  try {
+    var P0 = periodOf(mois), b = compute(mois).bilan;
+    document.getElementById('helloSub').innerHTML = 'Reste à vivre : <b class="num">' + esc(eur0(b.reel)) + '</b>' + (P0.state === 'encours' ? ' · jour ' + P0.day + ' / ' + P0.len : '');
+  } catch (e) {}
+  helloGone = true;
+  setTimeout(function () {
+    var h = document.getElementById('hello'); if (!h) return;
+    h.classList.add('out'); setTimeout(function () { h.remove(); }, 700);
+  }, Math.max(0, 1500 - (Date.now() - helloT0)));
+}
+function helloAbort() { helloGone = true; var h = document.getElementById('hello'); if (h) h.remove(); }
+helloName(lsGet('budget.name') || '');
 
 applyTheme();
 bootFromCache();

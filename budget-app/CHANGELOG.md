@@ -3,6 +3,30 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.2.0] — 2026-11-06
+
+- **Écran d'accueil** « Bonjour, Prénom. » : prénom écrit lettre par lettre (bascule 3D), trait d'accent,
+  reste à vivre du jour, puis lever de rideau sur l'appli ; suit le thème (noir en sombre, crème en clair) et la couleur d'accent.
+- **Navigation A** : Synthèse · Mouvements · Budget · Épargne · Plus en icônes, bouton + surélevé au centre
+  (trou toujours centré à l'écran) ; « Budget » regroupe Enveloppes et Fixes en sous-onglets.
+- **Onglet Épargne** (sorti de « Plus ») : total, versé / retiré du mois, comptes ; masqué si aucun compte autorisé.
+- **Jour de paye** (Plus › Jour de paye) : jour habituel, option « avancée au vendredi si week-end », date réelle
+  modifiable pour un mois ; la période de budget va d'une paye à la suivante (jours restants, reste par jour,
+  courbe, conseils, mois affiché à l'ouverture). Serveur : `savePaie`, champ `paie` dans `getAll`.
+- **Conseil du jour calibré** : uniquement les dépenses ponctuelles ; fréquence inhabituelle d'un libellé
+  (avec le commerce le plus fréquent), rythme de dépense comparé aux 4 mois précédents au même jour de la période,
+  dépense plus tôt que d'habitude (ex. carburant), enveloppe dépassée, reste par jour.
+- **Synthèse & répartition** : plus de lien « détail » ; la ligne d'un groupe ouvre son détail, la flèche le déplie.
+- **À pointer** : liste dans l'ordre du relevé (plus ancien d'abord) reprenant après le dernier pointage,
+  mouvements à venir repliés ; repère « Pointé jusqu'ici » dans la liste complète.
+- **Pages allégées** : filtres de Mouvements en puces, lignes réduites à l'essentiel (libellé, initiale, icône fixe),
+  Enveloppes (libellés sans enveloppe regroupés à part, aide repliée), Fixes et Enveloppes avec tuiles de résumé.
+- **Rigueur typographique** : hauteurs fixes et centrage des puces, pastilles, étiquettes et boutons ; grille de 4 px ;
+  tuiles réparties (titre en haut, chiffre, détail calé en bas).
+- **Glisser plus fiable** : geste horizontal réservé à l'appli (`touch-action: pan-y`), seuils revus, prise en compte
+  de la vitesse, rangées défilantes respectées, annulation gérée.
+- **Couleur du thème au choix** : citron, menthe, corail, lavande, ciel, ambre (accent et tuile Conseil).
+
 ## [1.1.1] — 2026-11-06
 
 - **Glisser = changer de page** (téléphone) : gauche/droite passe d'un onglet à l'autre ; résistance en bout de liste.
