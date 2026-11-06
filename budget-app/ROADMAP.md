@@ -15,6 +15,15 @@ Points validés pour la prochaine version (v0.3.0) — **non développés, non d
     ou **date de prélèvement** (jour du mois, en tenant compte des fixes « versés le mois précédent ») ;
   - sélecteur de tri en haut de la liste, choix mémorisé sur l'appareil ;
   - sous-totaux par libellé quand le tri est « par libellé ».
+- [ ] **Changer la nature d'un mouvement après saisie (ponctuel ↔ fixe)**
+  - dans la fiche d'un mouvement, choix **Ponctuel / Fixe** modifiable à tout moment ;
+  - **ponctuel → fixe** : crée le mouvement fixe à partir de celui-ci (montant, libellé, description, jour,
+    mois de budget, « versé le mois précédent » si besoin) avec l'échéance choisie (**perpétuel** ou **jusqu'à …**) ;
+    le mouvement saisi devient la première occurrence (pas de doublon) ;
+  - **fixe → ponctuel** : cette occurrence est conservée comme mouvement ponctuel et le fixe n'est plus reporté
+    les mois suivants ; les occurrences futures non pointées / non modifiées sont retirées, l'historique est conservé ;
+  - l'échéance (perpétuel ↔ jusqu'à …) se règle aussi directement depuis la fiche du mouvement ;
+  - confirmation avant application, action tracée au journal.
 - [ ] **Dupliquer un mouvement**
   - bouton « Dupliquer » dans la fiche d'un mouvement : ouvre un nouveau mouvement pré-rempli
     (libellé, montant, description), daté d'aujourd'hui, modifiable avant enregistrement ;
