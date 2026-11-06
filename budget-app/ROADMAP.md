@@ -107,3 +107,12 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - boutons **« Modifier le prévu »** (enveloppe / montant prévu, comme aujourd'hui) et
     **« Voir dans Mouvements »** (onglet Mouvements filtré sur ce libellé) ;
   - ligne de groupe (ex. « Vie courante ») : même fiche avec les mouvements de tout le groupe.
+- [ ] **Conseils : catégorie « Impôts & taxes » (obligations)**
+  - nouveau type de libellé **Impôts & taxes** (en plus de besoin / envie / crédit / épargne),
+    attribué par défaut à *Impôts* et aux libellés type *Taxe foncière* ;
+  - la règle 50/30/20 se calcule sur le **revenu disponible** = revenus − impôts & taxes
+    (la règle s'applique au revenu après impôts : compter les impôts en « besoins » fausse le résultat) ;
+  - indicateur dédié **« Poids des impôts et taxes »** (en % des revenus, sur le mois et sur 12 mois,
+    car ces prélèvements sont souvent irréguliers : soldes, échéances 1/4…) — informatif, sans repère imposé ;
+  - nouvelle couleur dans les graphiques (répartition, évolution) ;
+  - migration : le libellé *Impôts* passe automatiquement dans ce type (modifiable).
