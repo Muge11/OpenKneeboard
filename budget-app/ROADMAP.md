@@ -169,6 +169,21 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - confidentialité respectée : chaque destinataire ne reçoit que les comptes d'épargne qu'il peut voir ;
   - bouton « Envoyer le compte rendu maintenant » et aperçu dans Plus › Compte rendu ; envoi tracé au journal.
 
+- [ ] **Sections repliables (affichage allégé)**
+  - chaque bloc s'ouvre / se ferme d'un toucher (flèche ▸ / ▾), avec son total visible même replié ;
+    l'état ouvert / fermé est mémorisé sur l'appareil ;
+  - **Synthèse** : tableau par groupe replié par défaut (une ligne par groupe : prévu / réel / %),
+    détail des libellés au dépliage ; cartes « Enveloppes » et « À pointer » repliables ;
+  - **Enveloppes**, **Fixes**, **Libellés** : un bloc repliable par groupe (Charges fixes & crédits, Vie courante…) ;
+    seuls les groupes avec dépassement ou mouvement à pointer restent ouverts par défaut ;
+  - **Conseils** : seuls le résumé et les conseils prioritaires ouverts ; règle 50/30/20, impôts, endettement,
+    repères par libellé repliés ;
+  - **Mouvements** : jours repliables ; filtres regroupés dans un menu déroulant « Filtrer » au lieu
+    d'une rangée de boutons ;
+  - **Plus** : en attente, épargne, véhicules, paramètres repliés en sections ;
+  - **Fiche d'un mouvement** : champs essentiels visibles (montant, libellé, description) ;
+    date, mois de budget, répétition, pointage et outils regroupés sous « Plus d'options ».
+
 ### Confidentialité réelle — option B retenue
 Tous les utilisateurs ont accès en modification à la Google Sheet (nécessaire au fonctionnement de l'appli).
 - **Option A — masquage dans l'appli** : simple ; mais les données restent lisibles par quelqu'un qui ouvre
