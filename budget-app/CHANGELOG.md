@@ -3,6 +3,18 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.1.0] — 2026-11-06 — nouvelle présentation « Bento »
+
+- **Refonte graphique complète** : police Plus Jakarta Sans, thème clair crème et thème sombre chaud,
+  tuiles pastel (sauge, pêche, lavande, beurre, ciel) et accent vert citron.
+- **Synthèse en tuiles** : reste à vivre (centimes en petit, écart au prévu, montant par jour restant,
+  courbe du mois, avancement du mois), entrées, sorties, répartition par type, 3 enveloppes les plus entamées.
+- **Conseil du jour** : enveloppe dépassée, reste par jour de l'enveloppe la plus entamée, mouvements à pointer.
+- **Navigation** : pilule flottante avec le nom de l'onglet actif, bouton + rond à côté ; sur PC, barre latérale
+  avec logo, bouton « Nouveau mouvement » vert citron, onglet actif en noir.
+- Icônes de libellés colorées selon le type, initiale de la personne dans la pastille « saisi par ».
+- Fiches, champs, boutons, puces et listes harmonisés ; couleur de la barre d'état adaptée au thème.
+
 ## [1.0.0] — 2026-11-06 — version stable
 
 - **Ouverture plus rapide** : le serveur ne prend plus de verrou à l'ouverture s'il n'y a pas de fixes à reporter

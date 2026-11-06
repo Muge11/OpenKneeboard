@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.1.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -1067,6 +1067,14 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.1.0', titre: 'Nouvelle présentation', items: [
+    'Toute l\'appli change de look : tuiles colorées, nouvelle police, chiffres plus lisibles (centimes en petit).',
+    'Synthèse en tuiles : reste à vivre avec sa courbe du mois et l\'avancement jour par jour, entrées, sorties, répartition et enveloppes en un coup d\'œil.',
+    'Nouveau « Conseil du jour » : dépassement d\'enveloppe, ou combien il reste à dépenser par jour.',
+    'Barre de navigation flottante avec le nom de l\'onglet actif, et bouton + toujours à portée de pouce.',
+    'Les icônes de libellés sont colorées selon leur type (besoins, envies, crédits…) et l\'initiale de la personne s\'affiche à côté de chaque saisie.',
+    'Thèmes clair (crème) et sombre retravaillés, version PC avec barre latérale repensée.'
+  ] },
   { v: '1.0.0', titre: 'Version 1.0', items: [
     'Ouverture plus rapide : l\'appli n\'attend plus quand quelqu\'un d\'autre enregistre au même moment.',
     'Pointage d\'un relevé plus fluide : les cases cochées à la suite partent en un seul envoi.',

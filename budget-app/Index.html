@@ -4,73 +4,108 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#121110">
 <meta name="color-scheme" content="dark">
 <title>Budget</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* Thème sombre (par défaut) ; thème clair via html[data-theme="light"] (préférence de chaque utilisateur). */
+  /* Direction « Bento » : sombre chaud par défaut, clair crème via html[data-theme="light"]. */
   :root {
     color-scheme: dark;
-    --header-bg: rgba(11, 13, 16, .92);
-    --on-strong: #0b0d10;
-    --on-pos: #0b0d10;
-    --fab-shadow: 0 8px 24px rgba(76, 141, 255, .35);
-    --err-bg: #3a1716; --err-line: #6b2725; --err-text: #ffd5d2;
-    --bg: #0b0d10;
-    --surface: #15181d;
-    --surface-2: #1c2027;
-    --surface-3: #242932;
-    --line: #262b33;
-    --line-2: #323844;
-    --text: #e9ebee;
-    --text-2: #b4bac4;
-    --muted: #7d8592;
-    --accent: #4c8dff;
-    --accent-soft: rgba(76, 141, 255, .14);
-    --pos: #3fbf7f;
-    --neg: #f2706b;
-    --warn: #f0b429;
+    --header-bg: rgba(18, 17, 16, .88);
+    --on-strong: #121110;
+    --on-pos: #121110;
+    --on-accent: #1a1916;
+    --fab-shadow: 0 10px 24px rgba(0, 0, 0, .45);
+    --err-bg: #3a1d16; --err-line: #6b3325; --err-text: #ffd9cc;
+    --bg: #121110;
+    --surface: #1c1b19;
+    --surface-2: #24231f;
+    --surface-3: #2e2c28;
+    --line: #2a2825;
+    --line-2: #3a3833;
+    --text: #f2eee6;
+    --text-2: #bcb5a6;
+    --muted: #8a8478;
+    --accent: #c8f169;
+    --accent-soft: rgba(200, 241, 105, .13);
+    --accent-text: #c8f169;
+    --lime: #c8f169;
+    --ink: #f2eee6;
+    --pos: #7fd6a4;
+    --neg: #ff7a59;
+    --warn: #f1c24a;
+    --sheet-bg: #1c1b19;
+    --input-bg: #24231f;
+    --card-line: #26241f;
+    --hero-bg: linear-gradient(135deg, #262420, #1a1917);
+    --hero-line: #2e2c28;
+    /* tuiles pastel (fond / texte secondaire) */
+    --sage: #22302a; --sage-t: #9fc7ab;
+    --peach: #3a2620; --peach-t: #e0a891;
+    --lav: #28253a; --lav-t: #b7aeea;
+    --butter: #34301c; --butter-t: #d9c77c;
+    --sky: #1e2a36; --sky-t: #9cc1e0;
+    --tile-ink: #f2eee6;
     /* statuts (graphiques / conseils) */
-    --st-good: #0ca30c;
-    --st-warn: #fab219;
-    --st-serious: #ec835a;
-    --st-critical: #d03b3b;
+    --st-good: #7fd6a4;
+    --st-warn: #f1c24a;
+    --st-serious: #ff9b6a;
+    --st-critical: #ff6b5a;
     /* séries catégorielles (palette validée sur fond sombre) */
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-    --radius: 14px;
+    --radius: 24px;
   }
   html[data-theme="light"] {
     color-scheme: light;
-    --header-bg: rgba(255, 255, 255, .92);
-    --on-strong: #ffffff;
+    --header-bg: rgba(244, 241, 234, .9);
+    --on-strong: #f4f1ea;
     --on-pos: #ffffff;
-    --fab-shadow: 0 8px 20px rgba(47, 111, 236, .28);
-    --err-bg: #fdecea; --err-line: #f3b9b4; --err-text: #8a1c14;
-    --bg: #f4f5f7;
+    --on-accent: #f4f1ea;
+    --fab-shadow: 0 10px 22px rgba(26, 25, 22, .25);
+    --err-bg: #fde8e1; --err-line: #f2bba8; --err-text: #8a2a10;
+    --bg: #f4f1ea;
     --surface: #ffffff;
-    --surface-2: #f2f4f7;
-    --surface-3: #e8ebf0;
-    --line: #e3e6eb;
-    --line-2: #d2d7de;
-    --text: #14171c;
-    --text-2: #3f4652;
-    --muted: #6b7380;
-    --accent: #2f6fec;
-    --accent-soft: rgba(47, 111, 236, .10);
-    --pos: #12804a;
-    --neg: #d23f3a;
-    --warn: #a86a00;
+    --surface-2: #f4f1ea;
+    --surface-3: #e9e4d9;
+    --line: #ece7dd;
+    --line-2: #d9d3c6;
+    --text: #1a1916;
+    --text-2: #4a463e;
+    --muted: #8a8478;
+    --accent: #1a1916;
+    --accent-soft: rgba(26, 25, 22, .07);
+    --accent-text: #1a1916;
+    --ink: #1a1916;
+    --pos: #1f7a4d;
+    --neg: #d4471f;
+    --warn: #9a6b00;
+    --sheet-bg: #f4f1ea;
+    --input-bg: #ffffff;
+    --card-line: transparent;
+    --hero-bg: #1a1916;
+    --hero-line: #1a1916;
+    --sage: #cfe5d3; --sage-t: #3f5a46;
+    --peach: #f9cdb8; --peach-t: #7a4632;
+    --lav: #dcd6f7; --lav-t: #4f467e;
+    --butter: #f6e7a8; --butter-t: #6b5a17;
+    --sky: #cfe3f5; --sky-t: #345571;
+    --tile-ink: #1a1916;
+    --st-good: #1f8a50;
+    --st-warn: #b07d00;
+    --st-serious: #d9622b;
+    --st-critical: #c7361c;
     /* séries catégorielles (palette validée sur fond clair) */
     --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
     --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.45 "Plus Jakarta Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased; }
   html { overscroll-behavior-y: none; }
   body { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
@@ -392,6 +427,194 @@
     @keyframes slidein { from { transform: translateX(40px); opacity: 0; } }
     .loading { padding-left: 260px !important; }
   }
+
+  /* ================= Direction Bento (v1.1.0) ================= */
+  h1, h2, h3, .big, .backbar h1 { letter-spacing: -.02em; }
+  .card { border: 1px solid var(--card-line); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; }
+  .card h2, .h2 { font-size: 12px; font-weight: 800; letter-spacing: .07em; color: var(--muted); }
+  .backbar h1 { font-size: 24px; font-weight: 800; }
+  .item { border-bottom-color: var(--line); }
+  .item .title { font-weight: 700; }
+  .item .amt { font-weight: 800; }
+  .emo { width: 42px; height: 42px; border-radius: 14px; font-size: 19px; background: var(--surface-2); }
+  .emo.t-besoin { background: var(--sky); } .emo.t-envie { background: var(--peach); } .emo.t-credit { background: var(--butter); }
+  .emo.t-epargne, .emo.t-revenu { background: var(--sage); } .emo.t-impot { background: var(--lav); }
+  .day { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+  .who { font-weight: 600; }
+  .who i { width: 16px; height: 16px; font-style: normal; font-size: 9px; font-weight: 800; color: #fff; display: inline-grid; place-items: center; line-height: 1; }
+  .tag { border-radius: 7px; font-weight: 700; font-size: 10.5px; }
+  .tag.acc { background: var(--accent-soft); color: var(--accent-text); }
+  .check { border-radius: 9px; width: 26px; height: 26px; }
+  .chip { border: 0; background: var(--surface); color: var(--text-2); font-weight: 700; font-size: 13px; padding: 8px 14px; }
+  .chip.on { background: var(--ink); color: var(--bg); font-weight: 800; }
+  .chip.add { border: 1.5px dashed var(--line-2); color: var(--text-2); background: transparent; }
+  .seg { background: var(--surface); border: 0; border-radius: 16px; padding: 4px; }
+  .seg button { font-weight: 700; border-radius: 12px; padding: 9px 6px; }
+  .seg button.on { background: var(--ink); color: var(--bg); }
+  .seg button.on.s, .seg button.on.e { color: var(--bg); }
+  .btn { border-radius: 16px; background: var(--ink); color: var(--bg); font-weight: 800; padding: 13px 18px; }
+  .btn.ghost { background: var(--surface-3); color: var(--text); }
+  .btn.danger { background: transparent; color: var(--neg); }
+  .btn.sm { border-radius: 12px; }
+  .link { color: var(--accent-text); font-weight: 700; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+  .badge-new { background: var(--lime, #c8f169); color: #1a1916; font-weight: 800; }
+  html[data-theme="light"] .badge-new { background: #c8f169; }
+  .bar { height: 8px; border-radius: 5px; background: var(--surface-3); }
+  .bar > span { background: var(--ink); border-radius: 5px; }
+  html:not([data-theme="light"]) .bar > span { background: var(--lime); }
+  .bar > span.over { background: var(--neg) !important; }
+  .search input { background-color: var(--surface); border: 0; border-radius: 16px; padding-top: 12px; padding-bottom: 12px; }
+  .filterbar select { border: 0; border-radius: 14px; }
+  input, select, textarea { background: var(--input-bg); border: 1px solid var(--line); border-radius: 14px; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--ink); }
+  input.amount { font-size: 40px; font-weight: 800; letter-spacing: -.04em; border: 0; background: transparent; }
+  .quick input { background: var(--input-bg); border: 1px solid var(--line); }
+  .quick .qicon { color: var(--text); }
+  .box, .info, .more-toggle, .tip { background: var(--input-bg); border: 1px solid var(--line); border-radius: 16px; }
+  .emojis button { background: var(--input-bg); border-radius: 10px; }
+  .emojis button.on { border-color: var(--ink); background: var(--accent-soft); }
+  .kpi { background: var(--surface-2); border-radius: 14px; }
+  .toast { border-radius: 16px; background: var(--ink); color: var(--bg); border: 0; font-weight: 600; }
+  .toast.err { background: var(--err-bg); color: var(--err-text); border: 1px solid var(--err-line); }
+  .sync { border: 0; background: var(--ink); color: var(--bg); font-weight: 700; }
+  .sync .spin { border-color: rgba(128, 128, 128, .4); border-top-color: var(--bg); }
+  .spin { border-top-color: var(--ink); }
+  .skel { border: 0; border-radius: var(--radius); }
+
+  /* Fiches */
+  .overlay { background: rgba(10, 9, 8, .55); }
+  .sheet { background: var(--sheet-bg); border: 0; border-radius: 30px 30px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); }
+  .sheet::before { width: 40px; height: 5px; border-radius: 3px; }
+  .sheet h3 { font-size: 21px; font-weight: 800; letter-spacing: -.02em; }
+  .field > label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+  @media (min-width: 600px) { .sheet { border-radius: 28px; } }
+
+  /* En-tête : mois dans une pilule */
+  header { background: var(--header-bg); border-bottom: 0; padding: calc(10px + env(safe-area-inset-top)) 12px 10px; gap: 8px; }
+  header .month { flex: 0 1 auto; margin: 0 auto; background: var(--surface); border-radius: 999px; padding: 9px 18px; }
+  header .month b { font-size: 15px; font-weight: 800; }
+  header #versionLabel { display: none; }
+  header button { width: 42px; height: 42px; border-radius: 50%; background: var(--surface); color: var(--text); }
+  header button:active { background: var(--surface-3); }
+
+  /* Navigation : pilule flottante, onglet actif nommé, bouton + rond à côté */
+  body { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+  nav { left: 12px; right: 84px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 6px; height: 62px; border-radius: 999px; border: 0;
+    background: #1a1916; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 12px 28px rgba(26, 25, 22, .3); gap: 2px; align-items: center; }
+  html:not([data-theme="light"]) nav { background: #262420; box-shadow: 0 0 0 1px #33312c, 0 12px 28px rgba(0, 0, 0, .5); }
+  nav button { flex: 1 1 0; min-width: 0; min-height: 0; height: 50px; padding: 0; border-radius: 999px; flex-direction: row; gap: 6px;
+    color: #8f897c; font-size: 13px; font-weight: 800; transition: flex-grow .2s, background .2s; }
+  nav .pill { width: auto; height: auto; background: none !important; }
+  nav .tl { display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  nav button.on { flex: 3.4 1 0; background: #c8f169; color: #1a1916; padding: 0 10px; }
+  nav button.on svg { color: #1a1916; }
+  nav button.on .tl { display: inline; }
+  .fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); width: 62px; height: 62px; border-radius: 50%;
+    background: #c8f169; color: #1a1916; box-shadow: var(--fab-shadow); }
+  html[data-theme="light"] .fab { background: #1a1916; color: #f4f1ea; }
+  .fab[hidden] ~ nav, body.ro nav { right: 12px; }
+  .toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  @media (max-width: 370px) { nav button.on .tl { display: none; } nav button.on { flex: 1.3 1 0; } }
+  @media (hover: hover) and (pointer: fine) { nav button:hover { color: #f4f1ea; } nav button.on:hover { color: #1a1916; } }
+  @media (min-width: 840px) {
+    header, nav { padding-left: 12px; padding-right: 12px; }
+    header { padding-left: calc((100vw - 760px) / 2); padding-right: calc((100vw - 760px) / 2); }
+    nav { left: 50%; right: auto; transform: translateX(calc(-50% - 37px)); width: 560px; padding: 6px; }
+    .fab { right: auto; left: calc(50% + 250px); }
+  }
+
+  /* ---- Synthèse en tuiles ---- */
+  .bento { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .bento .t { border-radius: var(--radius); padding: 15px 16px; position: relative; overflow: hidden; background: var(--surface); min-width: 0;
+    border: 1px solid var(--card-line); color: var(--tile-ink); }
+  .bento .t.click { cursor: pointer; }
+  .bento .t.click:active { transform: scale(.985); }
+  .bento .w2 { grid-column: span 2; }
+  .bento .k { font-size: 12px; font-weight: 700; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+  .bento .v { font-size: 23px; font-weight: 800; margin-top: 3px; letter-spacing: -.03em; }
+  .bento .s { font-size: 11.5px; font-weight: 600; color: var(--text-2); margin-top: 4px; }
+  .bento .cents { font-size: .52em; font-weight: 700; opacity: .7; letter-spacing: 0; }
+  .bento .corner { position: absolute; right: 12px; top: 12px; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, .55);
+    display: grid; place-items: center; }
+  html:not([data-theme="light"]) .bento .corner { background: rgba(255, 255, 255, .07); }
+  .bento .corner svg { width: 16px; height: 16px; }
+  .t.sage { background: var(--sage); } .t.sage .k, .t.sage .s { color: var(--sage-t); }
+  .t.peach { background: var(--peach); } .t.peach .k, .t.peach .s { color: var(--peach-t); }
+  .t.lav { background: var(--lav); } .t.lav .k, .t.lav .s, .t.lav .lgd { color: var(--lav-t); }
+  .t.butter { background: var(--butter); } .t.butter .k { color: var(--butter-t); }
+  .t.sky { background: var(--sky); } .t.sky .k, .t.sky .s { color: var(--sky-t); }
+  .t.hero { background: var(--hero-bg); border-color: var(--hero-line); color: #f4f1ea; padding: 17px 17px 15px; }
+  .t.hero .k { color: #b9b2a4; }
+  .t.hero .big { font-size: 42px; font-weight: 800; letter-spacing: -.045em; line-height: 1.08; margin: 2px 0 0; }
+  .t.hero .big.neg { color: #ff8a6a; }
+  .t.hero .chips2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; position: relative; z-index: 1; }
+  .pchip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 10px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+  .pchip.lime { background: #c8f169; color: #1a1916; } .pchip.red { background: #ff8a6a; color: #1a1916; } .pchip.ghost { background: rgba(255, 255, 255, .1); color: #e8e3d8; }
+  .t.hero .spark { position: absolute; right: 10px; top: 16px; width: 44%; max-width: 230px; height: 66px; }
+  .t.hero .spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .t.hero .sdot { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #c8f169; border: 2px solid #1a1916; }
+  .t.hero .mprog { margin-top: 13px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .12); position: relative; }
+  .t.hero .mprog i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #f4f1ea; }
+  .t.hero .mprog b { position: absolute; top: -4px; width: 3px; height: 14px; margin-left: -1px; background: #c8f169; border-radius: 2px; }
+  .t.hero .mpl { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #9b9486; margin-top: 7px; font-weight: 600; }
+  .mini { display: flex; align-items: flex-end; gap: 4px; height: 24px; margin-top: 8px; }
+  .mini i { flex: 1; border-radius: 4px; background: currentColor; opacity: .8; min-height: 3px; }
+  .mini i.f { opacity: .22; }
+  html:not([data-theme="light"]) .t.sage .vs i { background: #b9e2c4; }
+  .vs { height: 8px; border-radius: 5px; background: rgba(26, 25, 22, .12); margin-top: 10px; overflow: hidden; }
+  html:not([data-theme="light"]) .vs { background: rgba(255, 255, 255, .1); }
+  .vs i { display: block; height: 100%; border-radius: 5px; background: var(--tile-ink); }
+  html:not([data-theme="light"]) .t.peach .vs i { background: #ffc6ad; }
+  .t.tipt p { margin: 6px 0 0; font-size: 13px; font-weight: 600; line-height: 1.42; color: var(--tile-ink); }
+  html:not([data-theme="light"]) .t.tipt p { color: #f1e7bd; }
+  .t.tipt p b { font-weight: 800; }
+  .donut { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+  .donut svg { flex: none; }
+  .lgd { font-size: 11px; font-weight: 700; line-height: 1.75; min-width: 0; white-space: nowrap; }
+  .lgd > div { overflow: hidden; text-overflow: ellipsis; }
+  .bento .lgd { font-size: 10.5px; }
+  nav { overflow: hidden; }
+  nav .tl { min-width: 0; }
+  .sheet .chip { background: var(--input-bg); border: 1px solid var(--line); }
+  .sheet .chip.on { background: var(--ink); border-color: var(--ink); }
+  .lgd i { display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 5px; }
+  .ev { margin-top: 9px; }
+  .ev .tt { display: flex; justify-content: space-between; gap: 6px; font-size: 12.5px; font-weight: 700; }
+  .ev .tt span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ev .bar { margin-top: 5px; }
+  @media (max-width: 380px) { .bento .lav .donut { flex-direction: column; align-items: flex-start; } }
+
+  @media (min-width: 1100px) {
+    body { padding-bottom: 32px; }
+    header { padding: 14px 28px !important; background: var(--bg); }
+    header .month { margin: 0; }
+    header .month b { font-size: 16px; }
+    nav { top: 0; bottom: 0; left: 0; right: auto !important; width: 232px; height: auto; transform: none; border-radius: 0; box-shadow: none !important;
+      background: var(--surface) !important; padding: 136px 14px 20px !important; gap: 4px; align-items: stretch; }
+    html:not([data-theme="light"]) nav { border-right: 1px solid var(--line); }
+    nav::before { content: "€"; top: 22px; left: 22px; width: 32px; height: 32px; border-radius: 11px; background: #1a1916; color: #c8f169;
+      display: grid; place-items: center; font-size: 16px; font-weight: 800; }
+    html:not([data-theme="light"]) nav::before { background: #c8f169; color: #1a1916; }
+    nav::after { content: "Budget"; position: absolute; top: 24px; left: 64px; font-size: 21px; font-weight: 800; letter-spacing: -.03em; color: var(--text); }
+    nav button, nav button.on { flex: none; height: 46px; justify-content: flex-start; gap: 12px; padding: 0 12px; font-size: 14.5px; font-weight: 700;
+      color: var(--text-2); border-radius: 14px; }
+    nav .tl, nav button.on .tl { display: inline; }
+    nav button.on { background: var(--ink) !important; color: var(--bg); }
+    nav button.on svg { color: var(--bg); }
+    nav button:hover { color: var(--text); background: var(--surface-2); }
+    nav button.on:hover { color: var(--bg); }
+    .fab { top: 72px; left: 14px !important; right: auto !important; bottom: auto; width: 204px; height: 50px; border-radius: 16px;
+      background: #c8f169 !important; color: #1a1916 !important; font-weight: 800; font-size: 14px; box-shadow: none; justify-content: flex-start; gap: 8px; padding: 0 16px; white-space: nowrap; }
+    .toast { bottom: 28px; }
+    .bento { grid-template-columns: 1.5fr 1fr 1fr; grid-template-areas: "hero ent sor" "hero tip tip" "rep env env"; column-span: all; -webkit-column-span: all; margin-bottom: 18px; gap: 12px; }
+    .bento .hero { grid-area: hero; } .bento .sage { grid-area: ent; } .bento .peach { grid-area: sor; }
+    .bento .tipt { grid-area: tip; } .bento .lav { grid-area: rep; } .bento .env3 { grid-area: env; }
+    .t.hero .spark { flex: 1; min-height: 90px; }
+    .t.hero { display: flex; flex-direction: column; }
+    .t.hero .big { font-size: 54px; }
+    .t.hero .spark { position: relative; right: auto; top: auto; width: 100%; max-width: none; margin: 12px 0 4px; display: block; }
+    #view[data-layout="cols"] > .bento { display: grid; }
+  }
   @media (min-width: 1700px) {
     #view[data-layout="cols"] { column-count: 3; }
     main { max-width: 1640px; }
@@ -471,14 +694,18 @@ var REP_DEF = {
   libelles: { 'Alimentaire': 15, 'Carburant': 15, 'Loisirs': 10, 'Resto': 5, 'Abonnements': 5, 'Voyage / Vacances': 10 }
 };
 var SVG = {
-  synthese: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+  synthese: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   mouvements: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   enveloppes: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
   fixes: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
-  plus: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  plus: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
   bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  arrIn: '<path d="M12 5v14M5 12l7 7 7-7"/>',
+  arrOut: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  spark: '<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/>',
   mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>'
 };
 function svg(name, cls) { return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24">' + SVG[name] + '</svg>'; }
@@ -524,7 +751,7 @@ function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function byId(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; }
 function lib(id) { return byId(D.libelles, id) || { id: id, nom: '?', sens: 'sortie', groupe: '?', type: 'envie' }; }
 function icon(l) { return l.emoji || ICONS[l.nom] || (l.sens === 'entree' ? '💶' : '•'); }
-function emo(l) { return '<span class="emo">' + icon(l) + '</span>'; }
+function emo(l) { return '<span class="emo t-' + ltype(l) + '">' + icon(l) + '</span>'; }
 function ltype(l) { return l.type || (l.sens === 'entree' ? 'revenu' : 'envie'); }
 function role() { return D.me.role; }
 var OFFLINE = navigator.onLine === false;
@@ -538,7 +765,8 @@ function whoBadge(email, prefix) {
   if (!email || email === 'auto') return '<span class="who"><i style="background:var(--muted)"></i>Report auto</span>';
   if (email === 'système') return '<span class="who"><i style="background:var(--muted)"></i>Système</span>';
   var u = user(email);
-  return '<span class="who"><i style="background:' + esc(u ? u.couleur : '#888') + '"></i>' + (prefix || '') + esc(u ? u.nom : email) + '</span>';
+  var nm = u ? u.nom : String(email);
+  return '<span class="who"><i style="background:' + esc(u ? u.couleur : '#888') + '">' + esc(nm.charAt(0).toUpperCase()) + '</i>' + (prefix || '') + esc(nm) + '</span>';
 }
 function libsSorted(sens) {
   return D.libelles.filter(function (l) { return l.actif && (!sens || l.sens === sens); })
@@ -598,9 +826,9 @@ function applyTheme() {
   if (t === 'auto') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   document.documentElement.dataset.theme = t;
   var m = document.querySelector('meta[name=theme-color]');
-  if (m) m.setAttribute('content', t === 'light' ? '#ffffff' : '#0b0d10');
+  if (m) m.setAttribute('content', t === 'light' ? '#f4f1ea' : '#121110');
   // L'appli installée (coquille) adapte la couleur de la barre d'état du téléphone.
-  try { window.top.postMessage({ budgetTheme: t, color: t === 'light' ? '#ffffff' : '#0b0d10' }, '*'); } catch (e) {}
+  try { window.top.postMessage({ budgetTheme: t, color: t === 'light' ? '#f4f1ea' : '#121110' }, '*'); } catch (e) {}
 }
 if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addListener(function () { applyTheme(); });
 
@@ -865,7 +1093,7 @@ function render() {
   document.getElementById('prevBtn').hidden = monthless;
   document.getElementById('nextBtn').hidden = monthless;
   document.getElementById('nav').innerHTML = TABS.map(function (t) {
-    return '<button data-act="tab" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '"><span class="pill">' + svg(t[0]) + '</span>' + t[1] + '</button>';
+    return '<button data-act="tab" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '"><span class="pill">' + svg(t[0]) + '</span><span class="tl">' + t[1] + '</span></button>';
   }).join('');
   var c = compute(mois);
   var v = tab === 'plus' && sub ? SUBVIEWS[sub] : { synthese: viewSynthese, mouvements: viewMouvements, enveloppes: viewEnveloppes, fixes: viewFixes, plus: viewPlus }[tab];
@@ -887,33 +1115,12 @@ function viewSynthese(c) {
   if (synSeg === 'graph') return h + viewGraphs();
   if (synSeg === 'conseils') return h + viewConseils();
   var b = c.bilan;
-  h += '<div class="card hero"><div class="label">Reste à vivre · réel</div>' +
-    '<div class="big num ' + (b.reel < 0 ? 'neg' : '') + '">' + eur(b.reel) + '</div>' +
-    '<div class="kpis"><div class="kpi"><div class="k">Prévu</div><div class="v num">' + eur0(b.prevu) + '</div></div>' +
-    '<div class="kpi"><div class="k">Entrées</div><div class="v num pos">' + eur0(c.tot.entree.reel) + '</div></div>' +
-    '<div class="kpi"><div class="k">Sorties</div><div class="v num">' + eur0(c.tot.sortie.reel) + '</div></div></div></div>';
+  h += bentoHtml(c);
 
   if (c.todo) {
     var todoList = sortMvts(c.mv.filter(function (x) { return !x.pointe; }));
     h += fold('syn:todo', 'À pointer', '<b class="num">' + c.todo + '</b>',
       mvtListHtml(todoList.slice(0, 15)) + (c.todo > 15 ? '<button class="link small" data-act="goFilter" data-f="apointer">Voir les ' + c.todo + ' mouvements ›</button>' : ''), false);
-  }
-
-  var env = Object.keys(c.per).map(function (k) { return c.per[k]; })
-    .filter(function (p) { return p.lib.sens === 'sortie' && p.env > 0; })
-    .sort(function (a, b) { return (b.reel / b.env) - (a.reel / a.env); });
-  if (env.length) {
-    var nOver = env.filter(function (p) { return p.reel > p.env + 0.005; }).length;
-    var envBody = '';
-    env.slice(0, 5).forEach(function (p) {
-      var ratio = p.reel / p.env, reste = p.env - p.reel;
-      envBody += '<div class="prog" data-act="libDetail" data-id="' + p.lib.id + '" style="cursor:pointer"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
-        '<span class="num small"><b>' + eur(p.reel) + '</b> <span class="muted">/ ' + eur0(p.env) + '</span></span></div>' +
-        '<div class="bar"><span class="' + (ratio > 1 ? 'over' : '') + '" style="width:' + Math.min(100, ratio * 100) + '%"></span></div>' +
-        '<div class="xs ' + (reste < 0 ? 'neg' : 'muted') + '" style="margin-top:4px">' + (reste < 0 ? 'Dépassement de ' + eur(-reste) : 'Reste ' + eur(reste)) + '</div></div>';
-    });
-    envBody += '<button class="link small" data-act="tab" data-tab="enveloppes">Toutes les enveloppes ›</button>';
-    h += fold('syn:env', 'Enveloppes', nOver ? '<span class="tag neg">' + nOver + ' dépassée' + (nOver > 1 ? 's' : '') + '</span>' : '<span class="tag">' + env.length + '</span>', envBody, nOver > 0);
   }
 
   var revP = c.tot.entree.prevu, revR = c.tot.entree.reel;
@@ -939,6 +1146,113 @@ function viewSynthese(c) {
     '</td><td class="num ' + (b.reel < 0 ? 'neg' : 'pos') + '">' + eur0(b.reel) + '</td><td class="pc">' + pct(b.reel / revR) + '</td></tr>';
   h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez un groupe pour le déplier, un libellé pour voir ses mouvements ou modifier son prévu.</div></div>';
   return h;
+}
+
+/** Montant avec les centimes en plus petit. */
+function eurBig(n) {
+  var s = eur(n), i = s.lastIndexOf(',');
+  return i < 0 ? esc(s) : esc(s.substring(0, i)) + '<span class="cents">' + esc(s.substring(i)) + '</span>';
+}
+/** Évolution du reste à vivre jour après jour (les mouvements datés avant le mois comptent au jour 0). */
+function sparkPts(c, m) {
+  var y = +m.substring(0, 4), mo = +m.substring(5, 7), nd = new Date(y, mo, 0).getDate();
+  var last = m === ymNow() ? new Date().getDate() : m < ymNow() ? nd : 0;
+  if (!last) return null;
+  var per = []; for (var d = 0; d <= nd; d++) per.push(0);
+  c.mv.forEach(function (x) {
+    var d = x.date && x.date.substring(0, 7) === m ? +x.date.substring(8, 10) : (x.date < m ? 0 : nd);
+    if (x.date > todayStr()) return;
+    per[Math.min(d, nd)] += (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0);
+  });
+  var pts = [], acc = 0;
+  for (var k = 0; k <= last; k++) { acc += per[k]; pts.push(acc); }
+  return { pts: pts, nd: nd, last: last };
+}
+function sparkSvg(sp, cls) {
+  if (!sp || sp.pts.length < 2) return '';
+  var W = 200, H = 66, mn = Math.min.apply(null, sp.pts.concat([0])), mx = Math.max.apply(null, sp.pts), rg = (mx - mn) || 1;
+  var xy = sp.pts.map(function (v, i) { return [(i / (sp.pts.length - 1)) * (W - 12) + 4, H - 6 - ((v - mn) / rg) * (H - 14)]; });
+  var line = xy.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+  var lp = xy[xy.length - 1];
+  return '<div class="' + cls + '"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+    '<defs><linearGradient id="spg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f169" stop-opacity=".32"/><stop offset="1" stop-color="#c8f169" stop-opacity="0"/></linearGradient></defs>' +
+    '<path d="' + line + ' L' + lp[0].toFixed(1) + ' ' + H + ' L4 ' + H + 'Z" fill="url(#spg)"/>' +
+    '<path d="' + line + '" fill="none" stroke="#c8f169" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>' +
+    '<b class="sdot" style="left:' + (lp[0] / W * 100).toFixed(1) + '%;top:' + (lp[1] / H * 100).toFixed(1) + '%"></b></div>';
+}
+/** Conseil du jour : le point le plus utile à regarder ce mois-ci. */
+function dailyTip(c, env, joursRestants) {
+  var over = env.filter(function (p) { return p.reel > p.env + 0.005; })
+    .sort(function (a, b) { return (b.reel - b.env) - (a.reel - a.env); });
+  var open = env.filter(function (p) { return p.reel <= p.env; }).sort(function (a, b) { return (b.reel / b.env) - (a.reel / a.env); });
+  var t = '';
+  if (over.length) t = '<b>' + esc(over[0].lib.nom) + ' dépassé de ' + eur0(over[0].reel - over[0].env) + '.</b>' + (over.length > 1 ? ' ' + (over.length - 1) + ' autre(s) enveloppe(s) aussi.' : '');
+  if (open.length && joursRestants > 0) {
+    var p = open[0], r = p.env - p.reel;
+    t += (t ? ' ' : '') + 'Il reste ' + eur0(r) + ' en ' + esc(p.lib.nom) + ' pour ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : '') + ' : environ <b>' + eur0(r / joursRestants) + ' par jour</b>.';
+  }
+  if (!t && c.todo) t = '<b>' + c.todo + ' mouvement' + (c.todo > 1 ? 's' : '') + ' à pointer</b> sur le relevé du compte.';
+  if (!t && c.bilan.reel >= 0) t = '<b>Tout est sous contrôle.</b> Aucune enveloppe dépassée ce mois-ci.';
+  if (!t) t = '<b>Reste à vivre négatif.</b> Regardez les plus grosses sorties du mois dans les graphiques.';
+  return t;
+}
+function bentoHtml(c) {
+  var b = c.bilan, isCur = mois === ymNow();
+  var y = +mois.substring(0, 4), mo = +mois.substring(5, 7), nd = new Date(y, mo, 0).getDate();
+  var today = isCur ? new Date().getDate() : (mois < ymNow() ? nd : 0);
+  var joursRestants = isCur ? nd - today + 1 : 0;
+  var delta = b.reel - b.prevu;
+  var h = '<div class="bento">';
+  // Héros : reste à vivre
+  h += '<div class="t hero w2"><div class="k">Reste à vivre</div>' +
+    '<div class="big num' + (b.reel < 0 ? ' neg' : '') + '">' + eurBig(b.reel) + '</div>' +
+    '<div class="chips2">' + (b.prevu ? '<span class="pchip ' + (delta >= 0 ? 'lime' : 'red') + ' num">' + (delta >= 0 ? '▲ ' : '▼ ') + eur0(Math.abs(delta)) + ' vs prévu</span>' : '') +
+    (isCur && b.reel > 0 ? '<span class="pchip ghost num">' + eur0(b.reel / joursRestants) + ' / jour</span>' : '') + '</div>' +
+    sparkSvg(sparkPts(c, mois), 'spark') +
+    (today ? '<div class="mprog"><i style="width:' + (today / nd * 100) + '%"></i><b style="left:' + (today / nd * 100) + '%"></b></div>' : '') +
+    '<div class="mpl"><span>' + (isCur ? 'Jour ' + today + ' / ' + nd + ' · ' + joursRestants + ' j restant' + (joursRestants > 1 ? 's' : '') : today ? 'Mois terminé' : 'Mois à venir') + '</span>' +
+    '<span class="num">Prévu ' + eur0(b.prevu) + '</span></div></div>';
+  // Entrées / sorties
+  var ent = Object.keys(c.per).map(function (k) { return c.per[k]; }).filter(function (p) { return p.lib.sens === 'entree' && (p.reel || p.prevu); })
+    .sort(function (a, z) { return z.reel - a.reel; });
+  h += '<div class="t sage click" data-act="goFilter" data-f="entree"><div class="corner">' + svg('arrIn') + '</div><div class="k">Entrées</div>' +
+    '<div class="v num">' + eur0(c.tot.entree.reel) + '</div>' +
+    '<div class="vs"><i style="width:' + (c.tot.entree.prevu ? Math.min(100, c.tot.entree.reel / c.tot.entree.prevu * 100) : 100) + '%"></i></div>' +
+    '<div class="s num">' + (c.tot.entree.prevu ? 'sur ' + eur0(c.tot.entree.prevu) + ' prévus' : ent.length + ' libellé(s)') + '</div></div>';
+  var ratio = c.tot.entree.reel ? c.tot.sortie.reel / c.tot.entree.reel : 0;
+  h += '<div class="t peach click" data-act="goFilter" data-f="sortie"><div class="corner">' + svg('arrOut') + '</div><div class="k">Sorties</div>' +
+    '<div class="v num">' + eur0(c.tot.sortie.reel) + '</div>' +
+    '<div class="vs"><i style="width:' + Math.min(100, ratio * 100) + '%"></i></div>' +
+    '<div class="s">' + (c.tot.entree.reel ? pct(ratio) + ' des entrées' : 'sur ' + eur0(c.tot.sortie.prevu) + ' prévus') + '</div></div>';
+  // Conseil du jour
+  var env = Object.keys(c.per).map(function (k) { return c.per[k]; }).filter(function (p) { return p.lib.sens === 'sortie' && p.env > 0; });
+  h += '<div class="t butter tipt w2 click" data-act="synSeg" data-v="conseils"><div class="k">' + svg('spark') + 'Conseil du jour</div><p>' + dailyTip(c, env, joursRestants) + '</p></div>';
+  // Répartition par type
+  var shown = TYPE_ORDER.filter(function (t) { return c.types[t]; }).sort(function (a, z) { return c.types[z] - c.types[a]; }).slice(0, 3);
+  var tot = c.tot.sortie.reel, R = 30, C = 2 * Math.PI * R, off = 0, arcs = '', lg = '';
+  var dark = document.documentElement.dataset.theme !== 'light';
+  var tcol = { besoin: dark ? '#f2eee6' : '#1a1916', envie: dark ? '#ff7a59' : '#e4572e', credit: dark ? '#a99cff' : '#7c6cf2', epargne: dark ? '#7fd6a4' : '#1f7a4d', impot: dark ? '#f1c24a' : '#b07d00' };
+  TYPE_ORDER.forEach(function (t) {
+    var v = c.types[t] || 0; if (!v || !tot) return;
+    var len = v / tot * C;
+    arcs += '<circle cx="40" cy="40" r="' + R + '" fill="none" stroke="' + tcol[t] + '" stroke-width="11" stroke-dasharray="' + Math.max(0, len - 1.5).toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(-90 40 40)"/>';
+    off += len;
+    if (shown.indexOf(t) >= 0) lg += '<div><i style="background:' + tcol[t] + '"></i>' + TYPES[t].label + ' <span class="num">' + Math.round(v / tot * 100) + ' %</span></div>';
+  });
+  var bes = c.tot.entree.reel ? (c.types.besoin || 0) / c.tot.entree.reel : 0;
+  h += '<div class="t lav click" data-act="synSeg" data-v="graph"><div class="k">Répartition</div>' + (tot ?
+    '<div class="donut"><svg width="58" height="58" viewBox="0 0 80 80"><circle cx="40" cy="40" r="' + R + '" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="11"/>' + arcs +
+    '</svg>' +
+    '<div class="lgd">' + lg + '</div></div><div class="s">' + (c.tot.entree.reel ? 'Besoins ' + Math.round(bes * 100) + ' % des entrées · repère 50 %' : '') + '</div>'
+    : '<div class="s">Aucune sortie ce mois-ci.</div>') + '</div>';
+  // Enveloppes (les 3 plus entamées)
+  var top = env.slice().sort(function (a, z) { return (z.reel / z.env) - (a.reel / a.env); }).slice(0, 3);
+  h += '<div class="t env3 click" data-act="tab" data-tab="enveloppes"><div class="k">Enveloppes</div>' + (top.length ? top.map(function (p) {
+    var r = p.env - p.reel;
+    return '<div class="ev"><div class="tt"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span><span class="num' + (r < 0 ? ' neg' : '') + '">' + (r < 0 ? '−' + eur0(-r) : eur0(r)) + '</span></div>' +
+      '<div class="bar"><span class="' + (r < 0 ? 'over' : '') + '" style="width:' + Math.min(100, p.reel / p.env * 100) + '%"></span></div></div>';
+  }).join('') + '<div class="s" style="margin-top:8px">restant ce mois</div>' : '<div class="s">Aucune enveloppe définie.</div>') + '</div>';
+  return h + '</div>';
 }
 
 /* ---------------- Graphiques ---------------- */
