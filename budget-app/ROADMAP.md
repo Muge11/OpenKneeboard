@@ -92,4 +92,10 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
     graphique d'évolution, comparaison entre véhicules ;
   - mouvements existants « non imputés » signalés, à rattacher en un geste ;
   - option ultérieure : kilométrage pour calculer le coût au kilomètre.
-
+- [ ] **Barre de recherche** dans les onglets *Mouvements* et *Fixes*
+  - recherche instantanée pendant la frappe (sans accents ni majuscules) sur : description, libellé,
+    montant (« 45 », « 45,50 »), personne (« Elise »), véhicule, date (« 28/10 ») ;
+  - *Mouvements* : portée **ce mois** ou **tous les mois** (résultats groupés par mois, avec total
+    et nombre de résultats — ex. « Leclerc : 23 mouvements, 2 140 € sur l'année ») ;
+  - *Fixes* : filtre la liste (actifs et terminés), compatible avec le tri choisi ;
+  - se combine avec les filtres existants (sorties, entrées, à pointer…) ; bouton ✕ pour effacer.
