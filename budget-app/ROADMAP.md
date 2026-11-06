@@ -10,6 +10,11 @@ Points validés pour la prochaine version (v0.3.0) — **non développés, non d
   - valeurs par défaut basées sur le **mois en cours** (début d'un nouveau fixe, « Appliquer à partir de »,
     « Arrêter à partir de »), et non sur le mois affiché ailleurs ;
   - l'état « Perpétuel / Jusqu'à … / Terminé » reste calculé par rapport à aujourd'hui.
+- [ ] **Tri des mouvements fixes** (onglet « Fixes », entrées et sorties) :
+  - tri par **libellé** (regroupé par libellé, ordre des libellés), **montant** (décroissant / croissant)
+    ou **date de prélèvement** (jour du mois, en tenant compte des fixes « versés le mois précédent ») ;
+  - sélecteur de tri en haut de la liste, choix mémorisé sur l'appareil ;
+  - sous-totaux par libellé quand le tri est « par libellé ».
 - [ ] **Emoji pour les libellés** : grille de suggestions + saisie libre (clavier emoji du téléphone).
 - [ ] **Rapidité des enregistrements** :
   - enregistrement en arrière-plan (formulaire fermé immédiatement, annulation si erreur) ;
