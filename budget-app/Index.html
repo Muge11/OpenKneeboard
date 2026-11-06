@@ -146,6 +146,16 @@
   .btn:disabled { opacity: .5; }
   .link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px 0; font-weight: 500; font-size: 14px; }
   .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+  .search { position: relative; margin-bottom: 10px; }
+  .search input { padding-left: 38px; padding-right: 38px; background: var(--surface); border-color: var(--line);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%237d8592' stroke-width='2' stroke-linecap='round' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 12px center; }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: var(--surface-3); color: var(--text-2);
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 12px; }
+  .vbars { display: flex; align-items: flex-end; gap: 6px; height: 140px; border-bottom: 1px solid var(--line); }
+  .vbars .col { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 100%; min-width: 0; }
+  .vbars .col span { width: 40%; max-width: 12px; border-radius: 4px 4px 0 0; }
 
   nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: rgba(11, 13, 16, .94); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--line); display: flex; padding-bottom: env(safe-area-inset-bottom); }
@@ -291,6 +301,9 @@ var journalCache = null;
 var backupsCache = null;
 var form = {};
 var vizSel = null;
+var mvtQuery = '';
+var mvtScope = 'mois';
+var fixQuery = '';
 
 var ROLE_LABEL = { admin: 'Administrateur', editeur: 'Éditeur', lecteur: 'Lecteur' };
 var COLORS = ['#4c8dff', '#e5679b', '#3fbf7f', '#f0b429', '#9085e9', '#ec835a', '#2bb3c0', '#b4bac4'];
@@ -305,9 +318,11 @@ var TYPES = {
   besoin: { label: 'Besoins', color: 'var(--s1)' },
   envie: { label: 'Envies', color: 'var(--s2)' },
   credit: { label: 'Crédits', color: 'var(--s3)' },
-  epargne: { label: 'Épargne', color: 'var(--s4)' }
+  epargne: { label: 'Épargne', color: 'var(--s4)' },
+  impot: { label: 'Impôts & taxes', color: 'var(--s5)' }
 };
-var TYPE_ORDER = ['besoin', 'envie', 'credit', 'epargne'];
+var TYPE_ORDER = ['besoin', 'envie', 'credit', 'epargne', 'impot'];
+var VEH_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 var REP_DEF = {
   besoins: 50, envies: 30, epargne: 20, endettement: 35, logement: 33,
   logementLibelles: ['Prêt maison', 'Electricité', 'Eau'],
@@ -395,6 +410,31 @@ function upsertLocal(arr, rec, key) {
   arr.push(rec);
 }
 function removeLocal(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) { arr.splice(i, 1); return; } }
+function vehs(all) {
+  return (D.vehicules || []).filter(function (v) { return all || v.actif; }).sort(function (a, b) { return a.ordre - b.ordre; });
+}
+function veh(id) { return id ? byId(D.vehicules || [], id) : null; }
+function vehColor(v) { var i = vehs(true).indexOf(v); return VEH_COLORS[(i < 0 ? 0 : i) % VEH_COLORS.length]; }
+function vehLabel(id) { var v = veh(id); return v ? (v.emoji ? v.emoji + ' ' : '') + v.nom : ''; }
+
+/** Recherche : chaque mot doit apparaître (description, libellé, personne, véhicule, date, montant). */
+function matchItem(x, q, isRec) {
+  var toks = norm(q).split(/\s+/).filter(String);
+  if (!toks.length) return true;
+  var l = lib(x.libelleId), u = user(isRec ? x.creePar : x.saisiPar), v = veh(x.vehiculeId);
+  var d = isRec ? '' : x.date.substring(8, 10) + '/' + x.date.substring(5, 7) + '/' + x.date.substring(0, 4);
+  var hay = ' ' + norm([x.description, l.nom, u ? u.nom : '', v ? v.nom : '', d, isRec ? 'fixe le ' + x.jour : (x.recurrentId ? 'fixe' : 'ponctuel')].join(' ')) + ' ';
+  var amt = Math.abs(Number(x.montant) || 0), amtStr = amt.toFixed(2).replace('.', ','), amtInt = String(Math.floor(amt));
+  return toks.every(function (t) {
+    if (/^\d+([.,]\d{1,2})?$/.test(t)) {
+      var tt = t.replace('.', ',');
+      if (tt.indexOf(',') >= 0) return amtStr.indexOf(tt) === 0;
+      if (amtInt === tt) return true;
+    }
+    return hay.indexOf(t) >= 0;
+  });
+}
+
 function reperes() {
   var r = {};
   try { r = JSON.parse(D.reperes || '{}'); } catch (e) {}
@@ -493,7 +533,7 @@ function compute(m) {
   // Prévu = enveloppe / montant prévu si défini (elle inclut les fixes), sinon la somme des fixes prévus.
   Object.keys(per).forEach(function (k) { var p = per[k]; p.prevu = p.env > 0 ? p.env : p.fixes; });
   var tot = { entree: { prevu: 0, reel: 0 }, sortie: { prevu: 0, reel: 0 } };
-  var groups = {}, types = { besoin: 0, envie: 0, credit: 0, epargne: 0 };
+  var groups = {}, types = { besoin: 0, envie: 0, credit: 0, epargne: 0, impot: 0 };
   Object.keys(per).forEach(function (k) {
     var p = per[k];
     if (!p.prevu && !p.reel && !p.lib.actif) return;
@@ -513,10 +553,11 @@ function compute(m) {
 
 /** Agrège plusieurs mois (graphiques, conseils). */
 function computeRange(m, n) {
-  var agg = { per: {}, types: { besoin: 0, envie: 0, credit: 0, epargne: 0 }, entrees: 0, sorties: 0, n: n };
+  var agg = { per: {}, types: { besoin: 0, envie: 0, credit: 0, epargne: 0, impot: 0 }, veh: {}, entrees: 0, sorties: 0, n: n };
   for (var k = 0; k < n; k++) {
     var c = compute(shiftMonth(m, -k));
     agg.entrees += c.tot.entree.reel; agg.sorties += c.tot.sortie.reel;
+    c.mv.forEach(function (x) { if (x.vehiculeId) agg.veh[x.vehiculeId] = (agg.veh[x.vehiculeId] || 0) + (+x.montant || 0); });
     Object.keys(c.types).forEach(function (t) { agg.types[t] = (agg.types[t] || 0) + c.types[t]; });
     Object.keys(c.per).forEach(function (id) {
       var p = c.per[id];
@@ -574,7 +615,7 @@ function viewSynthese(c) {
     h += '<div class="card"><div class="sec-head"><h2>Enveloppes</h2><button class="link small" data-act="tab" data-tab="enveloppes">Tout voir</button></div>';
     env.slice(0, 5).forEach(function (p) {
       var ratio = p.reel / p.env, reste = p.env - p.reel;
-      h += '<div class="prog" data-act="openEnv" data-id="' + p.lib.id + '" style="cursor:pointer"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
+      h += '<div class="prog" data-act="libDetail" data-id="' + p.lib.id + '" style="cursor:pointer"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
         '<span class="num small"><b>' + eur(p.reel) + '</b> <span class="muted">/ ' + eur0(p.env) + '</span></span></div>' +
         '<div class="bar"><span class="' + (ratio > 1 ? 'over' : '') + '" style="width:' + Math.min(100, ratio * 100) + '%"></span></div>' +
         '<div class="xs ' + (reste < 0 ? 'neg' : 'muted') + '" style="margin-top:4px">' + (reste < 0 ? 'Dépassement de ' + eur(-reste) : 'Reste ' + eur(reste)) + '</div></div>';
@@ -586,11 +627,11 @@ function viewSynthese(c) {
   h += '<div class="card"><h2>Synthèse & répartition</h2><table><thead><tr><th></th><th>Prévu</th><th>%</th><th>Réel</th><th>%</th></tr></thead><tbody>';
   ['entree', 'sortie'].forEach(function (s) {
     Object.keys(c.groups).map(function (k) { return c.groups[k]; }).filter(function (g) { return g.sens === s; }).forEach(function (g) {
-      h += '<tr class="grp"><td>' + esc(g.nom) + '</td><td class="num">' + eur0(g.prevu) + '</td><td class="pc">' + pct(g.prevu / revP) +
+      h += '<tr class="grp click" data-act="grpDetail" data-k="' + esc(s + '|' + g.nom) + '"><td>' + esc(g.nom) + ' <span class="muted">›</span></td><td class="num">' + eur0(g.prevu) + '</td><td class="pc">' + pct(g.prevu / revP) +
         '</td><td class="num ' + (s === 'sortie' && g.reel > g.prevu + 0.005 && g.prevu ? 'neg' : '') + '">' + eur0(g.reel) + '</td><td class="pc">' + pct(g.reel / revR) + '</td></tr>';
       g.libs.sort(function (a, b) { return a.lib.ordre - b.lib.ordre; }).forEach(function (p) {
         if (!p.prevu && !p.reel && !(s === 'entree' && p.lib.actif)) return;
-        h += '<tr class="sub click" data-act="openEnv" data-id="' + p.lib.id + '"><td>' + icon(p.lib) + ' ' + esc(p.lib.nom) +
+        h += '<tr class="sub click" data-act="libDetail" data-id="' + p.lib.id + '"><td>' + icon(p.lib) + ' ' + esc(p.lib.nom) +
           (!p.prevu && s === 'entree' ? ' <span class="tag acc">définir</span>' : '') + '</td><td class="num">' + eur0(p.prevu) + '</td><td></td>' +
           '<td class="num ' + (s === 'sortie' && p.prevu && p.reel > p.prevu + 0.005 ? 'neg' : '') + '">' + eur0(p.reel) + '</td><td></td></tr>';
       });
@@ -601,7 +642,7 @@ function viewSynthese(c) {
   });
   h += '<tr class="total"><td>Reste à vivre</td><td class="num ' + (b.prevu < 0 ? 'neg' : 'pos') + '">' + eur0(b.prevu) + '</td><td class="pc">' + pct(b.prevu / revP) +
     '</td><td class="num ' + (b.reel < 0 ? 'neg' : 'pos') + '">' + eur0(b.reel) + '</td><td class="pc">' + pct(b.reel / revR) + '</td></tr>';
-  h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez une ligne pour modifier son montant prévu.</div></div>';
+  h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez une ligne pour voir ses mouvements ou modifier son prévu.</div></div>';
   return h;
 }
 
@@ -654,7 +695,7 @@ function viewGraphs() {
   var max = Math.max.apply(null, rows.map(function (p) { return Math.max(p.reel, p.prevu); }).concat([1]));
   rows.forEach(function (p) {
     var over = p.prevu > 0 && p.reel > p.prevu + 0.005;
-    h += '<div class="hbar" data-act="openEnv" data-id="' + p.lib.id + '"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
+    h += '<div class="hbar" data-act="libDetail" data-id="' + p.lib.id + '"><div class="top"><span>' + icon(p.lib) + ' ' + esc(p.lib.nom) + '</span>' +
       '<span class="num"><b>' + eur0(p.reel) + '</b>' + (p.prevu ? ' <span class="muted">/ ' + eur0(p.prevu) + '</span>' : '') +
       (over ? ' <span class="status bad">▲ dépassé</span>' : '') + '</span></div>' +
       '<div class="track"><span class="base"></span><span class="fill ' + (over ? 'over' : '') + '" style="width:' + (p.reel / max * 100) + '%"></span>' +
@@ -664,6 +705,18 @@ function viewGraphs() {
     '<span class="lg"><span class="sw" style="background:var(--text);width:3px"></span><span class="n">Prévu / enveloppe</span></span>' +
     '<span class="lg"><span class="sw" style="background:var(--st-critical)"></span><span class="n">Dépassé</span></span></div>';
   h += '</div>';
+
+  // Par véhicule
+  if (vehs(true).length) {
+    var vt = vehs(true).map(function (v) { return { v: v, s: agg.veh[v.id] || 0 }; }).filter(function (x) { return x.s || x.v.actif; });
+    var vmaxV = Math.max.apply(null, vt.map(function (x) { return x.s; }).concat([1]));
+    h += '<div class="card viz"><div class="sec-head"><h2>Par véhicule · ' + esc(label) + '</h2><button class="link small" data-act="goVeh">Détail</button></div>';
+    vt.forEach(function (x) {
+      h += '<div class="hbar" data-act="goVeh"><div class="top"><span>' + esc(vehLabel(x.v.id)) + '</span><span class="num"><b>' + eur0(x.s) + '</b></span></div>' +
+        '<div class="track"><span class="base"></span><span class="fill" style="width:' + (x.s / vmaxV * 100) + '%;background:' + vehColor(x.v) + '"></span></div></div>';
+    });
+    h += '</div>';
+  }
 
   // 3. Évolution (barres empilées par type + repère des entrées)
   var nb = vizPeriod === 12 ? 12 : 6;
@@ -716,8 +769,12 @@ function viewConseils() {
       'Saisissez vos salaires (de préférence en mouvement fixe) pour obtenir des conseils.</div>';
   }
   var t = {}; TYPE_ORDER.forEach(function (k) { t[k] = (agg.types[k] || 0) / n; });
+  // La règle 50/30/20 s'applique au revenu disponible (après impôts & taxes).
+  var dispo = Math.max(rev - t.impot, 1);
   var p = function (v) { return v / rev * 100; };
-  var besoins = p(t.besoin + t.credit), envies = p(t.envie), epargne = p(t.epargne), dette = p(t.credit);
+  var pd = function (v) { return v / dispo * 100; };
+  var besoins = pd(t.besoin + t.credit), envies = pd(t.envie), epargne = pd(t.epargne), dette = p(t.credit);
+  var a12 = computeRange(mois, 12), imp12 = a12.entrees ? a12.types.impot / a12.entrees * 100 : 0;
   var logement = 0;
   Object.keys(agg.per).forEach(function (id) {
     var a = agg.per[id];
@@ -727,10 +784,18 @@ function viewConseils() {
   var addTip = function (st, txt) { tips.push({ st: st, txt: txt }); };
 
   h += '<div class="card"><h2>Règle 50 / 30 / 20</h2>' +
-    '<div class="xs muted" style="margin:-6px 0 14px">Revenus de référence : <b class="t2">' + eur0(rev) + '</b> / mois' + (n > 1 ? ' (moyenne)' : '') + '</div>' +
+    '<div class="xs muted" style="margin:-6px 0 14px">Sur le <b class="t2">revenu disponible</b> : ' + eur0(dispo) + ' / mois' + (n > 1 ? ' (moyenne)' : '') +
+    (t.impot ? ' = revenus ' + eur0(rev) + ' − impôts & taxes ' + eur0(t.impot) : '') + '</div>' +
     gauge('🏠 Besoins (essentiels + crédits)', besoins, rp.besoins, false, eur0(t.besoin + t.credit) + ' / mois') +
     gauge('🎉 Envies', envies, rp.envies, false, eur0(t.envie) + ' / mois') +
     gauge('🐷 Épargne', epargne, rp.epargne, true, eur0(t.epargne) + ' / mois') + '</div>';
+
+  h += '<div class="card"><h2>🏛️ Impôts & taxes</h2>' +
+    '<div class="gauge"><div class="top"><span>Poids des impôts et taxes</span><span><b class="num">' + pc1(p(t.impot)) + '</b> <span class="muted xs">' + (n > 1 ? 'moy. 3 mois' : 'ce mois') + '</span></span></div>' +
+    '<div class="track"><span class="fill" style="width:' + Math.min(100, p(t.impot) * 2) + '%;background:' + TYPES.impot.color + '"></span></div>' +
+    '<div style="display:flex;justify-content:space-between;gap:8px"><span class="xs t2">' + eur0(t.impot) + ' / mois</span><span class="xs muted">sur 12 mois : <b class="t2">' + pc1(imp12) + '</b> (' + eur0(a12.types.impot) + ')</span></div></div>' +
+    '<div class="xs muted">Indicateur informatif, sans repère : ces prélèvements sont souvent irréguliers (soldes, échéances), d\'où la moyenne sur 12 mois. ' +
+    'Les impôts et taxes sont retirés des revenus avant d\'appliquer la règle 50/30/20.</div></div>';
 
   h += '<div class="card"><h2>Endettement & logement</h2>' +
     gauge('💳 Taux d\'endettement', dette, rp.endettement, false, eur0(t.credit) + ' de crédits / mois') +
@@ -746,9 +811,9 @@ function viewConseils() {
   });
   h += '<div class="card"><h2>Repères par libellé</h2>' + libRows + '</div>';
 
-  if (statusOf(besoins, rp.besoins) !== 'good') addTip(statusOf(besoins, rp.besoins), '<b>Besoins</b> à ' + pc1(besoins) + ' (repère ≤ ' + rp.besoins + ' %) : renégocier assurances, abonnements, énergie ou crédits peut libérer ' + eur0((besoins - rp.besoins) / 100 * rev) + ' / mois.');
-  if (statusOf(envies, rp.envies) !== 'good') addTip(statusOf(envies, rp.envies), '<b>Envies</b> à ' + pc1(envies) + ' (repère ≤ ' + rp.envies + ' %) : fixer des enveloppes Loisirs / Resto / Divers aide à réduire de ' + eur0((envies - rp.envies) / 100 * rev) + ' / mois.');
-  if (statusOf(epargne, rp.epargne, true) !== 'good') addTip(statusOf(epargne, rp.epargne, true), '<b>Épargne</b> à ' + pc1(epargne) + ' : mettre de côté ' + eur0((rp.epargne - epargne) / 100 * rev) + ' de plus par mois pour atteindre ' + rp.epargne + ' %. Un virement fixe en début de mois facilite la régularité.');
+  if (statusOf(besoins, rp.besoins) !== 'good') addTip(statusOf(besoins, rp.besoins), '<b>Besoins</b> à ' + pc1(besoins) + ' du revenu disponible (repère ≤ ' + rp.besoins + ' %) : renégocier assurances, abonnements, énergie ou crédits peut libérer ' + eur0((besoins - rp.besoins) / 100 * dispo) + ' / mois.');
+  if (statusOf(envies, rp.envies) !== 'good') addTip(statusOf(envies, rp.envies), '<b>Envies</b> à ' + pc1(envies) + ' (repère ≤ ' + rp.envies + ' %) : fixer des enveloppes Loisirs / Resto / Divers aide à réduire de ' + eur0((envies - rp.envies) / 100 * dispo) + ' / mois.');
+  if (statusOf(epargne, rp.epargne, true) !== 'good') addTip(statusOf(epargne, rp.epargne, true), '<b>Épargne</b> à ' + pc1(epargne) + ' : mettre de côté ' + eur0((rp.epargne - epargne) / 100 * dispo) + ' de plus par mois pour atteindre ' + rp.epargne + ' %. Un virement fixe en début de mois facilite la régularité.');
   if (statusOf(dette, rp.endettement) !== 'good') addTip(statusOf(dette, rp.endettement), '<b>Endettement</b> à ' + pc1(dette) + ' : au-delà de ' + rp.endettement + ' %, les banques refusent en général un nouveau crédit. Évitez tout crédit supplémentaire.');
   if (statusOf(p(logement), rp.logement) !== 'good') addTip(statusOf(p(logement), rp.logement), '<b>Logement</b> à ' + pc1(p(logement)) + ' des revenus (repère ≤ ' + rp.logement + ' %).');
   var reste = rev - agg.sorties / n;
@@ -761,7 +826,7 @@ function viewConseils() {
   });
   h += '</div><div class="foot">Repères indicatifs couramment utilisés (règle 50/30/20, taux d\'endettement de 35 % des banques françaises). ' +
     'Ce n\'est pas un conseil financier personnalisé.' + (isAdmin() ? '<br><button class="link small" data-act="openReperes">Modifier les repères</button>' : '') +
-    '<br>Le type de chaque libellé (besoin, envie, crédit, épargne) se règle dans Plus › Libellés.</div>';
+    '<br>Le type de chaque libellé (besoin, envie, crédit, épargne, impôts & taxes) se règle dans Plus › Libellés.</div>';
   return h;
 }
 
@@ -788,6 +853,8 @@ function mvtItem(x) {
   if (x.recurrentId) meta += ' <span class="tag acc">fixe</span>';
   if (x.recurrentId && +x.montant === 0 && +x.prevu) meta += ' <span class="tag warn">non réalisé</span>';
   else if (x.recurrentId && x.modifie) meta += ' <span class="tag warn">modifié ce mois</span>';
+  if (x.vehiculeId) meta += ' <span class="tag">' + esc(vehLabel(x.vehiculeId)) + '</span>';
+  else if (l.parVehicule && vehs().length) meta += ' <span class="tag warn">véhicule ?</span>';
   if (x.date.substring(0, 7) !== x.mois) meta += ' <span class="tag">↪ ' + esc(monthName(x.mois)) + '</span>';
   if (x.modifPar && x.modifPar !== x.saisiPar) meta += ' ' + whoBadge(x.modifPar, 'modifié par ');
   return '<li class="item" data-act="openMvt" data-id="' + x.id + '">' + chk + emo(l) +
@@ -795,34 +862,79 @@ function mvtItem(x) {
     '<div class="amt num ' + (entree ? 'pos' : '') + '">' + (entree ? '+' : '−') + eur(Math.abs(x.montant)).replace('-', '') + '</div></li>';
 }
 
+function mvtFilterFn(x) {
+  var l = lib(x.libelleId), s = l.sens;
+  if (mvtFilter.indexOf('lib:') === 0) return x.libelleId === mvtFilter.slice(4);
+  if (mvtFilter.indexOf('grp:') === 0) return s + '|' + l.groupe === mvtFilter.slice(4);
+  if (mvtFilter.indexOf('veh:') === 0) return x.vehiculeId === mvtFilter.slice(4);
+  return mvtFilter === 'tous' || mvtFilter === s || (mvtFilter === 'fixes' && x.recurrentId) ||
+    (mvtFilter === 'ponctuels' && !x.recurrentId) || (mvtFilter === 'apointer' && !x.pointe);
+}
+
 function viewMouvements(c) {
   var F = { tous: 'Tous', sortie: 'Sorties', entree: 'Entrées', fixes: 'Fixes', ponctuels: 'Ponctuels', apointer: 'À pointer' };
-  var h = '<div class="chips filters">';
+  var h = '<div class="search"><input id="searchMvt" type="search" placeholder="Rechercher : Leclerc, 45,50, Elise, Pajero, 28/10…" value="' + esc(mvtQuery) + '" data-input="searchMvt" autocomplete="off">' +
+    (mvtQuery ? '<button class="clear" data-act="clearSearch" data-v="mvt" aria-label="Effacer">✕</button>' : '') + '</div>';
+  h += '<div class="chips filters" id="scopeChips"' + (mvtQuery ? '' : ' hidden') + '>' + [['mois', 'Ce mois'], ['tous', 'Tous les mois']].map(function (o) {
+    return '<button class="chip ' + (mvtScope === o[0] ? 'on' : '') + '" data-act="mvtScope" data-v="' + o[0] + '">' + o[1] + '</button>';
+  }).join('') + '</div>';
+  h += '<div class="chips filters">';
+  if (/^(lib|grp):/.test(mvtFilter)) {
+    var lbl = mvtFilter.indexOf('lib:') === 0 ? icon(lib(mvtFilter.slice(4))) + ' ' + lib(mvtFilter.slice(4)).nom : mvtFilter.slice(4).split('|')[1];
+    h += '<button class="chip on" data-act="mvtFilter" data-f="tous">' + esc(lbl) + ' ✕</button>';
+  }
   Object.keys(F).forEach(function (k) {
     h += '<button class="chip ' + (mvtFilter === k ? 'on' : '') + '" data-act="mvtFilter" data-f="' + k + '">' + F[k] + (k === 'apointer' ? ' · ' + c.todo : '') + '</button>';
   });
-  h += '</div>';
-  var list = c.mv.filter(function (x) {
-    var s = lib(x.libelleId).sens;
-    return mvtFilter === 'tous' || mvtFilter === s || (mvtFilter === 'fixes' && x.recurrentId) ||
-      (mvtFilter === 'ponctuels' && !x.recurrentId) || (mvtFilter === 'apointer' && !x.pointe);
-  }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.saisiLe < b.saisiLe ? 1 : -1); });
+  vehs().forEach(function (v) {
+    h += '<button class="chip ' + (mvtFilter === 'veh:' + v.id ? 'on' : '') + '" data-act="mvtFilter" data-f="veh:' + v.id + '">' + esc(vehLabel(v.id)) + '</button>';
+  });
+  h += '</div><div id="mvtResults">' + mvtResultsHtml(c) + '</div>';
+  return h;
+}
+
+function mvtListHtml(list) {
+  var h = '', day = '';
+  list.forEach(function (x) {
+    if (x.date !== day) { h += (day ? '</ul>' : '') + '<div class="day">' + esc(dayName(x.date)) + '</div><ul class="list">'; day = x.date; }
+    h += mvtItem(x);
+  });
+  return h + (day ? '</ul>' : '');
+}
+function sortMvts(list) {
+  return list.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.saisiLe < b.saisiLe ? 1 : -1); });
+}
+function totalsHtml(list) {
   var tE = 0, tS = 0;
   list.forEach(function (x) { if (lib(x.libelleId).sens === 'entree') tE += +x.montant; else tS += +x.montant; });
-  h += '<div class="card"><div class="sec-head"><h2>' + list.length + ' mouvement' + (list.length > 1 ? 's' : '') + '</h2>' +
-    '<span class="small num"><span class="pos">+' + eur(tE) + '</span> <span class="muted">·</span> −' + eur(tS) + '</span></div>';
-  if (!list.length) {
-    h += '<div class="empty">Aucun mouvement.' + (canEdit() ? '<br>Touchez <b>+</b> pour en ajouter un.' : '') + '</div>';
-  } else {
-    var day = '';
-    list.forEach(function (x) {
-      if (x.date !== day) { h += (day ? '</ul>' : '') + '<div class="day">' + esc(dayName(x.date)) + '</div><ul class="list">'; day = x.date; }
-      h += mvtItem(x);
+  return '<span class="small num">' + (tE ? '<span class="pos">+' + eur(tE) + '</span> <span class="muted">·</span> ' : '') + '−' + eur(tS) + '</span>';
+}
+
+function updateMvtResults() { var r = document.getElementById('mvtResults'); if (r) r.innerHTML = mvtResultsHtml(); }
+
+function mvtResultsHtml(c) {
+  c = c || compute(mois);
+  var all = mvtQuery && mvtScope === 'tous';
+  var base = all ? D.mouvements.filter(function (x) { return x.statut !== 'annule'; }) : c.mv;
+  var list = sortMvts(base.filter(function (x) { return mvtFilterFn(x) && matchItem(x, mvtQuery); }));
+  var h = '';
+  if (all) {
+    h += '<div class="card"><div class="sec-head"><h2>' + list.length + ' résultat' + (list.length > 1 ? 's' : '') + ' · tous les mois</h2>' + totalsHtml(list) + '</div>';
+    if (!list.length) h += '<div class="empty">Aucun résultat.</div>';
+    var byM = {};
+    list.forEach(function (x) { (byM[x.mois] = byM[x.mois] || []).push(x); });
+    Object.keys(byM).sort().reverse().forEach(function (m) {
+      h += '<div class="day" style="display:flex;justify-content:space-between;font-size:13px;color:var(--text)"><span>' + esc(monthName(m)) + ' · ' + byM[m].length + '</span>' + totalsHtml(byM[m]) + '</div>' +
+        mvtListHtml(byM[m]).replace(/<div class="day">/g, '<div class="day" style="padding-left:6px">');
     });
-    h += '</ul>';
+    return h + '</div>';
   }
+  h += '<div class="card"><div class="sec-head"><h2>' + list.length + ' mouvement' + (list.length > 1 ? 's' : '') + '</h2>' + totalsHtml(list) + '</div>';
+  if (!list.length) h += '<div class="empty">' + (mvtQuery ? 'Aucun résultat ce mois-ci.<br><button class="link" data-act="mvtScope" data-v="tous">Chercher dans tous les mois</button>' :
+    'Aucun mouvement.' + (canEdit() ? '<br>Touchez <b>+</b> pour en ajouter un.' : '')) + '</div>';
+  h += mvtListHtml(list);
   var annules = D.mouvements.filter(function (x) { return x.mois === mois && x.statut === 'annule'; });
-  if (annules.length && canEdit()) {
+  if (annules.length && canEdit() && !mvtQuery) {
     h += '<div class="xs muted" style="margin-top:10px">Fixes retirés ce mois : ' + annules.map(function (x) {
       return esc(x.description || lib(x.libelleId).nom) + ' <button class="link xs" data-act="restoreOcc" data-id="' + x.id + '">rétablir</button>';
     }).join(' · ') + '</div>';
@@ -872,6 +984,42 @@ function viewEnveloppes(c) {
     });
   });
   return h;
+}
+
+/** Fiche détail : prévu / réel / reste et mouvements du libellé (ou du groupe) pour le mois affiché. */
+function openLibDetail(libId) {
+  var l = lib(libId), c = compute(mois), p = c.per[libId] || { prevu: 0, reel: 0, fixes: 0, env: 0 }, entree = l.sens === 'entree';
+  var list = sortMvts(c.mv.filter(function (x) { return x.libelleId === libId; }));
+  form = { kind: 'detail', libId: libId };
+  var reste = p.prevu - p.reel, ratio = p.prevu > 0 ? p.reel / p.prevu : 0;
+  var h = '<h3>' + icon(l) + ' ' + esc(l.nom) + ' <span class="xs muted" style="font-weight:400;text-transform:capitalize">· ' + esc(monthName(mois)) + '</span></h3>';
+  h += '<div class="kpis" style="margin-bottom:10px"><div class="kpi"><div class="k">Prévu</div><div class="v num">' + eur(p.prevu) + '</div></div>' +
+    '<div class="kpi"><div class="k">' + (entree ? 'Reçu' : 'Réel') + '</div><div class="v num ' + (entree ? 'pos' : '') + '">' + eur(p.reel) + '</div></div>' +
+    '<div class="kpi"><div class="k">' + (entree ? 'Attendu' : 'Reste') + '</div><div class="v num ' + (!entree && reste < 0 ? 'neg' : '') + '">' + eur(reste) + '</div></div></div>';
+  if (p.prevu > 0) h += '<div class="bar" style="margin:0 0 14px"><span class="' + (!entree && ratio > 1 ? 'over' : '') + '" style="width:' + Math.min(100, ratio * 100) + '%"></span></div>';
+  h += '<div class="tools"><button class="btn ghost sm" data-act="openEnv" data-id="' + libId + '">Modifier le prévu</button>' +
+    '<button class="btn ghost sm" data-act="goLib" data-id="' + libId + '">Voir dans Mouvements</button></div>';
+  h += '<div class="sec-head"><h2>' + list.length + ' mouvement' + (list.length > 1 ? 's' : '') + '</h2>' + totalsHtml(list) + '</div>';
+  h += list.length ? mvtListHtml(list) : '<div class="empty">Aucun mouvement ce mois-ci.</div>';
+  openSheet(h);
+}
+function openGroupDetail(key) {
+  var c = compute(mois), sens = key.split('|')[0], g = key.slice(sens.length + 1);
+  var list = sortMvts(c.mv.filter(function (x) { var l = lib(x.libelleId); return l.sens === sens && l.groupe === g; }));
+  form = { kind: 'detail', grp: key };
+  var grp = c.groups[key] || { prevu: 0, reel: 0, libs: [] };
+  var h = '<h3>' + esc(g) + ' <span class="xs muted" style="font-weight:400;text-transform:capitalize">· ' + esc(monthName(mois)) + '</span></h3>';
+  h += '<div class="kpis" style="margin-bottom:12px"><div class="kpi"><div class="k">Prévu</div><div class="v num">' + eur(grp.prevu) + '</div></div>' +
+    '<div class="kpi"><div class="k">Réel</div><div class="v num">' + eur(grp.reel) + '</div></div>' +
+    '<div class="kpi"><div class="k">Écart</div><div class="v num ' + (sens === 'sortie' && grp.reel > grp.prevu ? 'neg' : '') + '">' + eur(grp.prevu - grp.reel) + '</div></div></div>';
+  h += '<ul class="list" style="margin-bottom:8px">' + grp.libs.filter(function (p) { return p.prevu || p.reel; }).sort(function (a, b) { return b.reel - a.reel; }).map(function (p) {
+    return '<li class="item" data-act="libDetail" data-id="' + p.lib.id + '">' + emo(p.lib) + '<div class="main"><div class="title">' + esc(p.lib.nom) + '</div>' +
+      '<div class="meta">prévu ' + eur(p.prevu) + '</div></div><div class="amt num">' + eur(p.reel) + '</div><span class="muted">›</span></li>';
+  }).join('') + '</ul>';
+  h += '<div class="tools"><button class="btn ghost sm" data-act="goGrp" data-k="' + esc(key) + '">Voir dans Mouvements</button></div>';
+  h += '<div class="sec-head"><h2>' + list.length + ' mouvement' + (list.length > 1 ? 's' : '') + '</h2>' + totalsHtml(list) + '</div>';
+  h += list.length ? mvtListHtml(list) : '<div class="empty">Aucun mouvement ce mois-ci.</div>';
+  openSheet(h);
 }
 
 function openEnv(libId) {
@@ -928,7 +1076,8 @@ function recItem(r) {
   var l = lib(r.libelleId), st = recStatus(r);
   return '<li class="item ' + (st.off ? 'off' : '') + '" data-act="openRec" data-id="' + r.id + '">' + emo(l) +
     '<div class="main"><div class="title">' + esc(r.description || l.nom) + '</div>' +
-    '<div class="meta">' + esc(l.nom) + ' · le ' + r.jour + (+r.decalage < 0 ? ' (mois préc.)' : '') + ' <span class="tag ' + st.cls + '">' + esc(st.txt) + '</span></div></div>' +
+    '<div class="meta">' + esc(l.nom) + ' · le ' + r.jour + (+r.decalage < 0 ? ' (mois préc.)' : '') + ' <span class="tag ' + st.cls + '">' + esc(st.txt) + '</span>' +
+    (r.vehiculeId ? ' <span class="tag">' + esc(vehLabel(r.vehiculeId)) + '</span>' : (l.parVehicule && vehs().length ? ' <span class="tag warn">véhicule ?</span>' : '')) + '</div></div>' +
     '<div class="amt num ' + (l.sens === 'entree' ? 'pos' : '') + '">' + eur(r.montant) + '</div></li>';
 }
 function sortRecs(list) {
@@ -951,13 +1100,23 @@ function viewFixes() {
       return '<button class="chip ' + (fixSort === o[0] ? 'on' : '') + '" data-act="fixSort" data-v="' + o[0] + '">' + o[1] + '</button>';
     }).join('') + '</div>';
 
+  h += '<div class="search"><input id="searchFix" type="search" placeholder="Rechercher : Pajero, Spotify, 762, le 5…" value="' + esc(fixQuery) + '" data-input="searchFix" autocomplete="off">' +
+    (fixQuery ? '<button class="clear" data-act="clearSearch" data-v="fix" aria-label="Effacer">✕</button>' : '') + '</div>';
+  h += '<div id="fixResults">' + fixListsHtml() + '</div>';
+  if (canEdit()) h += importCardHtml();
+  return h;
+}
+
+function fixListsHtml() {
+  var h = '';
   ['entree', 'sortie'].forEach(function (sens) {
-    var all = D.recurrents.filter(function (r) { return lib(r.libelleId).sens === sens; });
+    var all = D.recurrents.filter(function (r) { return lib(r.libelleId).sens === sens && matchItem(r, fixQuery, true); });
+    var sumAct = all.filter(function (r) { return !recStatus(r).off; }).reduce(function (t, r) { return t + (+r.montant); }, 0);
     var list = sortRecs(all.filter(function (r) { return !recStatus(r).off; }));
     var ended = all.filter(function (r) { return recStatus(r).off; });
-    h += '<div class="card"><div class="sec-head"><h2>' + (sens === 'entree' ? 'Entrées fixes' : 'Sorties fixes') + '</h2>' +
-      '<b class="num small">' + eur(sens === 'entree' ? e : s) + '</b></div>';
-    if (!list.length) h += '<div class="xs muted" style="padding:6px 0">Aucun.</div>';
+    h += '<div class="card"><div class="sec-head"><h2>' + (sens === 'entree' ? 'Entrées fixes' : 'Sorties fixes') + (fixQuery ? ' · ' + all.length + ' résultat(s)' : '') + '</h2>' +
+      '<b class="num small">' + eur(sumAct) + '</b></div>';
+    if (!list.length) h += '<div class="xs muted" style="padding:6px 0">' + (fixQuery ? 'Aucun résultat.' : 'Aucun.') + '</div>';
     if (fixSort === 'libelle') {
       var cur = null, subt = {};
       list.forEach(function (r) { subt[r.libelleId] = (subt[r.libelleId] || 0) + (+r.montant); });
@@ -976,8 +1135,12 @@ function viewFixes() {
     if (ended.length) h += '<div class="day">Terminés / arrêtés</div><ul class="list">' + ended.map(recItem).join('') + '</ul>';
     h += (canEdit() ? '<button class="link" data-act="newRec" data-sens="' + sens + '">+ Ajouter</button>' : '') + '</div>';
   });
+  return h;
+}
 
-  if (canEdit()) {
+function importCardHtml() {
+  var h = '';
+  {
     h += '<div class="card"><h2>Importer des mouvements fixes</h2>' +
       '<div class="xs muted" style="margin-bottom:8px">Une ligne par mouvement : <code>E ou S;Libellé;Description;Montant;Fin (AAAA-MM ou vide);Jour</code><br>' +
       'Ex. <code>S;Prêt maison;Crédit Agricole;762,32;;5</code>. Un libellé inconnu est créé. Début : mois en cours.</div>' +
@@ -1014,6 +1177,7 @@ function viewPlus() {
 
   h += '<div class="card"><h2>Paramètres</h2><ul class="list">';
   h += menuItem('🏷️', 'Libellés', libsSorted().length + ' libellés · emoji · types', 'libelles');
+  h += menuItem('🚗', 'Véhicules', vehs().map(function (v) { return v.nom; }).join(', ') + ' · coût par véhicule', 'vehicules');
   if (isAdmin()) {
     h += menuItem('👥', 'Utilisateurs & accès', D.users.filter(function (u) { return u.actif; }).length + ' actif(s)', 'users');
     h += menuItem('📜', 'Journal des actions', 'Qui a fait quoi, et quand', 'journal');
@@ -1031,9 +1195,77 @@ function menuItem(ic, title, meta, target) {
 function backbar(title, extra) {
   return '<div class="backbar"><button class="btn ghost sm" data-act="sub" data-sub="">‹ Retour</button><h1>' + title + '</h1>' + (extra || '') + '</div>';
 }
-var TYPE_LABEL = { revenu: 'Revenu', besoin: 'Besoin', envie: 'Envie', credit: 'Crédit', epargne: 'Épargne' };
+var TYPE_LABEL = { revenu: 'Revenu', besoin: 'Besoin', envie: 'Envie', credit: 'Crédit', epargne: 'Épargne', impot: 'Impôts & taxes' };
+
+function vehiculesView() {
+  var h = backbar('Véhicules');
+  var now = ymNow(), year = now.substring(0, 4);
+  var months = []; for (var k = 11; k >= 0; k--) months.push(shiftMonth(now, -k));
+  var data = {};
+  months.forEach(function (m) { data[m] = {}; });
+  var libVeh = {}; D.libelles.forEach(function (l) { if (l.parVehicule) libVeh[l.id] = true; });
+  var detail = {}, yearTot = {}, monthTot = {}, sansVeh = [];
+  D.mouvements.forEach(function (x) {
+    if (x.statut === 'annule') return;
+    if (!x.vehiculeId) { if (libVeh[x.libelleId] && x.mois.substring(0, 4) === year) sansVeh.push(x); return; }
+    var v = x.vehiculeId, a = +x.montant || 0;
+    if (data[x.mois]) data[x.mois][v] = (data[x.mois][v] || 0) + a;
+    if (x.mois.substring(0, 4) === year) {
+      yearTot[v] = (yearTot[v] || 0) + a;
+      detail[v] = detail[v] || {}; detail[v][x.libelleId] = (detail[v][x.libelleId] || 0) + a;
+    }
+    if (x.mois === now) monthTot[v] = (monthTot[v] || 0) + a;
+  });
+  vehs(true).forEach(function (v) {
+    var yt = yearTot[v.id] || 0, nbM = +now.substring(5, 7);
+    h += '<div class="card ' + (v.actif ? '' : 'off') + '"><div class="sec-head"><h2 style="font-size:14px;text-transform:none;letter-spacing:0;color:var(--text)">' +
+      '<span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:' + vehColor(v) + ';margin-right:6px"></span>' + esc(vehLabel(v.id)) + (v.actif ? '' : ' · inactif') + '</h2>' +
+      (canEdit() ? '<button class="link small" data-act="openVeh" data-id="' + v.id + '">Modifier</button>' : '') + '</div>' +
+      '<div class="kpis" style="margin:8px 0 10px"><div class="kpi"><div class="k">Ce mois</div><div class="v num">' + eur0(monthTot[v.id] || 0) + '</div></div>' +
+      '<div class="kpi"><div class="k">Année ' + year + '</div><div class="v num">' + eur0(yt) + '</div></div>' +
+      '<div class="kpi"><div class="k">Moyenne / mois</div><div class="v num">' + eur0(yt / nbM) + '</div></div></div>';
+    var det = detail[v.id] || {};
+    h += '<ul class="list">' + Object.keys(det).sort(function (a, b) { return det[b] - det[a]; }).map(function (lid) {
+      return '<li class="item" data-act="goVehLib" data-v="' + v.id + '" data-id="' + lid + '">' + emo(lib(lid)) + '<div class="main"><div class="title">' + esc(lib(lid).nom) + '</div>' +
+        '<div class="meta">' + pct(det[lid] / (yt || 1)) + ' du coût annuel</div></div><div class="amt num">' + eur0(det[lid]) + '</div></li>';
+    }).join('') + '</ul>' + (Object.keys(det).length ? '' : '<div class="xs muted">Aucune dépense imputée cette année.</div>') + '</div>';
+  });
+  // évolution 12 mois, barres groupées par véhicule
+  var vmax = 1; months.forEach(function (m) { Object.keys(data[m]).forEach(function (v) { vmax = Math.max(vmax, data[m][v]); }); });
+  h += '<div class="card viz"><h2>Évolution · 12 mois</h2><div class="vbars">' + months.map(function (m) {
+    return '<div class="col" title="' + esc(monthName(m)) + '">' + vehs(true).map(function (v) {
+      var a = data[m][v.id] || 0;
+      return '<span style="height:' + (a / vmax * 130) + 'px;background:' + vehColor(v) + '" title="' + esc(v.nom + ' : ' + eur0(a)) + '"></span>';
+    }).join('') + '</div>';
+  }).join('') + '</div><div class="xlab">' + months.map(function (m) { return '<span>' + esc(monthName(m, true)) + '</span>'; }).join('') + '</div>' +
+    '<div class="legend" style="flex-direction:row;gap:14px;margin-top:10px">' + vehs(true).map(function (v) {
+      return '<span class="lg"><span class="sw" style="background:' + vehColor(v) + '"></span><span class="n">' + esc(v.nom) + '</span></span>';
+    }).join('') + '</div></div>';
+  if (sansVeh.length) {
+    h += '<div class="card"><div class="sec-head"><h2>Non imputés · ' + year + '</h2><span class="tag warn">' + sansVeh.length + '</span></div>' +
+      '<div class="xs muted" style="margin-bottom:6px">Carburant, prêt auto, entretien… sans véhicule : touchez un mouvement pour choisir le véhicule.</div>' +
+      mvtListHtml(sortMvts(sansVeh)) + '</div>';
+  }
+  if (canEdit()) h += '<button class="btn block" data-act="openVeh">+ Ajouter un véhicule</button>';
+  return h;
+}
+
+function openVeh(id) {
+  var v = id ? veh(id) : null;
+  form = { kind: 'veh', emoji: v ? v.emoji : '🚗' };
+  var h = '<h3>' + (v ? 'Véhicule' : 'Nouveau véhicule') + '</h3>';
+  h += '<div class="row2" style="grid-template-columns:72px 1fr"><div class="field"><label>Emoji</label><input id="v_emoji" value="' + esc(form.emoji) + '" style="text-align:center;font-size:22px;padding:6px"></div>' +
+    '<div class="field"><label>Nom</label><input id="v_nom" value="' + esc(v ? v.nom : '') + '" placeholder="Partner, Pajero…"></div></div>';
+  h += '<div class="chips" style="margin-bottom:12px">' + ['🚗', '🚙', '🚐', '🛻', '🏍️', '🛵', '🚲', '🚜'].map(function (e) {
+    return '<button type="button" class="chip" data-act="vehEmoji" data-v="' + e + '">' + e + '</button>';
+  }).join('') + '</div>';
+  if (v) h += '<label class="opt"><input type="checkbox" id="v_actif" ' + (v.actif ? 'checked' : '') + '>Véhicule actif (décocher s\'il est vendu : l\'historique est conservé)</label>';
+  h += actions('', '', 'saveVeh', id);
+  openSheet(h);
+}
 
 var SUBVIEWS = {
+  vehicules: vehiculesView,
   libelles: function () {
     var h = backbar('Libellés');
     h += '<div class="info">Emoji, groupe et <b>type</b> (besoin, envie, crédit, épargne) de chaque libellé. Le type sert aux graphiques et aux conseils. ' +
@@ -1043,7 +1275,7 @@ var SUBVIEWS = {
         h += '<div class="card"><h2>' + esc(g) + '</h2><ul class="list">';
         libsSorted(sens).filter(function (l) { return l.groupe === g; }).forEach(function (l) {
           h += '<li class="item" data-act="openLib" data-id="' + l.id + '">' + emo(l) + '<div class="main"><div class="title">' + esc(l.nom) + '</div>' +
-            '<div class="meta"><span class="tag">' + TYPE_LABEL[ltype(l)] + '</span>' + (l.moisSuivant ? '<span class="tag acc">↪ mois suivant</span>' : '') + '</div></div>' +
+            '<div class="meta"><span class="tag">' + TYPE_LABEL[ltype(l)] + '</span>' + (l.moisSuivant ? '<span class="tag acc">↪ mois suivant</span>' : '') + (l.parVehicule ? '<span class="tag">🚗 véhicule</span>' : '') + '</div></div>' +
             '<div class="amt num small">' + (envFor(l.id, ymNow()) ? eur0(envFor(l.id, ymNow())) : '<span class="muted">—</span>') + '</div></li>';
         });
         h += '</ul></div>';
@@ -1202,6 +1434,11 @@ function parseQuick(text) {
     });
   }
   if (best) { out.libelleId = best.id; out.sens = best.sens; }
+  vehs().forEach(function (v) { if (n.indexOf(' ' + norm(v.nom)) >= 0) out.vehiculeId = v.id; });
+  if (out.vehiculeId && !best) {
+    best = libsSorted('sortie').filter(function (l) { return norm(l.nom) === 'vehicules'; })[0] || null;
+    if (best) { out.libelleId = best.id; out.sens = 'sortie'; }
+  }
   var words = rest.split(/\s+/).filter(function (w) {
     var nw = norm(w).replace(/[^a-z0-9]/g, '');
     if (!nw || STOP.indexOf(nw) >= 0 || STOP.indexOf(w.toLowerCase()) >= 0) return false;
@@ -1219,6 +1456,7 @@ function applyQuick() {
   if (sens !== form.sens) ACT.setSens({ sens: sens });
   if (q.libelleId) ACT.pickLib({ id: q.libelleId });
   if (q.description !== undefined) document.getElementById('m_desc').value = q.description;
+  if (q.vehiculeId) { form.vehiculeId = q.vehiculeId; refreshVeh(); }
 }
 
 /* ---------------- Mouvement ---------------- */
@@ -1228,7 +1466,7 @@ function openMvt(id, prefill) {
   var src = x || prefill || null;
   var l = src ? lib(src.libelleId) : null;
   form = { kind: 'mvt', id: id, sens: l ? l.sens : 'sortie', libelleId: src ? src.libelleId : '',
-    moisTouched: !!x, moisInit: x ? x.mois : '' };
+    vehiculeId: src ? src.vehiculeId || '' : '', moisTouched: !!x, moisInit: x ? x.mois : '' };
   var ro = !canEdit();
   var rec = x && x.recurrentId ? byId(D.recurrents, x.recurrentId) : null;
   var date = x ? x.date : (mois === ymNow() ? todayStr() : mois + '-01');
@@ -1247,6 +1485,7 @@ function openMvt(id, prefill) {
     '<button type="button" class="e ' + (form.sens === 'entree' ? 'on' : '') + '" data-act="setSens" data-sens="entree">+ Entrée</button></div>';
   h += '<div class="field"><input id="m_amt" class="amount" inputmode="decimal" placeholder="0,00 €" autocomplete="off" value="' + (src ? amtInput(src.montant) : '') + '"></div>';
   h += '<div class="field"><label>Libellé</label><div id="libWrap">' + libChips(form.sens, form.libelleId) + '</div></div>';
+  h += '<div id="vehWrap"></div>';
   h += '<div class="field"><label>Description</label><input id="m_desc" list="descList" placeholder="Leclerc, station, salaire…" value="' + esc(src ? src.description : '') + '" data-input="descAuto">' +
     '<datalist id="descList">' + Object.keys(descs).map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist></div>';
   h += '<div class="row2"><div class="field"><label>Date réelle</label><input id="m_date" type="date" value="' + date + '" data-input="dateChange"></div>' +
@@ -1286,8 +1525,21 @@ function openMvt(id, prefill) {
   if (!ro) h += actions(x ? 'delMvt' : '', x && x.recurrentId ? 'Retirer ce mois' : 'Supprimer', 'saveMvt', id);
   openSheet(h);
   refreshBudgetMonth();
+  refreshVeh();
   if (ro) disableSheet();
   if (!x) setTimeout(function () { var e = document.getElementById(prefill ? 'm_amt' : 'm_quick'); if (e) e.focus(); }, 60);
+}
+
+/** Choix du véhicule, affiché seulement pour les libellés « à imputer à un véhicule ». */
+function refreshVeh() {
+  var w = document.getElementById('vehWrap');
+  if (!w) return;
+  var l = form.libelleId ? byId(D.libelles, form.libelleId) : null;
+  if (!l || !l.parVehicule || !vehs().length) { w.innerHTML = ''; return; }
+  if (form.vehiculeId && !veh(form.vehiculeId)) form.vehiculeId = '';
+  w.innerHTML = '<div class="field"><label>Véhicule</label><div class="chips">' + vehs().map(function (v) {
+    return '<button type="button" class="chip ' + (form.vehiculeId === v.id ? 'on' : '') + '" data-act="pickVeh" data-id="' + v.id + '">' + esc(vehLabel(v.id)) + '</button>';
+  }).join('') + '<button type="button" class="chip ' + (form.vehiculeId ? '' : 'on') + '" data-act="pickVeh" data-id="">Aucun</button></div></div>';
 }
 
 function refreshBudgetMonth() {
@@ -1318,14 +1570,16 @@ function saveMvt(id, forceZero) {
   if (!id && checked('m_rep')) {
     try { repeter = { fin: readFin('m_') }; } catch (e) { return toast(e.message, true); }
   }
-  var payload = { id: id || newCid(), date: date, mois: val('m_mois') || date.substring(0, 7), montant: amt, libelleId: form.libelleId, description: val('m_desc') };
+  var lp = byId(D.libelles, form.libelleId);
+  var payload = { id: id || newCid(), date: date, mois: val('m_mois') || date.substring(0, 7), montant: amt, libelleId: form.libelleId, description: val('m_desc'),
+    vehiculeId: lp && lp.parVehicule ? form.vehiculeId || '' : '' };
   if (id) payload.pointe = checked('m_pointe');
   // Mise à jour immédiate de l'écran
   var local = JSON.parse(JSON.stringify(x || { recurrentId: '', prevu: '', pointe: false, modifie: false, statut: '', saisiPar: D.me.email, saisiLe: nowIso() }));
-  ['id', 'date', 'mois', 'montant', 'libelleId', 'description'].forEach(function (k) { local[k] = payload[k]; });
+  ['id', 'date', 'mois', 'montant', 'libelleId', 'description', 'vehiculeId'].forEach(function (k) { local[k] = payload[k]; });
   if (id) {
     local.pointe = payload.pointe; local.modifPar = D.me.email; local.modifLe = nowIso();
-    if (x.recurrentId && (x.montant !== amt || x.date !== date || x.description !== payload.description || x.libelleId !== payload.libelleId)) local.modifie = true;
+    if (x.recurrentId && (x.montant !== amt || x.date !== date || x.description !== payload.description || x.libelleId !== payload.libelleId || (x.vehiculeId || '') !== payload.vehiculeId)) local.modifie = true;
   }
   upsertLocal(D.mouvements, local);
   closeSheet();
@@ -1351,7 +1605,7 @@ function openRec(id, sens, prefill) {
   var r = id ? byId(D.recurrents, id) : null;
   var src = r || prefill || null;
   var l = src ? lib(src.libelleId) : null;
-  form = { kind: 'rec', id: id, sens: l ? l.sens : (sens || 'sortie'), libelleId: src ? src.libelleId : '' };
+  form = { kind: 'rec', id: id, sens: l ? l.sens : (sens || 'sortie'), libelleId: src ? src.libelleId : '', vehiculeId: src ? src.vehiculeId || '' : '' };
   var ro = !canEdit();
   var now = ymNow();
   var h = '<h3>' + (r ? 'Mouvement fixe' : prefill ? 'Dupliquer le mouvement fixe' : 'Nouveau mouvement fixe') + '</h3>';
@@ -1359,6 +1613,7 @@ function openRec(id, sens, prefill) {
     '<button type="button" class="e ' + (form.sens === 'entree' ? 'on' : '') + '" data-act="setSens" data-sens="entree">+ Entrée</button></div>';
   h += '<div class="field"><input id="r_amt" class="amount" inputmode="decimal" placeholder="0,00 €" value="' + (src ? amtInput(src.montant) : '') + '"></div>';
   h += '<div class="field"><label>Libellé</label><div id="libWrap">' + libChips(form.sens, form.libelleId) + '</div></div>';
+  h += '<div id="vehWrap"></div>';
   h += '<div class="field"><label>Description</label><input id="r_desc" placeholder="Salaire, Prêt Pajero…" value="' + esc(src ? src.description : '') + '"></div>';
   h += '<div class="row2"><div class="field"><label>Jour du mois</label><input id="r_jour" type="number" min="1" max="31" inputmode="numeric" value="' + (src ? src.jour : 5) + '"></div>' +
     '<div class="field"><label>Début</label><input id="r_debut" type="month" value="' + (r ? r.debut : now) + '"></div></div>';
@@ -1373,6 +1628,7 @@ function openRec(id, sens, prefill) {
   }
   if (!ro) h += actions(r && r.actif ? 'stopRec' : '', 'Arrêter', 'saveRec', id, r ? '<button class="btn ghost" data-act="dupRec" data-id="' + r.id + '">Dupliquer</button>' : '');
   openSheet(h);
+  refreshVeh();
   if (ro) disableSheet();
 }
 
@@ -1383,7 +1639,7 @@ function saveRec(id) {
   var fin;
   try { fin = readFin('r_'); } catch (e) { return toast(e.message, true); }
   var rec = { id: id || '', libelleId: form.libelleId, description: val('r_desc'), montant: amt, jour: +val('r_jour') || 1,
-    debut: val('r_debut') || ymNow(), fin: fin, actif: true, decalage: checked('r_dec') ? -1 : 0 };
+    debut: val('r_debut') || ymNow(), fin: fin, actif: true, decalage: checked('r_dec') ? -1 : 0, vehiculeId: form.vehiculeId || '' };
   var from = id ? (val('r_from') || ymNow()) : rec.debut;
   busySave(write('saveRecurrent', rec, from)).then(function (data) {
     setData(data); closeSheet(); render(); ensureMonthClient(); toast('Mouvement fixe enregistré');
@@ -1417,6 +1673,8 @@ function openLib(id) {
     '<datalist id="grpList">' + groups.map(function (g) { return '<option value="' + esc(g) + '">'; }).join('') + '</datalist></div>';
   h += '<label class="opt box"><input type="checkbox" id="l_ms" ' + (l && l.moisSuivant ? 'checked' : '') + '>' +
     '<span>Compte pour le <b>mois suivant</b> par défaut<br><span class="xs muted">Ex. salaires versés en fin de mois</span></span></label>';
+  h += '<label class="opt box" id="l_pvBox"' + (sens === 'entree' ? ' hidden' : '') + '><input type="checkbox" id="l_pv" ' + (l && l.parVehicule ? 'checked' : '') + '>' +
+    '<span>À imputer à un <b>véhicule</b><br><span class="xs muted">Carburant, prêt auto, entretien… : choix du véhicule à la saisie</span></span></label>';
   if (l && !l.actif) h += '<label class="opt"><input type="checkbox" id="l_actif">Réactiver ce libellé</label>';
   if (l && !isAdmin()) h += '<div class="xs muted">Seul un administrateur peut modifier un libellé existant.</div>';
   if (canModify) h += actions(l && isAdmin() && l.actif ? 'delLib' : '', 'Supprimer', 'saveLib', id);
@@ -1424,14 +1682,14 @@ function openLib(id) {
   if (!canModify) disableSheet();
 }
 function typeOptions(sens, cur) {
-  var opts = sens === 'entree' ? ['revenu'] : ['besoin', 'envie', 'credit', 'epargne'];
+  var opts = sens === 'entree' ? ['revenu'] : ['besoin', 'envie', 'credit', 'epargne', 'impot'];
   return opts.map(function (t) { return '<option value="' + t + '" ' + (t === cur ? 'selected' : '') + '>' + TYPE_LABEL[t] + '</option>'; }).join('');
 }
 
 function saveLib(id) {
   var l = id ? byId(D.libelles, id) : null;
   var rec = { id: id || '', nom: val('l_nom'), sens: val('l_sens'), groupe: val('l_groupe'), moisSuivant: checked('l_ms'),
-    emoji: val('l_emoji').trim(), type: val('l_type') };
+    emoji: val('l_emoji').trim(), type: val('l_type'), parVehicule: val('l_sens') === 'sortie' && checked('l_pv') };
   if (l && !l.actif) rec.actif = checked('l_actif');
   if (!rec.nom.trim()) return toast('Nom manquant', true);
   busySave(write('saveLibelle', rec)).then(function (saved) {
@@ -1506,7 +1764,7 @@ function loadBackups() { call('listBackups').then(function (b) { backupsCache = 
 /* Actions (délégation d'événements)                                   */
 /* ================================================================== */
 var ACT = {
-  tab: function (d) { tab = d.tab; sub = ''; if (tab !== 'mouvements') mvtFilter = 'tous'; render(); window.scrollTo(0, 0); },
+  tab: function (d) { tab = d.tab; sub = ''; if (tab !== 'mouvements') mvtFilter = 'tous'; closeSheet(); render(); window.scrollTo(0, 0); },
   sub: function (d) { sub = d.sub; if (sub === 'journal') journalCache = null; if (sub === 'backups') backupsCache = null; render(); window.scrollTo(0, 0); },
   synSeg: function (d) { synSeg = d.v; vizSel = null; render(); },
   vizPeriod: function (d) { vizPeriod = +d.v; render(); },
@@ -1539,7 +1797,7 @@ var ACT = {
   openMvt: function (d) { openMvt(d.id); },
   saveMvt: function (d) { saveMvt(d.id); },
   delMvt: function (d) { delMvt(d.id); },
-  dupMvt: function (d) { var x = byId(D.mouvements, d.id); openMvt(null, { libelleId: x.libelleId, montant: x.montant, description: x.description }); },
+  dupMvt: function (d) { var x = byId(D.mouvements, d.id); openMvt(null, { libelleId: x.libelleId, montant: x.montant, description: x.description, vehiculeId: x.vehiculeId }); },
   nonRealise: function (d) {
     if (!confirm('Marquer ce fixe comme non réalisé pour ' + monthName(byId(D.mouvements, d.id).mois) + ' (0 €) ?')) return;
     saveMvt(d.id, true);
@@ -1565,6 +1823,7 @@ var ACT = {
   togglePointe: function (d) {
     var x = byId(D.mouvements, d.id); if (!x) return;
     x.pointe = !x.pointe; render();
+    if (document.getElementById('overlay') && form.kind === 'detail') { if (form.libId) openLibDetail(form.libId); else openGroupDetail(form.grp); }
     bg('setPointe', [d.id, x.pointe]);
   },
   setSens: function (d) {
@@ -1576,6 +1835,7 @@ var ACT = {
     form.libelleId = d.id;
     Array.prototype.forEach.call(document.querySelectorAll('#libChips .chip'), function (b) { b.classList.toggle('on', b.dataset.id === d.id); });
     if (form.kind === 'mvt') refreshBudgetMonth();
+    if (form.kind === 'mvt' || form.kind === 'rec') refreshVeh();
     if (form.kind === 'rec' && !form.id) { var c = document.getElementById('r_dec'); var l = byId(D.libelles, d.id); if (c && l) c.checked = !!l.moisSuivant; }
   },
   quickLib: function () {
@@ -1602,7 +1862,7 @@ var ACT = {
   openRec: function (d) { openRec(d.id); },
   saveRec: function (d) { saveRec(d.id); },
   stopRec: function (d) { stopRec(d.id); },
-  dupRec: function (d) { var r = byId(D.recurrents, d.id); openRec(null, lib(r.libelleId).sens, { libelleId: r.libelleId, montant: r.montant, description: r.description, jour: r.jour, decalage: r.decalage }); },
+  dupRec: function (d) { var r = byId(D.recurrents, d.id); openRec(null, lib(r.libelleId).sens, { libelleId: r.libelleId, montant: r.montant, description: r.description, jour: r.jour, decalage: r.decalage, vehiculeId: r.vehiculeId }); },
   doImport: function () {
     var t = val('importTxt'); if (!t.trim()) return;
     write('importRecurrents', t).then(function (res) {
@@ -1611,6 +1871,22 @@ var ACT = {
     });
   },
   openEnv: function (d) { openEnv(d.id); },
+  libDetail: function (d) { openLibDetail(d.id); },
+  grpDetail: function (d) { openGroupDetail(d.k); },
+  goLib: function (d) { closeSheet(); tab = 'mouvements'; sub = ''; mvtFilter = 'lib:' + d.id; mvtQuery = ''; render(); window.scrollTo(0, 0); },
+  goGrp: function (d) { closeSheet(); tab = 'mouvements'; sub = ''; mvtFilter = 'grp:' + d.k; mvtQuery = ''; render(); window.scrollTo(0, 0); },
+  goVeh: function () { tab = 'plus'; sub = 'vehicules'; render(); window.scrollTo(0, 0); },
+  goVehLib: function (d) { tab = 'mouvements'; sub = ''; mvtFilter = 'veh:' + d.v; mvtQuery = lib(d.id).nom; mvtScope = 'tous'; render(); window.scrollTo(0, 0); },
+  pickVeh: function (d) { form.vehiculeId = d.id; refreshVeh(); },
+  openVeh: function (d) { openVeh(d.id); },
+  vehEmoji: function (d) { document.getElementById('v_emoji').value = d.v; },
+  saveVeh: function (d) {
+    var v = { id: d.id || '', nom: val('v_nom'), emoji: val('v_emoji'), actif: d.id ? checked('v_actif') : true };
+    if (!v.nom.trim()) return toast('Nom manquant', true);
+    busySave(write('saveVehicule', v)).then(function (saved) { D.vehicules = D.vehicules || []; upsertLocal(D.vehicules, saved); closeSheet(); render(); toast('Véhicule enregistré'); });
+  },
+  mvtScope: function (d) { mvtScope = d.v; updateMvtResults(); Array.prototype.forEach.call(document.querySelectorAll('#scopeChips .chip'), function (b) { b.classList.toggle('on', b.dataset.v === mvtScope); }); },
+  clearSearch: function (d) { if (d.v === 'mvt') mvtQuery = ''; else fixQuery = ''; render(); },
   saveEnv: function (d) { saveEnv(d.id); },
   delEnv: function (d) { if (confirm('Supprimer ce montant (selon le choix « Appliquer ») ?')) saveEnv(d.id, 0); },
   fillEnv: function (d) { document.getElementById('v_amt').value = amtInput(d.v); },
@@ -1658,6 +1934,13 @@ document.addEventListener('input', function (e) {
     var id = form.descs && form.descs[e.target.value];
     var l = id && byId(D.libelles, id);
     if (l && l.actif) { if (l.sens !== form.sens) ACT.setSens({ sens: l.sens }); ACT.pickLib({ id: l.id }); }
+  } else if (k === 'searchMvt') {
+    mvtQuery = e.target.value;
+    document.getElementById('scopeChips').hidden = !mvtQuery;
+    clearTimeout(quickTimer); quickTimer = setTimeout(updateMvtResults, 150);
+  } else if (k === 'searchFix') {
+    fixQuery = e.target.value;
+    clearTimeout(quickTimer); quickTimer = setTimeout(function () { var r = document.getElementById('fixResults'); if (r) r.innerHTML = fixListsHtml(); }, 150);
   } else if (k === 'quick') {
     clearTimeout(quickTimer); quickTimer = setTimeout(applyQuick, 250);
   } else if (k === 'dateChange') {
@@ -1670,6 +1953,7 @@ document.addEventListener('input', function (e) {
     form.emoji = e.target.value;
   } else if (k === 'libSens') {
     document.getElementById('l_type').innerHTML = typeOptions(e.target.value, e.target.value === 'entree' ? 'revenu' : 'envie');
+    document.getElementById('l_pvBox').hidden = e.target.value === 'entree';
   }
 });
 

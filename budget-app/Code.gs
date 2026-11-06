@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.3.0';
+var APP_VERSION = '0.4.0';
 var APP_STAGE = 'test';
 
 var SH = {
@@ -28,29 +28,33 @@ var SH = {
   ATTENTE: 'EnAttente',
   EPARGNE: 'Epargne',
   ENV: 'Enveloppes',
+  VEH: 'Vehicules',
   CONFIG: 'Config'
 };
 
 var HEADERS = {
-  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant', 'emoji', 'type'],
+  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant', 'emoji', 'type', 'parVehicule'],
   Recurrents: ['id', 'libelleId', 'description', 'montant', 'jour', 'debut', 'fin', 'actif',
-    'creePar', 'creeLe', 'modifPar', 'modifLe', 'decalage'],
+    'creePar', 'creeLe', 'modifPar', 'modifLe', 'decalage', 'vehiculeId'],
   Mouvements: ['id', 'mois', 'date', 'libelleId', 'description', 'montant', 'prevu', 'recurrentId',
-    'pointe', 'modifie', 'statut', 'saisiPar', 'saisiLe', 'modifPar', 'modifLe'],
+    'pointe', 'modifie', 'statut', 'saisiPar', 'saisiLe', 'modifPar', 'modifLe', 'vehiculeId'],
   Utilisateurs: ['email', 'nom', 'role', 'couleur', 'actif', 'ajouteLe'],
   Journal: ['horodatage', 'utilisateur', 'action', 'objet', 'detail'],
   // portee « suite » : montant par défaut à partir de `debut` ; « mois » : ajustement du seul mois `debut`.
   Enveloppes: ['id', 'libelleId', 'debut', 'montant', 'portee', 'modifPar', 'modifLe'],
+  Vehicules: ['id', 'nom', 'emoji', 'actif', 'ordre'],
   EnAttente: ['id', 'description', 'montant', 'creeLe', 'saisiPar'],
   Epargne: ['id', 'compte', 'solde', 'majLe', 'saisiPar'],
   Config: ['cle', 'valeur']
 };
 
 var NUM_COLS = ['budget', 'ordre', 'montant', 'prevu', 'jour', 'solde', 'decalage'];
-var BOOL_COLS = ['actif', 'pointe', 'modifie', 'moisSuivant'];
+var BOOL_COLS = ['actif', 'pointe', 'modifie', 'moisSuivant', 'parVehicule'];
 
 // Feuilles incluses dans les sauvegardes.
-var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.ENV, SH.USERS, SH.ATTENTE, SH.EPARGNE, SH.CONFIG];
+var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.ENV, SH.VEH, SH.USERS, SH.ATTENTE, SH.EPARGNE, SH.CONFIG];
+
+var DEFAULT_VEHICULES = [['Partner', '🚐'], ['Pajero', '🚙']];
 var BACKUP_KEEP = 100;
 var BACKUP_CHUNK = 45000;
 
@@ -64,7 +68,7 @@ var GROUPES = {
 };
 
 // [nom, sens, groupe, compté le mois suivant, emoji, type]
-// type : revenu | besoin | envie | epargne | credit (sert aux conseils budgétaires)
+// type : revenu | besoin | envie | epargne | credit | impot (sert aux conseils budgétaires)
 var DEFAULT_LIBELLES = [
   ['Salaires', 'entree', GROUPES.entree, true, '💼', 'revenu'],
   ['Entrées exceptionnelles', 'entree', GROUPES.entree, false, '🎁', 'revenu'],
@@ -74,6 +78,7 @@ var DEFAULT_LIBELLES = [
   ['Prêt auto', 'sortie', GROUPES.fixes, false, '🚗', 'credit'],
   ['Prêt maison', 'sortie', GROUPES.fixes, false, '🏠', 'credit'],
   ['Crédit conso', 'sortie', GROUPES.fixes, false, '💳', 'credit'],
+  ['Véhicules', 'sortie', GROUPES.fixes, false, '🔧', 'besoin'],
   ['Alimentaire', 'sortie', GROUPES.courant, false, '🛒', 'besoin'],
   ['Divers', 'sortie', GROUPES.courant, false, '📦', 'envie'],
   ['Resto', 'sortie', GROUPES.courant, false, '🍽️', 'envie'],
@@ -81,13 +86,16 @@ var DEFAULT_LIBELLES = [
   ['Voyage / Vacances', 'sortie', GROUPES.courant, false, '✈️', 'envie'],
   ['Electricité', 'sortie', GROUPES.courant, false, '⚡', 'besoin'],
   ['Eau', 'sortie', GROUPES.courant, false, '💧', 'besoin'],
-  ['Impôts', 'sortie', GROUPES.courant, false, '🏛️', 'besoin'],
+  ['Impôts', 'sortie', GROUPES.courant, false, '🏛️', 'impot'],
   ['Abonnements', 'sortie', GROUPES.courant, false, '📱', 'envie'],
   ['Epargne', 'sortie', GROUPES.courant, false, '🐷', 'epargne'],
   ['Scolarité', 'sortie', GROUPES.courant, false, '🎒', 'besoin']
 ];
 
-var LIB_TYPES = ['revenu', 'besoin', 'envie', 'epargne', 'credit'];
+var LIB_TYPES = ['revenu', 'besoin', 'envie', 'epargne', 'credit', 'impot'];
+
+// Libellés imputés à un véhicule par défaut.
+var PAR_VEHICULE = ['carburant', 'pret auto', 'vehicules'];
 
 /** Type par défaut d'un libellé (libellés existants ou créés à la volée). */
 function defaultType_(nom, sens, groupe) {
@@ -96,6 +104,7 @@ function defaultType_(nom, sens, groupe) {
   for (var i = 0; i < DEFAULT_LIBELLES.length; i++) {
     if (norm_(DEFAULT_LIBELLES[i][0]) === n) return DEFAULT_LIBELLES[i][5];
   }
+  if (/impot|taxe|tresor public|dgfip/.test(n)) return 'impot';
   if (/pret|credit|emprunt/.test(n)) return 'credit';
   if (/epargne|livret|assurance vie/.test(n)) return 'epargne';
   if (/assurance|mutuelle|loyer|sante|pharma|medec|ecole|creche|garde/.test(n)) return 'besoin';
@@ -189,6 +198,7 @@ function data_(me) {
     attente: readTable_(SH.ATTENTE),
     epargne: readTable_(SH.EPARGNE),
     enveloppes: readTable_(SH.ENV),
+    vehicules: readTable_(SH.VEH),
     reperes: getConfig_('reperes'),
     sheetUrl: SpreadsheetApp.getActive().getUrl(),
     lastBackup: props.getProperty('lastBackup') || ''
@@ -237,11 +247,12 @@ function saveMouvement(m, repeter) {
     rec.libelleId = m.libelleId;
     rec.description = String(m.description || '').trim();
     rec.montant = num_(m.montant);
+    rec.vehiculeId = lib.parVehicule ? String(m.vehiculeId || '') : '';
     if (m.pointe !== undefined) rec.pointe = !!m.pointe;
 
     if (old) {
       if (old.recurrentId && (old.montant !== rec.montant || old.date !== rec.date ||
-          old.description !== rec.description || old.libelleId !== rec.libelleId)) {
+          old.description !== rec.description || old.libelleId !== rec.libelleId || old.vehiculeId !== rec.vehiculeId)) {
         rec.modifie = true;
       }
       rec.modifPar = me.email;
@@ -253,7 +264,7 @@ function saveMouvement(m, repeter) {
       created = {
         id: newId_(), libelleId: rec.libelleId, description: rec.description, montant: rec.montant,
         jour: Number(rec.date.substring(8, 10)), debut: rec.mois, fin: repeter.fin || '',
-        decalage: rec.date.substring(0, 7) < rec.mois ? -1 : 0,
+        decalage: rec.date.substring(0, 7) < rec.mois ? -1 : 0, vehiculeId: rec.vehiculeId,
         actif: true, creePar: me.email, creeLe: nowIso_(), modifPar: '', modifLe: ''
       };
       if (created.fin && created.fin < created.debut) throw new Error('L\'échéance de fin est avant le début');
@@ -341,6 +352,7 @@ function saveRecurrent(r, aPartirDe) {
     rec.montant = num_(r.montant);
     rec.jour = Math.min(31, Math.max(1, Number(r.jour) || 1));
     rec.decalage = Number(r.decalage) < 0 ? -1 : 0;
+    rec.vehiculeId = lib.parVehicule ? String(r.vehiculeId || '') : '';
     rec.debut = r.debut;
     rec.fin = r.fin || '';
     rec.actif = r.actif !== false;
@@ -396,7 +408,8 @@ function importRecurrents(text) {
         lib = {
           id: newId_(), nom: p[1], sens: sens, groupe: sens === 'entree' ? GROUPES.entree : GROUPES.fixes,
           budget: 0, ordre: libs.length, actif: true, emoji: defaultEmoji_(p[1]),
-          type: defaultType_(p[1], sens, sens === 'entree' ? GROUPES.entree : GROUPES.fixes)
+          type: defaultType_(p[1], sens, sens === 'entree' ? GROUPES.entree : GROUPES.fixes),
+          parVehicule: sens === 'sortie' && PAR_VEHICULE.indexOf(norm_(p[1])) >= 0
         };
         upsert_(SH.LIB, lib);
         libs.push(lib);
@@ -406,8 +419,12 @@ function importRecurrents(text) {
       var rec = {
         id: newId_(), libelleId: lib.id, description: p[2] || lib.nom, montant: num_(p[3]),
         jour: Number(p[5]) || 1, debut: mois, fin: fin, actif: true, creePar: me.email, creeLe: nowIso_(),
-        decalage: lib.moisSuivant ? -1 : 0
+        decalage: lib.moisSuivant ? -1 : 0, vehiculeId: ''
       };
+      if (lib.parVehicule) {
+        var vs = readTable_(SH.VEH).filter(function (v) { return norm_(rec.description).indexOf(norm_(v.nom)) >= 0; });
+        if (vs.length === 1) rec.vehiculeId = vs[0].id;
+      }
       upsert_(SH.REC, rec);
       count++;
     });
@@ -441,6 +458,7 @@ function saveLibelle(l) {
     rec.moisSuivant = !!l.moisSuivant;
     rec.emoji = String(l.emoji || '').trim().substring(0, 8);
     rec.type = LIB_TYPES.indexOf(l.type) >= 0 ? l.type : defaultType_(rec.nom, rec.sens, rec.groupe);
+    rec.parVehicule = l.parVehicule !== undefined ? !!l.parVehicule && rec.sens === 'sortie' : (old ? !!old.parVehicule : false);
     if (l.actif !== undefined) rec.actif = !!l.actif;
     upsert_(SH.LIB, rec);
     log_(me, old ? 'Modification' : 'Création', 'Libellé',
@@ -574,7 +592,7 @@ function toFixe(id, fin) {
       id: newId_(), libelleId: m.libelleId, description: m.description, montant: m.montant,
       jour: Number(m.date.substring(8, 10)), debut: m.mois, fin: fin || '', actif: true,
       creePar: me.email, creeLe: nowIso_(), modifPar: '', modifLe: '',
-      decalage: m.date.substring(0, 7) < m.mois ? -1 : 0
+      decalage: m.date.substring(0, 7) < m.mois ? -1 : 0, vehiculeId: m.vehiculeId || ''
     };
     upsert_(SH.REC, rec);
     var mm = clone_(m);
@@ -618,6 +636,28 @@ function toPonctuel(id) {
     log_(me, 'Fixe → ponctuel', 'Mouvement', describeMvt_(mm, findBy_(SH.LIB, 'id', mm.libelleId)) +
       ' — fixe arrêté après ' + m.mois + ', ' + n + ' occurrence(s) future(s) retirée(s)');
     return data_(me);
+  });
+}
+
+/* ================================================================== */
+/* Véhicules                                                             */
+/* ================================================================== */
+
+function saveVehicule(v) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var nom = String(v.nom || '').trim();
+    if (!nom) throw new Error('Nom manquant');
+    var vehs = readTable_(SH.VEH);
+    var old = v.id ? vehs.filter(function (x) { return x.id === v.id; })[0] : null;
+    if (vehs.some(function (x) { return x.id !== v.id && norm_(x.nom) === norm_(nom); })) throw new Error('Ce véhicule existe déjà');
+    var rec = old ? clone_(old) : { id: newId_(), ordre: vehs.length };
+    rec.nom = nom;
+    rec.emoji = String(v.emoji || '').trim().substring(0, 8);
+    rec.actif = v.actif !== false;
+    upsert_(SH.VEH, rec);
+    log_(me, old ? 'Modification' : 'Ajout', 'Véhicule', rec.nom + (rec.actif ? '' : ' (vendu / inactif)'));
+    return rec;
   });
 }
 
@@ -856,7 +896,7 @@ function ensureMonth_(mois, me) {
   var rows = recs.filter(function (r) { return !existing[r.id]; }).map(function (r) {
     return {
       id: newId_(), mois: mois, date: dateFor_(shiftMonth_(mois, Number(r.decalage) || 0), r.jour), libelleId: r.libelleId,
-      description: r.description, montant: r.montant, prevu: r.montant, recurrentId: r.id,
+      description: r.description, montant: r.montant, prevu: r.montant, recurrentId: r.id, vehiculeId: r.vehiculeId || '',
       pointe: false, modifie: false, statut: '', saisiPar: 'auto', saisiLe: nowIso_()
     };
   });
@@ -882,6 +922,7 @@ function propagate_(rec, fromMonth) {
       m.prevu = rec.montant;
       m.libelleId = rec.libelleId;
       m.description = rec.description;
+      m.vehiculeId = rec.vehiculeId || '';
       m.date = dateFor_(shiftMonth_(m.mois, Number(rec.decalage) || 0), rec.jour);
       sh.getRange(i + 2, 1, 1, HEADERS.Mouvements.length).setValues([toRow_(SH.MVT, m)]);
     }
@@ -970,9 +1011,15 @@ function ensureSetup_() {
       sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
       sh.setFrozenRows(1);
       setTextFormats_(sh, headers);
+      if (name === SH.VEH) {
+        appendRows_(SH.VEH, DEFAULT_VEHICULES.map(function (v, i) {
+          return { id: newId_(), nom: v[0], emoji: v[1], actif: true, ordre: i };
+        }));
+      }
       if (name === SH.LIB) {
         appendRows_(SH.LIB, DEFAULT_LIBELLES.map(function (d, i) {
-          return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true, moisSuivant: !!d[3], emoji: d[4], type: d[5] };
+          return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true, moisSuivant: !!d[3], emoji: d[4], type: d[5],
+            parVehicule: PAR_VEHICULE.indexOf(norm_(d[0])) >= 0 };
         }));
       }
     } else {
@@ -994,12 +1041,63 @@ function ensureSetup_() {
   if (def && def.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(def);
   if (getConfig_('version') !== APP_VERSION) {
     var prev = getConfig_('version');
+    if (prev && verLt_(prev, '0.4.0')) migrate040_();
     setConfig_('version', APP_VERSION);
     appendJournal_('système', prev ? 'Mise à jour' : 'Installation', 'Application',
       (prev ? 'v' + prev + ' → ' : '') + 'v' + APP_VERSION + ' (' + APP_STAGE + ')');
   }
   cache.put('setup_' + APP_VERSION, '1', 21600);
   _memo = { tables: {}, headers: {}, sheets: {} };
+}
+
+function verLt_(a, b) {
+  var x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+  for (var i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); }
+  return false;
+}
+
+/**
+ * v0.4.0 :
+ *  - libellé « Véhicules » ajouté ; Carburant / Prêt auto / Véhicules imputables à un véhicule ;
+ *  - fixes et mouvements dont la description cite un véhicule (« Prêt Pajero ») rattachés à celui-ci ;
+ *  - le libellé « Impôts » passe dans le type « Impôts & taxes ».
+ */
+function migrate040_() {
+  _memo = { tables: {}, headers: {}, sheets: {} };
+  var libs = readTable_(SH.LIB);
+  if (!libs.some(function (l) { return norm_(l.nom) === 'vehicules'; })) {
+    appendRows_(SH.LIB, [{ id: newId_(), nom: 'Véhicules', sens: 'sortie', groupe: GROUPES.fixes, budget: 0,
+      ordre: libs.length, actif: true, moisSuivant: false, emoji: '🔧', type: 'besoin', parVehicule: true }]);
+  }
+  readTable_(SH.LIB).forEach(function (l) {
+    var changed = false;
+    if (PAR_VEHICULE.indexOf(norm_(l.nom)) >= 0 && !l.parVehicule) { l.parVehicule = true; changed = true; }
+    if (/^(impots?|taxe fonciere)$/.test(norm_(l.nom)) && l.type !== 'impot') { l.type = 'impot'; changed = true; }
+    if (changed) upsert_(SH.LIB, l);
+  });
+  var vehs = readTable_(SH.VEH);
+  var libVeh = {};
+  readTable_(SH.LIB).forEach(function (l) { if (l.parVehicule) libVeh[l.id] = true; });
+  var guess = function (txt) {
+    var t = norm_(txt);
+    var v = vehs.filter(function (x) { return t.indexOf(norm_(x.nom)) >= 0; });
+    return v.length === 1 ? v[0].id : '';
+  };
+  var nR = 0, nM = 0;
+  readTable_(SH.REC).forEach(function (r) {
+    if (r.vehiculeId || !libVeh[r.libelleId]) return;
+    var v = guess(r.description);
+    if (v) { r.vehiculeId = v; upsert_(SH.REC, r); nR++; }
+  });
+  var recVeh = {};
+  readTable_(SH.REC).forEach(function (r) { if (r.vehiculeId) recVeh[r.id] = r.vehiculeId; });
+  readTable_(SH.MVT).forEach(function (m) {
+    if (m.vehiculeId || !libVeh[m.libelleId]) return;
+    var v = recVeh[m.recurrentId] || guess(m.description);
+    if (v) { m.vehiculeId = v; upsert_(SH.MVT, m); nM++; }
+  });
+  appendJournal_('système', 'Migration v0.4.0', 'Véhicules & impôts',
+    'Libellé Véhicules ajouté ; ' + nR + ' fixe(s) et ' + nM + ' mouvement(s) rattachés à un véhicule ; Impôts → type Impôts & taxes');
 }
 
 /** v0.3.0 : emoji et type (besoin / envie / épargne / crédit) proposés pour les libellés existants. */

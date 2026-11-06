@@ -76,9 +76,9 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
 ---
 
-# Version suivante (v0.4.0) — à développer
+# v0.4.0 — livrée (voir CHANGELOG)
 
-- [ ] **Imputation des dépenses par véhicule**
+- [x] **Imputation des dépenses par véhicule**
   - liste des véhicules du foyer (Plus › Véhicules) : nom, emoji, actif / vendu
     — **véhicules du foyer : Partner et Pajero** (créés d'office) ;
   - option par libellé **« À imputer à un véhicule »**, activée par défaut pour *Carburant*, *Prêt auto*
@@ -92,14 +92,14 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
     graphique d'évolution, comparaison entre véhicules ;
   - mouvements existants « non imputés » signalés, à rattacher en un geste ;
   - option ultérieure : kilométrage pour calculer le coût au kilomètre.
-- [ ] **Barre de recherche** dans les onglets *Mouvements* et *Fixes*
+- [x] **Barre de recherche** dans les onglets *Mouvements* et *Fixes*
   - recherche instantanée pendant la frappe (sans accents ni majuscules) sur : description, libellé,
     montant (« 45 », « 45,50 »), personne (« Elise »), véhicule, date (« 28/10 ») ;
   - *Mouvements* : portée **ce mois** ou **tous les mois** (résultats groupés par mois, avec total
     et nombre de résultats — ex. « Leclerc : 23 mouvements, 2 140 € sur l'année ») ;
   - *Fixes* : filtre la liste (actifs et terminés), compatible avec le tri choisi ;
   - se combine avec les filtres existants (sorties, entrées, à pointer…) ; bouton ✕ pour effacer.
-- [ ] **Synthèse : détail d'un libellé au clic**
+- [x] **Synthèse : détail d'un libellé au clic**
   - toucher une ligne de libellé (tableau, enveloppes, graphiques) ouvre une **fiche détail** :
     prévu / réel / reste, jauge, et la **liste des mouvements du libellé pour le mois** (date, description,
     montant, personne, fixe ou ponctuel, pointé) ;
@@ -107,7 +107,7 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - boutons **« Modifier le prévu »** (enveloppe / montant prévu, comme aujourd'hui) et
     **« Voir dans Mouvements »** (onglet Mouvements filtré sur ce libellé) ;
   - ligne de groupe (ex. « Vie courante ») : même fiche avec les mouvements de tout le groupe.
-- [ ] **Conseils : catégorie « Impôts & taxes » (obligations)**
+- [x] **Conseils : catégorie « Impôts & taxes » (obligations)**
   - nouveau type de libellé **Impôts & taxes** (en plus de besoin / envie / crédit / épargne),
     attribué par défaut à *Impôts* et aux libellés type *Taxe foncière* ;
   - la règle 50/30/20 se calcule sur le **revenu disponible** = revenus − impôts & taxes

@@ -3,6 +3,23 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.4.0] — 2026-11-06 — *test*
+
+- **Imputation par véhicule** : véhicules Partner et Pajero (Plus › Véhicules, modifiables) ;
+  option « À imputer à un véhicule » par libellé (Carburant, Prêt auto, nouveau libellé *Véhicules*) ;
+  choix du véhicule dans les fiches (mémorisé pour les fixes), reconnu à la dictée
+  (« plein Pajero 62 euros ») ; coût par véhicule (mois, année, moyenne, détail par libellé,
+  évolution 12 mois), mouvements non imputés signalés ; filtre par véhicule.
+  Assurances non imputées (prélèvement unique).
+- **Recherche** dans Mouvements (ce mois / tous les mois, résultats groupés par mois avec totaux)
+  et dans Fixes : description, libellé, montant, personne, véhicule, date.
+- **Synthèse** : toucher un libellé ou un groupe ouvre sa fiche détail (prévu / réel / reste et
+  liste des mouvements), avec « Modifier le prévu » et « Voir dans Mouvements ».
+- **Conseils** : type **Impôts & taxes** ; règle 50/30/20 calculée sur le revenu disponible
+  (revenus − impôts & taxes) ; indicateur « Poids des impôts et taxes » (mois et 12 mois).
+- Migration automatique : libellé Véhicules ajouté, fixes / mouvements citant un véhicule rattachés
+  (ex. « Prêt Pajero »), libellé Impôts passé en type Impôts & taxes.
+
 ## [0.3.0] — 2026-11-06 — *test*
 
 - **Correctif** : le prévu d'une entrée (ex. salaire saisi en ponctuel) restait à 0 € sans moyen de le modifier.
