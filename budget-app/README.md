@@ -1,4 +1,4 @@
-# 💶 Gestion de Budget — web app Google Drive · v0.1.0 (test)
+# 💶 Gestion de Budget — web app Google Drive · v0.1.1 (test)
 
 Appli mobile/ordinateur pour gérer le budget du foyer à plusieurs.
 Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
@@ -16,7 +16,7 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
    - vous déclare **administrateur**,
    - crée le fichier **« Budget — Sauvegardes »** dans votre Drive,
    - installe la sauvegarde de nuit.
-4. **Déployer → Nouveau déploiement → Application Web**, description `v0.1.0` :
+4. **Déployer → Nouveau déploiement → Application Web**, description `v0.1.1` :
    - Exécuter en tant que : **Utilisateur accédant à l'application Web**
    - Qui a accès : **Tout utilisateur disposant d'un compte Google**
 5. Dans l'appli : **Plus → Utilisateurs & accès → Ajouter** votre femme (adresse Gmail, nom, rôle, couleur).
@@ -45,6 +45,13 @@ Les données sont dans une **Google Sheet de votre Drive** ; l'interface est une
 - **Modifier pour la suite** : ouvrez-le dans l'onglet Fixes ; choisissez « Appliquer à partir de ». Les mois déjà pointés ou modifiés à la main ne sont pas écrasés.
 - **Arrêter** : il n'est plus reporté à partir du mois choisi.
 
+### Date réelle et mois de budget
+Chaque mouvement a une **date réelle** (celle du relevé bancaire, pour le pointage) et un
+**mois de budget** (celui où il compte). Exemple : salaire versé le 28 octobre → budget de **novembre**.
+- Libellé *Salaires* : compté pour le mois suivant par défaut (réglable dans Libellés, pour tout libellé).
+- Mouvement fixe : case « Versé le mois précédent ».
+- Saisie ponctuelle : champ « Compte pour le budget de » (mois précédent / du mois / suivant).
+
 ### Prévu / réel
 - Prévu d'un libellé = somme des montants fixes prévus + son **budget mensuel** (enveloppe, réglable dans Libellés).
 - Réel = somme des mouvements saisis.
@@ -68,4 +75,4 @@ Toutes les actions (ajout, modification avec valeur précédente, suppression, p
 sauvegardes, utilisateurs…) sont tracées dans la feuille `Journal`, consultable dans **Plus → Journal**.
 
 ## Versionnage
-Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.1.0 — test**.
+Voir [CHANGELOG.md](CHANGELOG.md). Version courante : **0.1.1 — test**.

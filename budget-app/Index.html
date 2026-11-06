@@ -447,6 +447,7 @@ function mvtItem(x) {
     ? '<button class="check ' + (x.pointe ? 'on' : '') + '" data-act="togglePointe" data-id="' + x.id + '" aria-label="Pointer">' + (x.pointe ? '✓' : '') + '</button>'
     : '<span class="check ' + (x.pointe ? 'on' : '') + '">' + (x.pointe ? '✓' : '') + '</span>';
   var meta = esc(l.nom) + ' ' + whoBadge(x.saisiPar, x.saisiPar === 'auto' ? '' : 'Saisi par ');
+  if (x.date.substring(0, 7) !== x.mois) meta += ' <span class="tag">↪ budget ' + esc(monthName(x.mois)) + '</span>';
   if (x.recurrentId && x.modifie) meta += ' <span class="tag warn">modifié ce mois</span>';
   if (x.modifPar && x.modifPar !== x.saisiPar) meta += ' ' + whoBadge(x.modifPar, 'Modifié par ');
   return '<li class="item" data-act="openMvt" data-id="' + x.id + '">' + chk +
@@ -519,7 +520,7 @@ function viewFixes() {
       var l = lib(r.libelleId), st = recStatus(r);
       h += '<li class="item ' + (st.off ? 'off' : '') + '" data-act="openRec" data-id="' + r.id + '"><span style="font-size:20px">' + icon(l) + '</span>' +
         '<div class="main"><div class="title">' + esc(r.description || l.nom) + '</div>' +
-        '<div class="meta">' + esc(l.nom) + ' · le ' + r.jour + ' <span class="tag ' + st.cls + '">' + esc(st.txt) + '</span></div></div>' +
+        '<div class="meta">' + esc(l.nom) + ' · le ' + r.jour + (+r.decalage < 0 ? ' du mois précédent' : '') + ' <span class="tag ' + st.cls + '">' + esc(st.txt) + '</span></div></div>' +
         '<div class="amt num"><b>' + eur(r.montant) + '</b></div></li>';
     });
     if (!list.length) h += '<li class="muted small" style="padding:6px 0">Aucun.</li>';
@@ -591,7 +592,7 @@ var SUBVIEWS = {
         h += '<div class="card"><h2>' + (sens === 'entree' ? '💶 ' : '💸 ') + esc(g) + '</h2><ul class="list">';
         libsSorted(sens).filter(function (l) { return l.groupe === g; }).forEach(function (l) {
           h += '<li class="item" data-act="openLib" data-id="' + l.id + '"><span style="font-size:20px">' + icon(l) + '</span><div class="main"><div class="title">' + esc(l.nom) + '</div></div>' +
-            '<div class="amt num small">' + (+l.budget ? 'Budget ' + eur(l.budget) : '<span class="muted">—</span>') + '</div></li>';
+            '<div class="amt num small">' + (l.moisSuivant ? '<span class="tag">↪ mois suivant</span> ' : '') + (+l.budget ? 'Budget ' + eur(l.budget) : '<span class="muted">—</span>') + '</div></li>';
         });
         h += '</ul></div>';
       });
@@ -696,7 +697,8 @@ function openMvt(id) {
   var x = id ? byId(D.mouvements, id) : null;
   if (!canEdit() && !x) return;
   var l = x ? lib(x.libelleId) : null;
-  form = { kind: 'mvt', id: id, sens: l ? l.sens : (form.lastSens || 'sortie'), libelleId: x ? x.libelleId : '' };
+  form = { kind: 'mvt', id: id, sens: l ? l.sens : (form.lastSens || 'sortie'), libelleId: x ? x.libelleId : '',
+    lastSens: form.lastSens, moisTouched: !!x, moisInit: x ? x.mois : '' };
   var ro = !canEdit();
   var rec = x && x.recurrentId ? byId(D.recurrents, x.recurrentId) : null;
   var date = x ? x.date : (mois === ymNow() ? todayStr() : mois + '-01');
@@ -715,7 +717,8 @@ function openMvt(id) {
   h += '<div class="field"><label>Libellé</label><div id="libWrap">' + libChips(form.sens, form.libelleId) + '</div></div>';
   h += '<div class="field"><label>Description</label><input id="m_desc" list="descList" placeholder="Leclerc, station, salaire…" value="' + esc(x ? x.description : '') + '" data-input="descAuto">' +
     '<datalist id="descList">' + Object.keys(descs).map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist></div>';
-  h += '<div class="field"><label>Date</label><input id="m_date" type="date" value="' + date + '"></div>';
+  h += '<div class="row2"><div class="field"><label>Date réelle</label><input id="m_date" type="date" value="' + date + '" data-input="dateChange"></div>' +
+    '<div class="field"><label>Compte pour le budget de</label><select id="m_mois" data-input="moisTouched"></select></div></div>';
   if (x) {
     h += '<label class="opt"><input type="checkbox" id="m_pointe" ' + (x.pointe ? 'checked' : '') + '>Pointé sur le relevé</label>';
   } else {
@@ -730,7 +733,28 @@ function openMvt(id) {
   if (!ro) h += actions(x ? 'delMvt' : '', x && x.recurrentId ? 'Retirer ce mois' : 'Supprimer', 'saveMvt', id);
   openSheet(h);
   if (ro) Array.prototype.forEach.call(document.querySelectorAll('.sheet input, .sheet button.chip, .sheet .seg button'), function (e) { e.disabled = true; });
+  refreshBudgetMonth();
   if (!x) setTimeout(function () { var e = document.getElementById('m_amt'); if (e) e.focus(); }, 60);
+}
+
+/** Remplit « Compte pour le budget de » : mois de la date ±1 ; par défaut selon le libellé. */
+function refreshBudgetMonth() {
+  var sel = document.getElementById('m_mois');
+  if (!sel) return;
+  var d = val('m_date');
+  var dm = /^\d{4}-\d{2}/.test(d) ? d.substring(0, 7) : mois;
+  var current = sel.value || form.moisInit;
+  var choices = [shiftMonth(dm, -1), dm, shiftMonth(dm, 1)];
+  if (current && choices.indexOf(current) < 0) choices.push(current);
+  var def;
+  if (form.moisTouched && current) def = current;
+  else {
+    var l = form.libelleId ? byId(D.libelles, form.libelleId) : null;
+    def = l && l.moisSuivant ? shiftMonth(dm, 1) : dm;
+  }
+  sel.innerHTML = choices.map(function (m) {
+    return '<option value="' + m + '" ' + (m === def ? 'selected' : '') + '>' + esc(monthName(m)) + (m === dm ? '' : m < dm ? ' (mois précédent)' : ' (mois suivant)') + '</option>';
+  }).join('');
 }
 
 function saveMvt(id) {
@@ -743,7 +767,7 @@ function saveMvt(id) {
   if (!id && checked('m_rep')) {
     try { repeter = { fin: readFin('m_') }; } catch (e) { return toast(e.message, true); }
   }
-  var rec = { id: id || '', date: date, montant: amt, libelleId: form.libelleId, description: val('m_desc') };
+  var rec = { id: id || '', date: date, mois: val('m_mois'), montant: amt, libelleId: form.libelleId, description: val('m_desc') };
   if (id) rec.pointe = checked('m_pointe');
   form.lastSens = form.sens;
   busySave(write('saveMouvement', rec, repeter)).then(function (res) {
@@ -778,6 +802,8 @@ function openRec(id, sens) {
   h += '<div class="field"><label>Description</label><input id="r_desc" placeholder="Salaire Guillaume, Prêt Pajero…" value="' + esc(r ? r.description : '') + '"></div>';
   h += '<div class="row2"><div class="field"><label>Jour du mois</label><input id="r_jour" type="number" min="1" max="31" inputmode="numeric" value="' + (r ? r.jour : 5) + '"></div>' +
     '<div class="field"><label>Début</label><input id="r_debut" type="month" value="' + (r ? r.debut : mois) + '"></div></div>';
+  h += '<label class="opt box"><input type="checkbox" id="r_dec" ' + ((r ? +r.decalage < 0 : (l && l.moisSuivant)) ? 'checked' : '') + '>' +
+    '<span>Versé le <b>mois précédent</b><br><span class="small muted">Ex. salaire versé le 28 octobre qui sert au budget de novembre</span></span></label>';
   h += finField('r_', r ? r.fin : '');
   if (r) {
     h += '<div class="field"><label>Appliquer les changements à partir de</label><input id="r_from" type="month" value="' + (mois > ymNow() ? mois : ymNow()) + '">' +
@@ -798,7 +824,7 @@ function saveRec(id) {
   try { fin = readFin('r_'); } catch (e) { return toast(e.message, true); }
   var old = id ? byId(D.recurrents, id) : null;
   var rec = { id: id || '', libelleId: form.libelleId, description: val('r_desc'), montant: amt, jour: +val('r_jour') || 1,
-    debut: val('r_debut'), fin: fin, actif: true };
+    debut: val('r_debut'), fin: fin, actif: true, decalage: checked('r_dec') ? -1 : 0 };
   var from = id ? val('r_from') : rec.debut;
   busySave(write('saveRecurrent', rec, from)).then(function (data) {
     setData(data); closeSheet(); render(); ensureMonthClient(); toast('Mouvement fixe enregistré');
@@ -827,6 +853,8 @@ function openLib(id, opts) {
     '<div class="field"><label>Budget mensuel</label><input id="l_budget" inputmode="decimal" placeholder="0" value="' + (l && +l.budget ? amtInput(l.budget) : '') + '"></div></div>';
   h += '<div class="field"><label>Groupe</label><input id="l_groupe" list="grpList" value="' + esc(l ? l.groupe : (sens === 'entree' ? 'Entrées' : 'Vie courante')) + '">' +
     '<datalist id="grpList">' + groups.map(function (g) { return '<option value="' + esc(g) + '">'; }).join('') + '</datalist></div>';
+  h += '<label class="opt box"><input type="checkbox" id="l_ms" ' + (l && l.moisSuivant ? 'checked' : '') + '>' +
+    '<span>Compte pour le <b>mois suivant</b> par défaut<br><span class="small muted">Ex. salaires versés en fin de mois</span></span></label>';
   if (l && !l.actif) h += '<label class="opt"><input type="checkbox" id="l_actif">Réactiver ce libellé</label>';
   if (l && !isAdmin()) h += '<div class="small muted">Seul un administrateur peut modifier un libellé existant.</div>';
   if (canModify) h += actions(l && isAdmin() && l.actif ? 'delLib' : '', 'Supprimer', 'saveLib', id);
@@ -838,7 +866,7 @@ function openLib(id, opts) {
 
 function saveLib(id) {
   var l = id ? byId(D.libelles, id) : null;
-  var rec = { id: id || '', nom: val('l_nom'), sens: val('l_sens'), groupe: val('l_groupe'), budget: parseAmount(val('l_budget')) || 0 };
+  var rec = { id: id || '', nom: val('l_nom'), sens: val('l_sens'), groupe: val('l_groupe'), budget: parseAmount(val('l_budget')) || 0, moisSuivant: checked('l_ms') };
   if (l && !l.actif) rec.actif = checked('l_actif');
   if (!rec.nom.trim()) return toast('Nom manquant', true);
   var ret = form.libReturn;
@@ -952,6 +980,8 @@ var ACT = {
   pickLib: function (d) {
     form.libelleId = d.id;
     Array.prototype.forEach.call(document.querySelectorAll('#libChips .chip'), function (b) { b.classList.toggle('on', b.dataset.id === d.id); });
+    if (form.kind === 'mvt') refreshBudgetMonth();
+    if (form.kind === 'rec' && !form.id) { var c = document.getElementById('r_dec'); var l = byId(D.libelles, d.id); if (c && l) c.checked = !!l.moisSuivant; }
   },
   quickLib: function () {
     var nom = prompt('Nom du nouveau libellé (' + (form.sens === 'entree' ? 'entrée' : 'sortie') + ') :');
@@ -1024,6 +1054,10 @@ document.addEventListener('input', function (e) {
       if (l.sens !== form.sens) ACT.setSens({ sens: l.sens });
       ACT.pickLib({ id: l.id });
     }
+  } else if (k === 'dateChange') {
+    refreshBudgetMonth();
+  } else if (k === 'moisTouched') {
+    form.moisTouched = true;
   } else if (k === 'colorInput') {
     form.couleur = e.target.value;
   }

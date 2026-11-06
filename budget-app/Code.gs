@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.1.0';
+var APP_VERSION = '0.1.1';
 var APP_STAGE = 'test';
 
 var SH = {
@@ -31,9 +31,9 @@ var SH = {
 };
 
 var HEADERS = {
-  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif'],
+  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant'],
   Recurrents: ['id', 'libelleId', 'description', 'montant', 'jour', 'debut', 'fin', 'actif',
-    'creePar', 'creeLe', 'modifPar', 'modifLe'],
+    'creePar', 'creeLe', 'modifPar', 'modifLe', 'decalage'],
   Mouvements: ['id', 'mois', 'date', 'libelleId', 'description', 'montant', 'prevu', 'recurrentId',
     'pointe', 'modifie', 'statut', 'saisiPar', 'saisiLe', 'modifPar', 'modifLe'],
   Utilisateurs: ['email', 'nom', 'role', 'couleur', 'actif', 'ajouteLe'],
@@ -43,8 +43,8 @@ var HEADERS = {
   Config: ['cle', 'valeur']
 };
 
-var NUM_COLS = ['budget', 'ordre', 'montant', 'prevu', 'jour', 'solde'];
-var BOOL_COLS = ['actif', 'pointe', 'modifie'];
+var NUM_COLS = ['budget', 'ordre', 'montant', 'prevu', 'jour', 'solde', 'decalage'];
+var BOOL_COLS = ['actif', 'pointe', 'modifie', 'moisSuivant'];
 
 // Feuilles incluses dans les sauvegardes.
 var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.USERS, SH.ATTENTE, SH.EPARGNE, SH.CONFIG];
@@ -61,7 +61,7 @@ var GROUPES = {
 };
 
 var DEFAULT_LIBELLES = [
-  ['Salaires', 'entree', GROUPES.entree],
+  ['Salaires', 'entree', GROUPES.entree, true],
   ['Entrées exceptionnelles', 'entree', GROUPES.entree],
   ['Remboursements médicaux', 'entree', GROUPES.entree],
   ['Remboursements divers', 'entree', GROUPES.entree],
@@ -137,7 +137,11 @@ function getAll() {
   ensureSetup_();
   var me = ctx_(0);
   if (ROLES[me.role] >= ROLES.editeur) {
-    withLock_(function () { ensureMonth_(currentMonth_(), me); });
+    withLock_(function () {
+      // Le mois suivant aussi : un salaire versé fin de mois pour le mois suivant doit pouvoir être pointé.
+      ensureMonth_(currentMonth_(), me);
+      ensureMonth_(shiftMonth_(currentMonth_(), 1), me);
+    });
   }
   return data_(me);
 }
@@ -194,7 +198,8 @@ function saveMouvement(m, repeter) {
       id: newId_(), recurrentId: '', prevu: '', pointe: false, modifie: false, statut: '',
       saisiPar: me.email, saisiLe: nowIso_()
     };
-    rec.mois = m.date.substring(0, 7);
+    // mois = mois de budget (peut différer du mois de la date, ex. salaire du 28/10 pour novembre)
+    rec.mois = /^\d{4}-\d{2}$/.test(m.mois || '') ? m.mois : m.date.substring(0, 7);
     rec.date = m.date;
     rec.libelleId = m.libelleId;
     rec.description = String(m.description || '').trim();
@@ -215,6 +220,7 @@ function saveMouvement(m, repeter) {
       created = {
         id: newId_(), libelleId: rec.libelleId, description: rec.description, montant: rec.montant,
         jour: Number(rec.date.substring(8, 10)), debut: rec.mois, fin: repeter.fin || '',
+        decalage: rec.date.substring(0, 7) < rec.mois ? -1 : 0,
         actif: true, creePar: me.email, creeLe: nowIso_(), modifPar: '', modifLe: ''
       };
       if (created.fin && created.fin < created.debut) throw new Error('L\'échéance de fin est avant le début');
@@ -301,6 +307,7 @@ function saveRecurrent(r, aPartirDe) {
     rec.description = String(r.description || '').trim();
     rec.montant = num_(r.montant);
     rec.jour = Math.min(31, Math.max(1, Number(r.jour) || 1));
+    rec.decalage = Number(r.decalage) < 0 ? -1 : 0;
     rec.debut = r.debut;
     rec.fin = r.fin || '';
     rec.actif = r.actif !== false;
@@ -364,7 +371,8 @@ function importRecurrents(text) {
       var fin = p[4] && /^\d{4}-\d{2}$/.test(p[4]) ? p[4] : '';
       var rec = {
         id: newId_(), libelleId: lib.id, description: p[2] || lib.nom, montant: num_(p[3]),
-        jour: Number(p[5]) || 1, debut: mois, fin: fin, actif: true, creePar: me.email, creeLe: nowIso_()
+        jour: Number(p[5]) || 1, debut: mois, fin: fin, actif: true, creePar: me.email, creeLe: nowIso_(),
+        decalage: lib.moisSuivant ? -1 : 0
       };
       upsert_(SH.REC, rec);
       count++;
@@ -396,10 +404,12 @@ function saveLibelle(l) {
     rec.sens = sens;
     rec.groupe = String(l.groupe || '').trim() || (sens === 'entree' ? GROUPES.entree : GROUPES.courant);
     rec.budget = num_(l.budget);
+    rec.moisSuivant = !!l.moisSuivant;
     if (l.actif !== undefined) rec.actif = !!l.actif;
     upsert_(SH.LIB, rec);
     log_(me, old ? 'Modification' : 'Création', 'Libellé',
-      rec.nom + ' (' + rec.sens + ', ' + rec.groupe + ', budget ' + fmtEur_(rec.budget) + ')' +
+      rec.nom + ' (' + rec.sens + ', ' + rec.groupe + ', budget ' + fmtEur_(rec.budget) +
+      (rec.moisSuivant ? ', compté le mois suivant' : '') + ')' +
       (old && old.nom !== rec.nom ? ' — ancien nom : ' + old.nom : ''));
     return rec;
   });
@@ -678,7 +688,7 @@ function ensureMonth_(mois, me) {
   });
   var rows = recs.filter(function (r) { return !existing[r.id]; }).map(function (r) {
     return {
-      id: newId_(), mois: mois, date: dateFor_(mois, r.jour), libelleId: r.libelleId,
+      id: newId_(), mois: mois, date: dateFor_(shiftMonth_(mois, Number(r.decalage) || 0), r.jour), libelleId: r.libelleId,
       description: r.description, montant: r.montant, prevu: r.montant, recurrentId: r.id,
       pointe: false, modifie: false, statut: '', saisiPar: 'auto', saisiLe: nowIso_()
     };
@@ -705,7 +715,7 @@ function propagate_(rec, fromMonth) {
       m.prevu = rec.montant;
       m.libelleId = rec.libelleId;
       m.description = rec.description;
-      m.date = dateFor_(m.mois, rec.jour);
+      m.date = dateFor_(shiftMonth_(m.mois, Number(rec.decalage) || 0), rec.jour);
       sh.getRange(i + 2, 1, 1, HEADERS.Mouvements.length).setValues([toRow_(SH.MVT, m)]);
     }
     count++;
@@ -767,7 +777,7 @@ function describeMvt_(m, lib) {
 
 function describeRec_(r, lib) {
   return (lib ? lib.nom : '?') + ' — ' + (r.description || '') + ' — ' + fmtEur_(r.montant) +
-    '/mois, le ' + r.jour + ', de ' + r.debut + ' à ' + (r.fin || 'perpétuel') + (r.actif ? '' : ' (inactif)');
+    '/mois, le ' + r.jour + (Number(r.decalage) < 0 ? ' du mois précédent' : '') + ', de ' + r.debut + ' à ' + (r.fin || 'perpétuel') + (r.actif ? '' : ' (inactif)');
 }
 
 /* ================================================================== */
@@ -778,6 +788,7 @@ function ensureSetup_() {
   var cache = CacheService.getScriptCache();
   if (cache.get('setup_' + APP_VERSION)) return;
   var ss = SpreadsheetApp.getActive();
+  var added = {};
   Object.keys(HEADERS).forEach(function (name) {
     var headers = HEADERS[name];
     var sh = ss.getSheetByName(name);
@@ -788,7 +799,7 @@ function ensureSetup_() {
       setTextFormats_(sh, headers);
       if (name === SH.LIB) {
         appendRows_(SH.LIB, DEFAULT_LIBELLES.map(function (d, i) {
-          return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true };
+          return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true, moisSuivant: !!d[3] };
         }));
       }
     } else {
@@ -798,9 +809,11 @@ function ensureSetup_() {
       if (missing.length) {
         sh.getRange(1, current.filter(String).length + 1, 1, missing.length).setValues([missing]).setFontWeight('bold');
         setTextFormats_(sh, sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]);
+        added[name] = missing;
       }
     }
   });
+  if (added[SH.LIB] && added[SH.LIB].indexOf('moisSuivant') >= 0) migrateMoisSuivant_();
   var def = ss.getSheetByName('Feuille 1') || ss.getSheetByName('Sheet1');
   if (def && def.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(def);
   if (getConfig_('version') !== APP_VERSION) {
@@ -810,6 +823,29 @@ function ensureSetup_() {
       (prev ? 'v' + prev + ' → ' : '') + 'v' + APP_VERSION + ' (' + APP_STAGE + ')');
   }
   cache.put('setup_' + APP_VERSION, '1', 21600);
+}
+
+/**
+ * v0.1.1 : les salaires (versés en fin de mois) comptent pour le mois suivant.
+ * Les mouvements fixes « Salaires » sont décalés et les occurrences non pointées
+ * à partir du mois en cours sont redatées au mois précédent.
+ */
+function migrateMoisSuivant_() {
+  var libs = readTable_(SH.LIB).filter(function (l) { return norm_(l.nom) === 'salaires'; });
+  libs.forEach(function (l) { l.moisSuivant = true; upsert_(SH.LIB, l); });
+  var ids = libs.map(function (l) { return l.id; });
+  var n = 0;
+  readTable_(SH.REC).forEach(function (r) {
+    if (ids.indexOf(r.libelleId) < 0) return;
+    r.decalage = -1;
+    upsert_(SH.REC, r);
+    propagate_(r, currentMonth_());
+    n++;
+  });
+  if (libs.length) {
+    appendJournal_('système', 'Migration v0.1.1', 'Libellé',
+      'Salaires : comptés pour le mois suivant ; ' + n + ' mouvement(s) fixe(s) décalé(s)');
+  }
 }
 
 /** Colonnes texte au format brut (évite que Sheets transforme « 2026-11 » en date). */

@@ -3,6 +3,17 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.1.1] — 2026-11-06 — *test*
+
+- **Mois de budget distinct de la date réelle** : un salaire versé le 28 octobre peut compter
+  pour le budget de novembre (champ « Compte pour le budget de » dans la saisie).
+- Libellés : option « Compte pour le mois suivant par défaut » (activée pour *Salaires*).
+- Mouvements fixes : option « Versé le mois précédent ».
+- Le mois suivant est préparé dès l'ouverture de l'appli (pour pointer un salaire anticipé).
+- Migration automatique : les fixes *Salaires* existants sont décalés (occurrences non pointées
+  à partir du mois en cours redatées au mois précédent).
+- Correctif : autorisations `appsscript.json` (fichier de sauvegarde, sauvegarde de nuit).
+
 ## [0.1.0] — 2026-11-06 — *test*
 
 Première version de test (déploiement à valider).
