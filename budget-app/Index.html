@@ -149,6 +149,16 @@
   .list { margin: 0; padding: 0; list-style: none; }
   .item { display: flex; align-items: center; gap: 12px; padding: 11px 2px; min-height: 56px; border-bottom: 1px solid var(--line); cursor: pointer; }
   .item:active { background: var(--surface-2); }
+  /* Ordinateur : survol à la souris, et barres alignées sur la colonne de contenu (760 px) sur grand écran */
+  @media (hover: hover) and (pointer: fine) {
+    .item:hover, tr.click:hover td { background: var(--surface-2); }
+    .chip:hover, .btn.ghost:hover, header button:hover { filter: brightness(1.15); }
+    nav button:hover { color: var(--text); }
+    .fold > .fh:hover h2 { color: var(--text-2); }
+  }
+  @media (min-width: 840px) {
+    header, nav { padding-left: calc((100vw - 760px) / 2); padding-right: calc((100vw - 760px) / 2); }
+  }
   .item:last-child { border-bottom: 0; }
   .item .main { flex: 1; min-width: 0; }
   .item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
@@ -213,7 +223,7 @@
   nav button.on { color: var(--text); font-weight: 600; }
   nav button.on .pill { background: var(--accent-soft); }
   nav button.on svg { color: var(--accent); }
-  .fab { position: fixed; right: 16px; bottom: calc(82px + env(safe-area-inset-bottom)); z-index: 21; width: 58px; height: 58px;
+  .fab { position: fixed; right: max(16px, calc((100vw - 760px) / 2 + 16px)); bottom: calc(82px + env(safe-area-inset-bottom)); z-index: 21; width: 58px; height: 58px;
     border-radius: 18px; border: 0; background: var(--accent); color: #fff; box-shadow: var(--fab-shadow);
     cursor: pointer; display: grid; place-items: center; }
   .fab svg { width: 26px; height: 26px; stroke-width: 2.2; }
@@ -260,7 +270,7 @@
   .spin { width: 30px; height: 30px; border: 2.5px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%;
     animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .sync { position: fixed; top: calc(66px + env(safe-area-inset-top)); right: 12px; z-index: 30; font-size: 11px;
+  .sync { position: fixed; top: calc(66px + env(safe-area-inset-top)); right: max(12px, calc((100vw - 760px) / 2 + 12px)); z-index: 30; font-size: 11px;
     color: var(--text-2); display: flex; align-items: center; gap: 6px; pointer-events: none; background: var(--surface-3);
     border: 1px solid var(--line-2); padding: 4px 10px; border-radius: 999px; }
   .sync[hidden] { display: none; }
@@ -1822,6 +1832,21 @@ try {
     if (tab !== start) { tab = start; render(); window.scrollTo(0, 0); }
   });
 } catch (e) {}
+
+/* Clavier (ordinateur) : Échap ferme la fiche ou la page, ← / → changent de mois. */
+document.addEventListener('keydown', function (e) {
+  if (!D) return;
+  var typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '');
+  if (e.key === 'Escape') {
+    if (document.getElementById('overlay')) { closeSheet(); e.preventDefault(); }
+    else if (sub && !typing) { sub = ''; render(); }
+    return;
+  }
+  if (typing || document.getElementById('overlay') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && { synthese: 1, mouvements: 1, enveloppes: 1 }[tab] && !sub) {
+    mois = shiftMonth(mois, e.key === 'ArrowLeft' ? -1 : 1); render(); ensureMonthClient(); e.preventDefault();
+  }
+});
 
 function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) {} }
 

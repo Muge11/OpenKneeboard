@@ -14,6 +14,8 @@ Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-têt
 - **Smartphone (Pixel)** : barre de navigation type Material (indicateur), zones tactiles ≥ 56 px, sélecteur de mois
   natif (toucher le mois), écran de chargement en squelette, hauteurs adaptées à l'écran (dvh).
 - **Rapidité** : comptes d'épargne mis en cache côté serveur (10 min, vidé à chaque modification).
+- **Ordinateur** : en-tête, navigation et bouton + alignés sur la colonne de contenu sur grand écran ;
+  survol à la souris ; **Échap** ferme une fiche, **← / →** changent de mois ; gestes tactiles inactifs à la souris.
 - **Saisie vocale « Hey Google » supprimée** (et autorisation Google Tasks retirée) ; les anciens déclencheurs
   se suppriment d'eux-mêmes. La saisie rapide au clavier reste.
 
