@@ -137,6 +137,14 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
     (il voit seulement « Épargne » dans le budget commun) ; totaux épargne calculés sur ses comptes visibles ;
   - **niveau de confidentialité à choisir** (voir ci-dessous).
 
+- [ ] **Nouveautés de chaque mise à jour affichées dans l'appli**
+  - à la première ouverture après une mise à jour : fenêtre « Quoi de neuf en v0.x.0 ? » avec les nouveautés
+    en langage simple (et, si plusieurs versions ont été sautées, celles de chaque version manquée) ;
+  - mémorisé **par utilisateur** (sur le serveur, donc vu une seule fois même avec plusieurs appareils) ;
+  - page **Plus › Nouveautés** : historique complet des versions (0.1.0 → aujourd'hui), consultable à tout moment ;
+  - pastille « Nouveau » sur les fonctions ajoutées tant qu'elles n'ont pas été ouvertes (facultatif) ;
+  - le contenu suit le CHANGELOG, rédigé pour l'utilisateur (sans termes techniques).
+
 ### Point à trancher : confidentialité réelle
 Tous les utilisateurs ont accès en modification à la Google Sheet (nécessaire au fonctionnement de l'appli).
 - **Option A — masquage dans l'appli** : simple ; mais les données restent lisibles par quelqu'un qui ouvre
