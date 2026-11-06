@@ -73,3 +73,22 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 - Bot Telegram (alternative recommandée à WhatsApp, jugé trop lourd : numéro dédié, compte Meta Business, serveur relais).
 - Report du reliquat d'enveloppe, solde bancaire et rapprochement, import CSV du relevé, règles de classement,
   alertes, projection de fin de mois, bilan annuel, objectifs d'épargne, paiements en plusieurs fois.
+
+---
+
+# Version suivante (v0.4.0) — à développer
+
+- [ ] **Imputation des dépenses par véhicule**
+  - liste des véhicules du foyer (Plus › Véhicules) : nom, emoji, actif / vendu
+    — proposés au départ : Pajero, Partner (à ajuster) ;
+  - option par libellé **« À imputer à un véhicule »**, activée par défaut pour *Carburant*, *Prêt auto*
+    et le futur libellé *Véhicules* (entretien, réparations, assurance, contrôle technique…) ;
+  - dans la fiche d'un mouvement ou d'un fixe de ces libellés : choix du véhicule (puces), mémorisé
+    pour les fixes (ex. Prêt Pajero → Pajero, chaque mois) ;
+  - saisie dictée : le nom du véhicule est reconnu (« plein Pajero 62 euros ») ;
+  - filtre par véhicule dans l'onglet Mouvements ;
+  - **coût par véhicule** : par mois et par an, détail par libellé (carburant, prêt, assurance, entretien),
+    graphique d'évolution, comparaison entre véhicules ;
+  - mouvements existants « non imputés » signalés, à rattacher en un geste ;
+  - option ultérieure : kilométrage pour calculer le coût au kilomètre.
+
