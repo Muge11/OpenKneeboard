@@ -99,3 +99,11 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
     et nombre de résultats — ex. « Leclerc : 23 mouvements, 2 140 € sur l'année ») ;
   - *Fixes* : filtre la liste (actifs et terminés), compatible avec le tri choisi ;
   - se combine avec les filtres existants (sorties, entrées, à pointer…) ; bouton ✕ pour effacer.
+- [ ] **Synthèse : détail d'un libellé au clic**
+  - toucher une ligne de libellé (tableau, enveloppes, graphiques) ouvre une **fiche détail** :
+    prévu / réel / reste, jauge, et la **liste des mouvements du libellé pour le mois** (date, description,
+    montant, personne, fixe ou ponctuel, pointé) ;
+  - chaque mouvement s'ouvre d'un toucher (modifier, pointer, dupliquer…) ;
+  - boutons **« Modifier le prévu »** (enveloppe / montant prévu, comme aujourd'hui) et
+    **« Voir dans Mouvements »** (onglet Mouvements filtré sur ce libellé) ;
+  - ligne de groupe (ex. « Vie courante ») : même fiche avec les mouvements de tout le groupe.
