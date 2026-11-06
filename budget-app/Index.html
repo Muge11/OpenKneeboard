@@ -217,7 +217,11 @@
   input.amount { font-size: 30px; font-weight: 700; text-align: center; letter-spacing: -.02em; background: transparent; border-color: var(--line); }
   .quick { position: relative; margin-bottom: 12px; }
   .quick input { padding-left: 40px; background: var(--accent-soft); border-color: transparent; }
-  .quick svg { position: absolute; left: 12px; top: 11px; width: 20px; height: 20px; color: var(--accent); }
+  .quick .micbtn { position: absolute; left: 4px; top: 4px; width: 36px; height: 36px; border: 0; background: transparent; border-radius: 10px;
+    display: grid; place-items: center; cursor: pointer; color: var(--accent); }
+  .quick .micbtn svg { width: 20px; height: 20px; }
+  .quick .micbtn.on { background: var(--accent); color: #fff; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .6; } }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .opt { display: flex; align-items: center; padding: 6px 0; cursor: pointer; }
   .box { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; background: var(--surface-2); }
@@ -543,6 +547,7 @@ function compteOf(x) {
   if (x.recurrentId) return compteOfRec(x.recurrentId);
   return '';
 }
+function vocalCount() { return D.mouvements.filter(function (x) { return x.source === 'vocal' && x.statut !== 'annule'; }).length; }
 function compteOfRec(recId) {
   var cs = D.comptes || [];
   for (var i = 0; i < cs.length; i++) for (var j = 0; j < cs[i].imputations.length; j++) {
@@ -613,7 +618,20 @@ function load() {
     document.getElementById('loading').style.display = 'none';
     render();
     ensureMonthClient();
-    if (firstLoad) { firstLoad = false; showReleasesIfNew(); }
+    if (firstLoad) {
+      firstLoad = false;
+      var direct = false;
+      try {
+        google.script.url.getLocation(function (loc) {
+          var prm = (loc && loc.parameter) || {};
+          if ((prm.saisie || prm.q) && canEdit()) {
+            direct = true;
+            openMvt(null);
+            if (prm.q) { document.getElementById('m_quick').value = prm.q; applyQuick(); }
+          } else showReleasesIfNew();
+        });
+      } catch (e) { showReleasesIfNew(); }
+    }
   }, function (e) {
     document.getElementById('loading').innerHTML = '<div>' + esc((e && e.message) || 'Impossible de charger les données.') +
       '<br><br><button class="btn" onclick="location.reload()">Réessayer</button></div>';
@@ -745,6 +763,11 @@ function viewSynthese(c) {
     '<div class="kpi"><div class="k">Entrées</div><div class="v num pos">' + eur0(c.tot.entree.reel) + '</div></div>' +
     '<div class="kpi"><div class="k">Sorties</div><div class="v num">' + eur0(c.tot.sortie.reel) + '</div></div></div></div>';
 
+  var nVoc = vocalCount();
+  if (nVoc) {
+    h += '<div class="card item" style="padding:12px 16px" data-act="goFilter" data-f="vocal"><span class="emo">🎤</span>' +
+      '<div class="main"><b>' + nVoc + ' mouvement' + (nVoc > 1 ? 's' : '') + ' dicté' + (nVoc > 1 ? 's' : '') + '</b> <span class="t2">à vérifier</span></div><span class="muted">›</span></div>';
+  }
   if (c.todo) {
     var todoList = sortMvts(c.mv.filter(function (x) { return !x.pointe; }));
     h += fold('syn:todo', 'À pointer', '<b class="num">' + c.todo + '</b>',
@@ -1005,6 +1028,7 @@ function mvtItem(x) {
     ? '<button class="check ' + (x.pointe ? 'on' : '') + '" data-act="togglePointe" data-id="' + x.id + '" aria-label="Pointer">' + (x.pointe ? svg('check') : '') + '</button>'
     : '<span class="check ' + (x.pointe ? 'on' : '') + '">' + (x.pointe ? svg('check') : '') + '</span>';
   var meta = esc(l.nom) + ' · ' + whoBadge(x.saisiPar, x.saisiPar === 'auto' ? '' : '');
+  if (x.source === 'vocal') meta += ' <span class="tag warn">🎤 dicté · à vérifier</span>';
   if (x.recurrentId) meta += ' <span class="tag acc">fixe</span>';
   if (x.recurrentId && +x.montant === 0 && +x.prevu) meta += ' <span class="tag warn">non réalisé</span>';
   else if (x.recurrentId && x.modifie) meta += ' <span class="tag warn">modifié ce mois</span>';
@@ -1024,6 +1048,7 @@ function mvtFilterFn(x) {
   if (mvtFilter.indexOf('grp:') === 0) return s + '|' + l.groupe === mvtFilter.slice(4);
   if (mvtFilter.indexOf('veh:') === 0) return x.vehiculeId === mvtFilter.slice(4);
   if (mvtFilter.indexOf('cpt:') === 0) return compteOf(x) === mvtFilter.slice(4);
+  if (mvtFilter === 'vocal') return x.source === 'vocal';
   return mvtFilter === 'tous' || mvtFilter === s || (mvtFilter === 'fixes' && x.recurrentId) ||
     (mvtFilter === 'ponctuels' && !x.recurrentId) || (mvtFilter === 'apointer' && !x.pointe);
 }
@@ -1041,6 +1066,8 @@ function viewMouvements(c) {
     sel += opt(mvtFilter, mvtFilter.indexOf('lib:') === 0 ? icon(lib(mvtFilter.slice(4))) + ' ' + lib(mvtFilter.slice(4)).nom : mvtFilter.slice(4).split('|')[1]);
   }
   Object.keys(F).forEach(function (k) { sel += opt(k, F[k] + (k === 'apointer' ? ' (' + c.todo + ')' : '')); });
+  var nVoc = vocalCount();
+  if (nVoc || mvtFilter === 'vocal') sel += opt('vocal', '🎤 Dictés à vérifier (' + nVoc + ')');
   if (vehs().length) sel += '<optgroup label="Véhicules">' + vehs().map(function (v) { return opt('veh:' + v.id, vehLabel(v.id)); }).join('') + '</optgroup>';
   if (comptes().length) sel += '<optgroup label="Comptes d\'épargne">' + comptes().map(function (cp) { return opt('cpt:' + cp.id, cptLabel(cp.id)); }).join('') + '</optgroup>';
   h += '<div class="filterbar"><span class="lbl">Filtrer</span><select id="mvtFilterSel" data-input="mvtFilterSel">' + sel + '</select>' +
@@ -1070,7 +1097,7 @@ function updateMvtResults() { var r = document.getElementById('mvtResults'); if 
 
 function mvtResultsHtml(c) {
   c = c || compute(mois);
-  var all = mvtQuery && mvtScope === 'tous';
+  var all = (mvtQuery && mvtScope === 'tous') || mvtFilter === 'vocal';
   var base = all ? D.mouvements.filter(function (x) { return x.statut !== 'annule'; }) : c.mv;
   var list = sortMvts(base.filter(function (x) { return mvtFilterFn(x) && matchItem(x, mvtQuery); }));
   var h = '';
@@ -1633,6 +1660,29 @@ var SUBVIEWS = {
       '<div class="field"><label>Recherche dans Mouvements</label><select data-input="prefSel" data-k="mvtScope">' + [['mois', 'Ce mois'], ['tous', 'Tous les mois']].map(function (o) {
         return '<option value="' + o[0] + '" ' + (pref('mvtScope', 'mois') === o[0] ? 'selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
       '<button class="btn ghost sm" data-act="resetFolds">Rouvrir / replier les sections par défaut</button></div>';
+    if (canEdit()) {
+      var vOn = !!pref('voice', false);
+      h += '<div class="card"><h2>🎤 Saisie vocale « Hey Google »</h2>' +
+        '<div class="small t2" style="margin-bottom:10px">Sur votre Pixel, dites : <b>« Hey Google, ajoute une tâche : budget 45 euros Leclerc »</b>. ' +
+        'La tâche est lue par l\'appli dans les 5 minutes, transformée en mouvement (marqué 🎤 à vérifier) puis cochée.</div>' +
+        '<div class="tools"><button class="btn ' + (vOn ? 'ghost' : '') + ' sm" data-act="setVoice" data-v="' + (vOn ? '0' : '1') + '">' + (vOn ? 'Désactiver' : 'Activer pour mon compte') + '</button>' +
+        (vOn ? '<button class="btn ghost sm" data-act="voiceNow">Traiter mes tâches maintenant</button>' : '') + '</div>' +
+        '<div class="xs muted">' + (vOn ? '✓ Activée pour ' + esc(D.me.nom) + '.' : 'Non activée. Chacun l\'active sur son propre compte.') + '</div>' +
+        fold('voice:help', 'Phrases & astuces', '', '<ul class="small t2" style="padding-left:18px;margin:0">' +
+          '<li>« budget 45 euros 50 Leclerc » → Alimentaire 45,50 €</li>' +
+          '<li>« budget plein Pajero 62 euros » → Carburant, Pajero</li>' +
+          '<li>« budget épargne Livret Elia 25 euros » → Epargne, compte Livret Elia</li>' +
+          '<li>« budget reçu 30 euros remboursement CPAM » → entrée</li>' +
+          '<li>Commencez par <b>budget</b> (ou dépense / achat / reçu), ou créez une liste « Budget » dans Google Tasks : tout ce qui y est ajouté est pris en compte.</li>' +
+          '<li>Si l\'assistant propose une autre appli, précisez « dans Google Tasks ».</li>' +
+          '<li>Phrase non comprise : la tâche est marquée ⚠️ et laissée dans Google Tasks.</li></ul>', false, { plain: true }) + '</div>';
+      var link = (D.appUrl || '') + '?saisie=1';
+      h += '<div class="card"><h2>⚡ Raccourci « Saisie rapide »</h2>' +
+        '<div class="small t2" style="margin-bottom:10px">Ouvre directement la saisie, prête à dicter avec le micro du clavier. ' +
+        'Ouvrez ce lien dans Chrome sur le Pixel, puis menu ⋮ › <b>Ajouter à l\'écran d\'accueil</b> et nommez-le « Saisie budget ».</div>' +
+        '<input readonly value="' + esc(link) + '" onclick="this.select()"><div class="tools" style="margin-top:8px"><button class="btn ghost sm" data-act="copyLink" data-v="' + esc(link) + '">Copier le lien</button>' +
+        '<a class="btn ghost sm" href="' + esc(link) + '" target="_blank">Ouvrir</a></div></div>';
+    }
     var rp = pref('rapport', D.me.role === 'admin');
     h += '<div class="card"><h2>Compte rendu mensuel</h2><label class="opt"><input type="checkbox" data-act="prefRapport" ' + (rp ? 'checked' : '') + '>Recevoir le compte rendu du mois par e-mail</label>' +
       '<div class="xs muted">Envoyé dès que le salaire du nouveau mois est saisi (ou le 5 du mois).</div></div>';
@@ -1879,7 +1929,8 @@ function openMvt(id, prefill) {
   form.descs = descs;
   var h = '<h3>' + (x ? (ro ? 'Mouvement' : 'Modifier le mouvement') : prefill ? 'Dupliquer le mouvement' : 'Nouveau mouvement') + '</h3>';
   if (!x && !ro) {
-    h += '<div class="quick">' + svg('mic') + '<input id="m_quick" placeholder="Dictez : « 45 euros Leclerc alimentaire »" autocomplete="off" data-input="quick"></div>';
+    h += '<div class="quick"><button type="button" class="micbtn" data-act="micStart" aria-label="Dicter">' + svg('mic') + '</button>' +
+      '<input id="m_quick" placeholder="Dictez : « 45 euros Leclerc alimentaire »" autocomplete="off" data-input="quick"></div>';
   }
   if (x && x.recurrentId) {
     h += '<div class="info">Mouvement <b>fixe</b>' + (rec ? ' · ' + esc(recStatus(rec).txt.toLowerCase()) : '') + ' · prévu <b>' + eur(x.prevu) + '</b>. ' +
@@ -1999,6 +2050,7 @@ function saveMvt(id, forceZero) {
   var local = JSON.parse(JSON.stringify(x || { recurrentId: '', prevu: '', pointe: false, modifie: false, statut: '', saisiPar: D.me.email, saisiLe: nowIso() }));
   ['id', 'date', 'mois', 'montant', 'libelleId', 'description', 'vehiculeId'].forEach(function (k) { local[k] = payload[k]; });
   if (id) {
+    if (x.source === 'vocal') local.source = 'vocal-ok';
     local.pointe = payload.pointe; local.modifPar = D.me.email; local.modifLe = nowIso();
     if (x.recurrentId && (x.montant !== amt || x.date !== date || x.description !== payload.description || x.libelleId !== payload.libelleId || (x.vehiculeId || '') !== payload.vehiculeId)) local.modifie = true;
   }
@@ -2350,6 +2402,32 @@ var ACT = {
   vehDetail: function (d) { form = {}; openVehDetail(d.id); },
   vehPeriod: function (d) { openVehDetail(form.id, d.v, form.year); },
   vehYear: function (d) { openVehDetail(form.id, 'annee', String(d.v)); },
+  setVoice: function (d) {
+    var on = d.v === '1';
+    busySave(write('setVoice', on)).then(function () { P.voice = on; D.me.prefs = JSON.stringify(P); render(); toast(on ? 'Saisie vocale activée' : 'Saisie vocale désactivée'); });
+  },
+  voiceNow: function () {
+    call('voiceCheckNow').then(function (r) {
+      toast(r.traites + ' mouvement(s) ajouté(s)' + (r.erreurs ? ', ' + r.erreurs + ' non compris' : ''), !!r.erreurs);
+      if (r.traites) load();
+    });
+  },
+  copyLink: function (d) {
+    try { navigator.clipboard.writeText(d.v).then(function () { toast('Lien copié'); }); } catch (e) { toast('Sélectionnez le lien et copiez-le', true); }
+  },
+  micStart: function (d, el) {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    var inp = document.getElementById('m_quick');
+    if (!SR) { inp.focus(); return toast('Utilisez le micro 🎤 du clavier pour dicter', false); }
+    try {
+      var rec = new SR(); rec.lang = 'fr-FR'; rec.interimResults = false; rec.maxAlternatives = 1;
+      el.classList.add('on');
+      rec.onresult = function (ev) { inp.value = ev.results[0][0].transcript; applyQuick(); };
+      rec.onerror = function () { inp.focus(); toast('Micro indisponible ici : utilisez le micro 🎤 du clavier', true); };
+      rec.onend = function () { el.classList.remove('on'); };
+      rec.start();
+    } catch (e) { el.classList.remove('on'); inp.focus(); toast('Utilisez le micro 🎤 du clavier pour dicter'); }
+  },
   relSeen: function () {
     closeSheet();
     if (canEdit()) { D.me.versionVue = D.version; bg('markSeen', []); } else lsSet('budget.versionVue', D.version);

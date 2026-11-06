@@ -3,6 +3,19 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.6.0] — 2026-11-06 — *test*
+
+- **Commande vocale « Hey Google »** (via Google Tasks) : « Hey Google, ajoute une tâche : budget 45 euros
+  Leclerc » → mouvement créé automatiquement dans les 5 minutes (libellé, véhicule, compte d'épargne reconnus ;
+  « Divers » si le libellé n'est pas compris), tâche cochée avec un récapitulatif ; phrase sans montant marquée ⚠️.
+  Prises en compte : tâches commençant par budget / dépense / achat / reçu / retrait / épargne, ou toutes celles
+  d'une liste « Budget ». Activation par chaque utilisateur (Plus › Mes préférences › Saisie vocale) :
+  le déclencheur s'exécute avec son propre compte.
+- Mouvements dictés marqués **🎤 à vérifier** (bandeau dans la Synthèse, filtre dédié) jusqu'à leur enregistrement.
+- **Raccourci « Saisie rapide »** (lien `?saisie=1` à poser sur l'écran d'accueil) et lien `?q=texte` pré-rempli.
+- Bouton micro dans la fiche de saisie (reconnaissance vocale du navigateur si disponible, sinon micro du clavier).
+- Nouvelle autorisation et service : Google Tasks.
+
 ## [0.5.0] — 2026-11-06 — *test*
 
 - **Épargne par compte** : versements (libellé Epargne…) et retraits (nouveau libellé *Retrait épargne*)
