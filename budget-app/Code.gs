@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '0.4.0';
+var APP_VERSION = '0.5.0';
 var APP_STAGE = 'test';
 
 var SH = {
@@ -29,30 +29,34 @@ var SH = {
   EPARGNE: 'Epargne',
   ENV: 'Enveloppes',
   VEH: 'Vehicules',
+  CPT: 'ComptesEpargne',
   CONFIG: 'Config'
 };
 
 var HEADERS = {
-  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant', 'emoji', 'type', 'parVehicule'],
+  Libelles: ['id', 'nom', 'sens', 'groupe', 'budget', 'ordre', 'actif', 'moisSuivant', 'emoji', 'type', 'parVehicule', 'parCompte'],
   Recurrents: ['id', 'libelleId', 'description', 'montant', 'jour', 'debut', 'fin', 'actif',
     'creePar', 'creeLe', 'modifPar', 'modifLe', 'decalage', 'vehiculeId'],
   Mouvements: ['id', 'mois', 'date', 'libelleId', 'description', 'montant', 'prevu', 'recurrentId',
     'pointe', 'modifie', 'statut', 'saisiPar', 'saisiLe', 'modifPar', 'modifLe', 'vehiculeId'],
-  Utilisateurs: ['email', 'nom', 'role', 'couleur', 'actif', 'ajouteLe'],
+  Utilisateurs: ['email', 'nom', 'role', 'couleur', 'actif', 'ajouteLe', 'prefs', 'versionVue'],
   Journal: ['horodatage', 'utilisateur', 'action', 'objet', 'detail'],
   // portee « suite » : montant par défaut à partir de `debut` ; « mois » : ajustement du seul mois `debut`.
   Enveloppes: ['id', 'libelleId', 'debut', 'montant', 'portee', 'modifPar', 'modifLe'],
   Vehicules: ['id', 'nom', 'emoji', 'actif', 'ordre'],
+  // Registre des comptes d'épargne : seul l'identifiant du fichier privé est stocké ici (aucun nom, aucun montant).
+  ComptesEpargne: ['id', 'ordre', 'actif', 'creeLe'],
   EnAttente: ['id', 'description', 'montant', 'creeLe', 'saisiPar'],
   Epargne: ['id', 'compte', 'solde', 'majLe', 'saisiPar'],
   Config: ['cle', 'valeur']
 };
 
 var NUM_COLS = ['budget', 'ordre', 'montant', 'prevu', 'jour', 'solde', 'decalage'];
-var BOOL_COLS = ['actif', 'pointe', 'modifie', 'moisSuivant', 'parVehicule'];
+var BOOL_COLS = ['actif', 'pointe', 'modifie', 'moisSuivant', 'parVehicule', 'parCompte'];
 
 // Feuilles incluses dans les sauvegardes.
-var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.ENV, SH.VEH, SH.USERS, SH.ATTENTE, SH.EPARGNE, SH.CONFIG];
+// Les comptes d'épargne (fichiers privés) ne sont pas copiés ici, pour rester confidentiels.
+var BACKUP_SHEETS = [SH.LIB, SH.REC, SH.MVT, SH.ENV, SH.VEH, SH.CPT, SH.USERS, SH.ATTENTE, SH.CONFIG];
 
 var DEFAULT_VEHICULES = [['Partner', '🚐'], ['Pajero', '🚙']];
 var BACKUP_KEEP = 100;
@@ -74,6 +78,7 @@ var DEFAULT_LIBELLES = [
   ['Entrées exceptionnelles', 'entree', GROUPES.entree, false, '🎁', 'revenu'],
   ['Remboursements médicaux', 'entree', GROUPES.entree, false, '🩺', 'revenu'],
   ['Remboursements divers', 'entree', GROUPES.entree, false, '↩️', 'revenu'],
+  ['Retrait épargne', 'entree', GROUPES.entree, false, '🏦', 'revenu'],
   ['Carburant', 'sortie', GROUPES.fixes, false, '⛽', 'besoin'],
   ['Prêt auto', 'sortie', GROUPES.fixes, false, '🚗', 'credit'],
   ['Prêt maison', 'sortie', GROUPES.fixes, false, '🏠', 'credit'],
@@ -96,6 +101,8 @@ var LIB_TYPES = ['revenu', 'besoin', 'envie', 'epargne', 'credit', 'impot'];
 
 // Libellés imputés à un véhicule par défaut.
 var PAR_VEHICULE = ['carburant', 'pret auto', 'vehicules'];
+// Libellés imputés à un compte d'épargne par défaut (en plus des libellés de type « épargne »).
+var PAR_COMPTE = ['epargne', 'retrait epargne'];
 
 /** Type par défaut d'un libellé (libellés existants ou créés à la volée). */
 function defaultType_(nom, sens, groupe) {
@@ -159,6 +166,11 @@ function setup() {
     return t.getHandlerFunction() === 'dailyBackup';
   });
   if (!hasTrigger) ScriptApp.newTrigger('dailyBackup').timeBased().everyDays(1).atHour(3).create();
+  // Compte rendu mensuel : vérification toutes les heures (envoi une seule fois par mois).
+  if (!ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'reportCheck'; })) {
+    ScriptApp.newTrigger('reportCheck').timeBased().everyHours(1).create();
+  }
+  migrateEpargne_(email);
   log_({ email: email }, 'Installation', 'Application', 'v' + APP_VERSION + ' (' + APP_STAGE + ')');
 }
 
@@ -187,6 +199,9 @@ function getAll() {
 /** Toutes les données (sans verrou : utilisable depuis une fonction déjà verrouillée). */
 function data_(me) {
   var props = PropertiesService.getScriptProperties();
+  if (me.role === 'admin' && !getConfig_('mig050_epargne')) {
+    try { migrateEpargne_(me.email); } catch (e) { /* refait au prochain setup */ }
+  }
   return {
     version: APP_VERSION,
     stage: APP_STAGE,
@@ -196,7 +211,8 @@ function data_(me) {
     recurrents: readTable_(SH.REC),
     mouvements: readTable_(SH.MVT),
     attente: readTable_(SH.ATTENTE),
-    epargne: readTable_(SH.EPARGNE),
+    comptes: comptes_(me),
+    releases: RELEASES,
     enveloppes: readTable_(SH.ENV),
     vehicules: readTable_(SH.VEH),
     reperes: getConfig_('reperes'),
@@ -275,6 +291,8 @@ function saveMouvement(m, repeter) {
     }
 
     upsert_(SH.MVT, rec);
+    if (lib.parCompte && m.compteId !== undefined) setImputation_(me, String(m.compteId || ''), 'mvt', rec.id);
+    if (created && lib.parCompte && m.compteId) setImputation_(me, String(m.compteId), 'rec', created.id);
     log_(me, old ? 'Modification' : 'Ajout', 'Mouvement',
       describeMvt_(rec, lib) + (old ? ' (avant : ' + fmtEur_(old.montant) + ', ' + old.date + ')' : ''));
     return { mouvement: rec, recurrent: created };
@@ -358,6 +376,7 @@ function saveRecurrent(r, aPartirDe) {
     rec.actif = r.actif !== false;
     if (old) { rec.modifPar = me.email; rec.modifLe = nowIso_(); }
     upsert_(SH.REC, rec);
+    if (lib.parCompte && r.compteId !== undefined) setImputation_(me, String(r.compteId || ''), 'rec', rec.id);
     var n = propagate_(rec, aPartirDe);
     ensureMonth_(currentMonth_(), me);
     log_(me, old ? 'Modification' : 'Création', 'Mouvement fixe',
@@ -459,6 +478,7 @@ function saveLibelle(l) {
     rec.emoji = String(l.emoji || '').trim().substring(0, 8);
     rec.type = LIB_TYPES.indexOf(l.type) >= 0 ? l.type : defaultType_(rec.nom, rec.sens, rec.groupe);
     rec.parVehicule = l.parVehicule !== undefined ? !!l.parVehicule && rec.sens === 'sortie' : (old ? !!old.parVehicule : false);
+    rec.parCompte = l.parCompte !== undefined ? !!l.parCompte : (old ? !!old.parCompte : rec.type === 'epargne');
     if (l.actif !== undefined) rec.actif = !!l.actif;
     upsert_(SH.LIB, rec);
     log_(me, old ? 'Modification' : 'Création', 'Libellé',
@@ -510,11 +530,17 @@ function saveUser(u) {
       role: u.role,
       couleur: /^#[0-9a-f]{6}$/i.test(u.couleur) ? u.couleur : COLORS[users.length % COLORS.length],
       actif: u.actif !== false,
-      ajouteLe: old ? old.ajouteLe : nowIso_()
+      ajouteLe: old ? old.ajouteLe : nowIso_(),
+      prefs: old ? old.prefs : '',
+      versionVue: old ? old.versionVue : ''
     };
+    if (u.rapport !== undefined) {
+      var pr = parsePrefs_(rec.prefs); pr.rapport = !!u.rapport; rec.prefs = JSON.stringify(pr);
+    }
     upsert_(SH.USERS, rec, 'email');
     CacheService.getScriptCache().remove('users');
     var partage = shareWith_(rec);
+    if (old && (old.role !== rec.role || old.actif !== rec.actif)) resyncComptesSharing_();
     log_(me, old ? 'Modification' : 'Ajout', 'Utilisateur',
       rec.nom + ' <' + rec.email + '> — ' + rec.role + (rec.actif ? '' : ' (désactivé)') +
       (old && old.role !== rec.role ? ' (avant : ' + old.role + ')' : '') + (partage ? '' : ' — partage à faire manuellement'));
@@ -724,32 +750,438 @@ function saveEnveloppe(e) {
   });
 }
 
-function saveEpargne(item) {
-  var me = ctx_(ROLES.editeur);
-  return withLock_(function () {
-    var old = item.id ? findBy_(SH.EPARGNE, 'id', item.id) : null;
-    var rec = {
-      id: item.id || newId_(),
-      compte: String(item.compte || '').trim(),
-      solde: num_(item.solde),
-      majLe: nowIso_().substring(0, 10),
-      saisiPar: me.email
-    };
-    upsert_(SH.EPARGNE, rec);
-    log_(me, old ? 'Modification' : 'Ajout', 'Épargne',
-      rec.compte + ' ' + fmtEur_(rec.solde) + (old ? ' (avant : ' + fmtEur_(old.solde) + ')' : ''));
-    return rec;
+/* ================================================================== */
+/* Comptes d'épargne — confidentialité réelle                           */
+/* ================================================================== */
+/*
+ * Chaque compte est un fichier Google Sheets séparé (« Budget — Épargne · <nom> »), partagé
+ * UNIQUEMENT avec l'administrateur et les personnes autorisées. Il contient :
+ *  - feuille « Compte »      : nom, emoji, solde de référence + date, personnes autorisées ;
+ *  - feuille « Imputations » : mouvements (mvt) ou fixes (rec) rattachés au compte.
+ * Le fichier principal ne contient que l'identifiant de chaque fichier : une personne non autorisée
+ * ne peut lire ni le nom, ni le solde, ni les imputations (Drive refuse l'accès).
+ */
+var _comptes = null;
+
+function compteFiles_() {
+  return readTable_(SH.CPT).filter(function (c) { return c.actif; });
+}
+
+function readCompte_(id) {
+  var f;
+  try { f = SpreadsheetApp.openById(id); } catch (e) { return null; } // pas d'accès = pas autorisé
+  var meta = {};
+  var cs = f.getSheetByName('Compte');
+  if (!cs) return null;
+  cs.getDataRange().getValues().forEach(function (r) { if (r[0]) meta[r[0]] = r[1]; });
+  var imp = [];
+  var is = f.getSheetByName('Imputations');
+  if (is && is.getLastRow() > 1) {
+    is.getRange(2, 1, is.getLastRow() - 1, 2).getValues().forEach(function (r) {
+      if (r[0]) imp.push({ kind: String(r[0]), refId: String(r[1]) });
+    });
+  }
+  var visibles = [];
+  try { visibles = JSON.parse(meta.visibles || '[]'); } catch (e) {}
+  var dateRef = meta.dateRef instanceof Date ? Utilities.formatDate(meta.dateRef, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(meta.dateRef || '');
+  return {
+    id: id, nom: String(meta.nom || '?'), emoji: String(meta.emoji || ''), soldeRef: Number(meta.soldeRef) || 0,
+    dateRef: dateRef, visibles: visibles, ordre: Number(meta.ordre) || 0, imputations: imp, file: f
+  };
+}
+
+/** Comptes visibles par `me` (l'administrateur voit tout). */
+function comptes_(me) {
+  if (!_comptes) {
+    _comptes = [];
+    compteFiles_().forEach(function (c) {
+      var x = readCompte_(c.id);
+      if (x) _comptes.push(x);
+    });
+  }
+  return _comptes.map(function (c) { return publicCompte_(c, me); }).filter(Boolean);
+}
+
+function canSeeCompte_(c, email) {
+  var u = findBy_(SH.USERS, 'email', email);
+  if (u && u.role === 'admin') return true;
+  return c.visibles.map(function (e) { return String(e).toLowerCase(); }).indexOf(String(email).toLowerCase()) >= 0;
+}
+
+function publicCompte_(c, me) {
+  if (!canSeeCompte_(c, me.email)) return null;
+  var o = { id: c.id, nom: c.nom, emoji: c.emoji, soldeRef: c.soldeRef, dateRef: c.dateRef, ordre: c.ordre, imputations: c.imputations };
+  if (me.role === 'admin') { o.visibles = c.visibles; o.url = c.file.getUrl(); }
+  return o;
+}
+
+function writeCompteMeta_(f, meta) {
+  var cs = f.getSheetByName('Compte');
+  var rows = Object.keys(meta).map(function (k) { return [k, typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : meta[k]]; });
+  cs.clearContents();
+  cs.getRange(1, 1, rows.length, 2).setNumberFormat('@');
+  cs.getRange(1, 1, rows.length, 2).setValues(rows.map(function (r) { return [r[0], String(r[1])]; }));
+}
+
+function newCompteFile_(nom) {
+  var f = SpreadsheetApp.create('Budget — Épargne · ' + nom);
+  f.getSheets()[0].setName('Compte');
+  var is = f.insertSheet('Imputations');
+  is.getRange(1, 1, 1, 4).setValues([['type', 'refId', 'parQui', 'le']]);
+  is.getRange(2, 1, 999, 2).setNumberFormat('@');
+  return f;
+}
+
+/** Partage du fichier d'un compte : administrateurs + personnes autorisées ; retrait des autres. */
+function shareCompte_(f, visibles) {
+  var allowed = visibles.map(function (e) { return String(e).toLowerCase(); });
+  var owner = String(Session.getEffectiveUser().getEmail()).toLowerCase();
+  readTable_(SH.USERS).forEach(function (u) {
+    var em = u.email.toLowerCase();
+    if (em === owner) return;
+    var ok = u.actif && (u.role === 'admin' || allowed.indexOf(em) >= 0);
+    try {
+      if (ok && u.role === 'lecteur') f.addViewer(em);
+      else if (ok) f.addEditor(em);
+      else { try { f.removeEditor(em); } catch (e) {} try { f.removeViewer(em); } catch (e) {} }
+    } catch (e) { /* adresse non Google, etc. */ }
   });
 }
 
-function deleteEpargne(id) {
-  var me = ctx_(ROLES.editeur);
+function resyncComptesSharing_() {
+  _comptes = null;
+  compteFiles_().forEach(function (c) {
+    var x = readCompte_(c.id);
+    if (x) shareCompte_(x.file, x.visibles);
+  });
+}
+
+/** Création / modification d'un compte : administrateur uniquement. */
+function saveCompte(c) {
+  var me = ctx_(ROLES.admin);
+  var nom = String(c.nom || '').trim();
+  if (!nom) throw new Error('Nom du compte manquant');
+  if (c.dateRef && !/^\d{4}-\d{2}-\d{2}$/.test(c.dateRef)) throw new Error('Date de référence invalide');
+  var visibles = (c.visibles || []).map(function (e) { return String(e).toLowerCase(); }).filter(function (e) { return /@/.test(e); });
   return withLock_(function () {
-    var old = findBy_(SH.EPARGNE, 'id', id);
-    deleteBy_(SH.EPARGNE, 'id', id);
-    if (old) log_(me, 'Suppression', 'Épargne', old.compte);
+    var f, ordre;
+    if (c.id) {
+      var x = readCompte_(c.id);
+      if (!x) throw new Error('Compte introuvable');
+      f = x.file; ordre = x.ordre;
+    } else {
+      f = newCompteFile_(nom);
+      ordre = compteFiles_().length;
+      appendRows_(SH.CPT, [{ id: f.getId(), ordre: ordre, actif: true, creeLe: nowIso_() }]);
+    }
+    writeCompteMeta_(f, {
+      nom: nom, emoji: String(c.emoji || '🐷').substring(0, 8), soldeRef: num_(c.soldeRef),
+      dateRef: c.dateRef || nowIso_().substring(0, 10), visibles: visibles, ordre: ordre
+    });
+    if (c.id) f.rename('Budget — Épargne · ' + nom);
+    shareCompte_(f, visibles);
+    _comptes = null;
+    // Journal volontairement sans nom ni montant (il est lisible par tous les utilisateurs).
+    log_(me, c.id ? 'Modification' : 'Création', 'Compte d\'épargne', 'détails confidentiels');
+    return comptes_(me);
+  });
+}
+
+function deleteCompte(id) {
+  var me = ctx_(ROLES.admin);
+  return withLock_(function () {
+    var reg = findBy_(SH.CPT, 'id', id);
+    if (!reg) throw new Error('Compte introuvable');
+    var x = readCompte_(id);
+    if (x) { x.file.rename('[Archivé] Budget — Épargne · ' + x.nom); shareCompte_(x.file, []); }
+    reg.actif = false;
+    upsert_(SH.CPT, reg);
+    _comptes = null;
+    log_(me, 'Archivage', 'Compte d\'épargne', 'détails confidentiels');
+    return comptes_(me);
+  });
+}
+
+/**
+ * Rattache un mouvement ('mvt') ou un fixe ('rec') à un compte (compteId vide = aucun).
+ * Retire l'ancien rattachement dans les comptes accessibles à l'utilisateur.
+ */
+function setImputation_(me, compteId, kind, refId) {
+  _comptes = null;
+  var target = null;
+  compteFiles_().forEach(function (c) {
+    var x = readCompte_(c.id);
+    if (!x || !canSeeCompte_(x, me.email)) return;
+    if (c.id === compteId) target = x;
+    var is = x.file.getSheetByName('Imputations');
+    var last = is.getLastRow();
+    if (last < 2) return;
+    var vals = is.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = vals.length - 1; i >= 0; i--) {
+      if (String(vals[i][0]) === kind && String(vals[i][1]) === refId) is.deleteRow(i + 2);
+    }
+  });
+  if (compteId) {
+    if (!target) throw new Error('Compte d\'épargne inaccessible');
+    target.file.getSheetByName('Imputations').appendRow([kind, refId, me.email, nowIso_()]);
+  }
+  _comptes = null;
+}
+
+/** v0.5.0 : les anciens soldes d'épargne (feuille commune) deviennent des comptes privés (admin seul). */
+function migrateEpargne_(adminEmail) {
+  if (getConfig_('mig050_epargne')) return;
+  var u = findBy_(SH.USERS, 'email', adminEmail);
+  if (!u || u.role !== 'admin') return;
+  var old = readTable_(SH.EPARGNE);
+  old.forEach(function (e, i) {
+    var f = newCompteFile_(e.compte);
+    writeCompteMeta_(f, { nom: e.compte, emoji: '🐷', soldeRef: Number(e.solde) || 0,
+      dateRef: e.majLe || nowIso_().substring(0, 10), visibles: [], ordre: i });
+    shareCompte_(f, []);
+    appendRows_(SH.CPT, [{ id: f.getId(), ordre: i, actif: true, creeLe: nowIso_() }]);
+  });
+  // Les soldes ne restent pas dans le fichier commun.
+  var sh = sheet_(SH.EPARGNE);
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
+  invalidate_(SH.EPARGNE);
+  setConfig_('mig050_epargne', nowIso_());
+  _comptes = null;
+  appendJournal_(adminEmail, 'Migration v0.5.0', 'Épargne', old.length + ' compte(s) passés en fichiers privés (visibles par l\'administrateur uniquement)');
+}
+
+/* ================================================================== */
+/* Préférences & nouveautés (par utilisateur)                           */
+/* ================================================================== */
+
+function parsePrefs_(s) { try { return JSON.parse(s || '{}') || {}; } catch (e) { return {}; } }
+
+function savePrefs(prefs) {
+  var me = ctx_(ROLES.editeur);
+  var json = JSON.stringify(prefs || {});
+  if (json.length > 20000) throw new Error('Préférences trop volumineuses');
+  return withLock_(function () {
+    var u = findBy_(SH.USERS, 'email', me.email);
+    u.prefs = json;
+    upsert_(SH.USERS, u, 'email');
+    CacheService.getScriptCache().remove('users');
     return true;
   });
+}
+
+function markSeen() {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var u = findBy_(SH.USERS, 'email', me.email);
+    u.versionVue = APP_VERSION;
+    upsert_(SH.USERS, u, 'email');
+    CacheService.getScriptCache().remove('users');
+    return APP_VERSION;
+  });
+}
+
+/** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
+var RELEASES = [
+  { v: '0.5.0', titre: 'Épargne par compte, e-mail mensuel, thème clair', items: [
+    'Épargne : chaque versement (ou retrait) se rattache à un compte ; le solde se met à jour tout seul.',
+    'Confidentialité : chacun ne voit que les comptes d\'épargne que l\'administrateur lui autorise, y compris dans Google Drive.',
+    'Compte rendu du mois précédent envoyé par e-mail dès que le nouveau salaire est saisi.',
+    'Détail des coûts de chaque véhicule : postes, mois par mois, comparaison, prêt restant.',
+    'Sections repliables pour alléger les écrans ; filtres dans un menu « Filtrer ».',
+    'Thème clair ou sombre, et préférences personnelles (Plus › Mes préférences) qui vous suivent sur tous vos appareils.',
+    'Cette fenêtre : les nouveautés s\'affichent après chaque mise à jour (historique dans Plus › Nouveautés).'
+  ] },
+  { v: '0.4.0', titre: 'Véhicules, recherche, impôts', items: [
+    'Dépenses imputées au Partner ou au Pajero, coût par véhicule.',
+    'Barre de recherche dans Mouvements et Fixes.',
+    'Synthèse : touchez un libellé pour voir ses mouvements.',
+    'Conseils : catégorie Impôts & taxes, règle 50/30/20 sur le revenu disponible.'
+  ] },
+  { v: '0.3.0', titre: 'Nouveau design et conseils', items: [
+    'Thème noir, graphiques de répartition et d\'évolution.',
+    'Conseils budgétaires (50/30/20, endettement, repères).',
+    'Saisie dictée, duplication, ponctuel ↔ fixe, 0 € pour un fixe, emoji des libellés.',
+    'Enregistrements beaucoup plus rapides.'
+  ] },
+  { v: '0.2.0', titre: 'Enveloppes', items: ['Enveloppes de budget mensuelles par libellé, reportées automatiquement.'] },
+  { v: '0.1.1', titre: 'Mois de budget', items: ['Le salaire versé fin de mois compte pour le mois suivant.'] },
+  { v: '0.1.0', titre: 'Première version', items: ['Mouvements fixes, utilisateurs, sauvegardes, journal.'] }
+];
+
+/* ================================================================== */
+/* Compte rendu mensuel par e-mail                                      */
+/* ================================================================== */
+
+/** Déclencheur horaire : envoie le compte rendu de M-1 dès que le salaire du mois M est saisi ou pointé. */
+function reportCheck() {
+  var tz = Session.getScriptTimeZone();
+  var hour = Number(Utilities.formatDate(new Date(), tz, 'H'));
+  if (hour < 7 || hour > 22) return;
+  _memo = { tables: {}, headers: {}, sheets: {} };
+  var cur = currentMonth_();
+  var day = Number(Utilities.formatDate(new Date(), tz, 'd'));
+  var sal = readTable_(SH.LIB).filter(function (l) { return norm_(l.nom) === 'salaires'; }).map(function (l) { return l.id; });
+  var hasSalary = function (m) {
+    return readTable_(SH.MVT).some(function (x) {
+      return x.mois === m && x.statut !== 'annule' && sal.indexOf(x.libelleId) >= 0 && (x.saisiPar !== 'auto' || x.pointe || x.modifie);
+    });
+  };
+  [shiftMonth_(cur, 1), cur].forEach(function (m) {
+    var prev = shiftMonth_(m, -1);
+    if (getConfig_('rapport_' + prev)) return;
+    if (hasSalary(m)) sendReport_(prev, 'salaire saisi');
+    else if (m === cur && day >= 5) sendReport_(prev, 'le 5 du mois');
+  });
+}
+
+function reportRecipients_() {
+  return readTable_(SH.USERS).filter(function (u) {
+    if (!u.actif) return false;
+    var p = parsePrefs_(u.prefs);
+    return p.rapport === undefined ? u.role === 'admin' : !!p.rapport;
+  });
+}
+
+function sendReport_(mois, raison) {
+  var sent = [];
+  reportRecipients_().forEach(function (u) {
+    var r = buildReport_(mois, u);
+    try { MailApp.sendEmail({ to: u.email, subject: r.subject, htmlBody: r.html, name: 'Budget' }); sent.push(u.nom); } catch (e) {}
+  });
+  setConfig_('rapport_' + mois, nowIso_());
+  appendJournal_('système', 'Compte rendu', 'E-mail', mois + ' envoyé à ' + (sent.join(', ') || 'personne') + ' (' + raison + ')');
+  return sent;
+}
+
+function previewReport(mois) {
+  var me = ctx_(ROLES.admin);
+  checkMonth_(mois);
+  return buildReport_(mois, me).html;
+}
+
+function sendReportNow(mois) {
+  var me = ctx_(ROLES.admin);
+  checkMonth_(mois);
+  return withLock_(function () { return sendReport_(mois, 'envoi manuel par ' + me.nom); });
+}
+
+function reportStatus() {
+  ctx_(ROLES.admin);
+  return readTable_(SH.CONFIG).filter(function (c) { return /^rapport_\d{4}-\d{2}$/.test(c.cle); })
+    .map(function (c) { return { mois: c.cle.substring(8), le: c.valeur }; })
+    .sort(function (a, b) { return a.mois < b.mois ? 1 : -1; });
+}
+
+/** Calcul serveur d'un mois (mêmes règles que l'appli). */
+function computeMonth_(m) {
+  var libs = readTable_(SH.LIB), envs = readTable_(SH.ENV);
+  var mv = readTable_(SH.MVT).filter(function (x) { return x.mois === m && x.statut !== 'annule'; });
+  var per = {};
+  libs.forEach(function (l) { per[l.id] = { lib: l, env: envelopeFor_(envs, l.id, m), fixes: 0, reel: 0 }; });
+  mv.forEach(function (x) {
+    var p = per[x.libelleId]; if (!p) return;
+    p.reel += Number(x.montant) || 0;
+    if (x.recurrentId) p.fixes += Number(x.prevu) || 0;
+  });
+  var t = { eP: 0, eR: 0, sP: 0, sR: 0, types: {}, veh: {} };
+  Object.keys(per).forEach(function (k) {
+    var p = per[k]; p.prevu = p.env > 0 ? p.env : p.fixes;
+    if (p.lib.sens === 'entree') { t.eP += p.prevu; t.eR += p.reel; }
+    else { t.sP += p.prevu; t.sR += p.reel; var ty = p.lib.type || 'envie'; t.types[ty] = (t.types[ty] || 0) + p.reel; }
+  });
+  mv.forEach(function (x) { if (x.vehiculeId) t.veh[x.vehiculeId] = (t.veh[x.vehiculeId] || 0) + (Number(x.montant) || 0); });
+  t.per = per;
+  return t;
+}
+
+/** Solde et versements du mois des comptes visibles par `user`. */
+function comptesResume_(user, mois) {
+  var cps = comptes_(user);
+  var libs = {}; readTable_(SH.LIB).forEach(function (l) { libs[l.id] = l; });
+  var recMap = {}, mvMap = {};
+  cps.forEach(function (cp) { cp.imputations.forEach(function (i) { (i.kind === 'rec' ? recMap : mvMap)[i.refId] = cp.id; }); });
+  var today = nowIso_().substring(0, 10);
+  return cps.map(function (cp) {
+    var vers = 0, solde = cp.soldeRef;
+    readTable_(SH.MVT).forEach(function (x) {
+      if (x.statut === 'annule') return;
+      var cid = mvMap[x.id] || (x.recurrentId && recMap[x.recurrentId]) || '';
+      if (cid !== cp.id) return;
+      var sign = libs[x.libelleId] && libs[x.libelleId].sens === 'entree' ? -1 : 1;
+      if (x.date >= cp.dateRef && x.date <= today) solde += sign * (Number(x.montant) || 0);
+      if (x.mois === mois) vers += sign * (Number(x.montant) || 0);
+    });
+    return { nom: cp.nom, emoji: cp.emoji, vers: vers, solde: solde };
+  });
+}
+
+function buildReport_(mois, user) {
+  var mNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  var label = mNames[Number(mois.substring(5, 7)) - 1] + ' ' + mois.substring(0, 4);
+  var c = computeMonth_(mois), p = computeMonth_(shiftMonth_(mois, -1));
+  var bilan = c.eR - c.sR, bilanP = c.eP - c.sP, bilanPrev = p.eR - p.sR;
+  var eur = function (n) {
+    var v = Math.round((Number(n) || 0) * 100) / 100, neg = v < 0;
+    var parts = Math.abs(v).toFixed(2).split('.');
+    return (neg ? '−' : '') + parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ',' + parts[1] + ' €';
+  };
+  var col = function (n) { return n < 0 ? '#f2706b' : '#3fbf7f'; };
+  var row = function (a, b, color) {
+    return '<tr><td style="padding:6px 0;color:#b4bac4">' + a + '</td><td style="padding:6px 0;text-align:right;font-weight:600;color:' + (color || '#e9ebee') + '">' + b + '</td></tr>';
+  };
+  var table = function (rows) { return '<table style="width:100%;border-collapse:collapse;font-size:14px">' + rows + '</table>'; };
+  var card = function (title, body) {
+    return '<div style="background:#15181d;border:1px solid #262b33;border-radius:12px;padding:14px 16px;margin:0 0 12px">' +
+      '<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#7d8592;margin-bottom:8px">' + title + '</div>' + body + '</div>';
+  };
+  var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); };
+  var html = '<div style="background:#0b0d10;padding:18px 12px;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;color:#e9ebee">' +
+    '<div style="max-width:560px;margin:0 auto">' +
+    '<div style="font-size:13px;color:#7d8592">Compte rendu mensuel · Budget</div>' +
+    '<div style="font-size:22px;font-weight:700;margin:2px 0 14px">' + label.charAt(0).toUpperCase() + label.slice(1) + '</div>';
+  html += card('Reste à vivre', '<div style="font-size:30px;font-weight:700;color:' + col(bilan) + '">' + eur(bilan) + '</div>' +
+    table(row('Prévu', eur(bilanP)) + row('Entrées', eur(c.eR), '#3fbf7f') + row('Sorties', eur(c.sR)) +
+      row('Mois précédent', eur(bilanPrev) + ' (' + (bilan - bilanPrev >= 0 ? '+' : '') + eur(bilan - bilanPrev) + ')')));
+  var envs = Object.keys(c.per).map(function (k) { return c.per[k]; })
+    .filter(function (x) { return x.lib.sens === 'sortie' && x.prevu > 0; })
+    .sort(function (a, b) { return (b.reel - b.prevu) - (a.reel - a.prevu); });
+  var over = envs.filter(function (x) { return x.reel > x.prevu + 0.005; });
+  var ok = envs.filter(function (x) { return x.reel <= x.prevu + 0.005; });
+  html += card('Enveloppes', (over.length
+    ? '<div style="color:#f2706b;font-size:13px;margin-bottom:4px">Dépassées</div>' +
+      table(over.map(function (x) { return row(esc((x.lib.emoji || '') + ' ' + x.lib.nom), eur(x.reel) + ' / ' + eur(x.prevu), '#f2706b'); }).join(''))
+    : '<div style="color:#3fbf7f;font-size:14px">Aucune enveloppe dépassée 👍</div>') +
+    (ok.length ? '<div style="color:#7d8592;font-size:13px;margin:10px 0 4px">Bien tenues</div><div style="font-size:13px;color:#b4bac4">' +
+      ok.map(function (x) { return esc((x.lib.emoji || '') + ' ' + x.lib.nom) + ' (reste ' + eur(x.prevu - x.reel) + ')'; }).join(' · ') + '</div>' : ''));
+  var TL = { besoin: 'Besoins', envie: 'Envies', credit: 'Crédits', epargne: 'Épargne', impot: 'Impôts & taxes' };
+  html += card('Répartition des sorties', table(Object.keys(TL).map(function (k) {
+    var v = c.types[k] || 0;
+    return row(TL[k], eur(v) + (c.eR ? ' · ' + (Math.round(v / c.eR * 1000) / 10).toString().replace('.', ',') + ' %' : ''));
+  }).join('')));
+  var rev = c.eR, imp = c.types.impot || 0, dispo = Math.max(rev - imp, 1);
+  if (rev) {
+    var pc = function (v, base) { return Math.round(v / base * 1000) / 10; };
+    var b = pc((c.types.besoin || 0) + (c.types.credit || 0), dispo), e = pc(c.types.envie || 0, dispo);
+    var s = pc(c.types.epargne || 0, dispo), dt = pc(c.types.credit || 0, rev);
+    var flag = function (v, lim, min) { return (min ? v >= lim : v <= lim) ? '✓' : '⚠️'; };
+    var fr = function (v) { return String(v).replace('.', ',') + ' %'; };
+    html += card('Repères', table(row(flag(b, 50) + ' Besoins (≤ 50 %)', fr(b)) + row(flag(e, 30) + ' Envies (≤ 30 %)', fr(e)) +
+      row(flag(s, 20, true) + ' Épargne (≥ 20 %)', fr(s)) + row(flag(dt, 35) + ' Endettement (≤ 35 %)', fr(dt))) +
+      '<div style="font-size:11px;color:#7d8592;margin-top:6px">50/30/20 calculé sur le revenu disponible (après impôts & taxes). Repères indicatifs.</div>');
+  }
+  var vehs = readTable_(SH.VEH).filter(function (v) { return v.actif || c.veh[v.id]; });
+  if (vehs.length) html += card('Véhicules', table(vehs.map(function (v) { return row(esc((v.emoji || '') + ' ' + v.nom), eur(c.veh[v.id] || 0)); }).join('')));
+  // Épargne : uniquement les comptes visibles par ce destinataire.
+  var cr = comptesResume_(user, mois);
+  if (cr.length) html += card('Épargne', table(cr.map(function (x) {
+    return row(esc((x.emoji || '') + ' ' + x.nom), (x.vers ? (x.vers > 0 ? '+' : '') + eur(x.vers) + ' · ' : '') + 'solde ' + eur(x.solde));
+  }).join('')));
+  var url = '';
+  try { url = ScriptApp.getService().getUrl(); } catch (e) {}
+  if (url) html += '<div style="text-align:center;margin:16px 0 4px"><a href="' + url + '" style="display:inline-block;background:#4c8dff;color:#fff;text-decoration:none;font-weight:600;padding:11px 20px;border-radius:12px">Ouvrir l\'appli Budget</a></div>';
+  html += '<div style="text-align:center;font-size:11px;color:#7d8592;margin-top:10px">Envoyé automatiquement par votre appli Budget (v' + APP_VERSION + '). ' +
+    'Pour ne plus le recevoir : Plus › Mes préférences.</div></div></div>';
+  return { subject: 'Budget — compte rendu de ' + label + ' : reste à vivre ' + eur(bilan), html: html };
 }
 
 /* ================================================================== */
@@ -1019,7 +1451,7 @@ function ensureSetup_() {
       if (name === SH.LIB) {
         appendRows_(SH.LIB, DEFAULT_LIBELLES.map(function (d, i) {
           return { id: newId_(), nom: d[0], sens: d[1], groupe: d[2], budget: 0, ordre: i, actif: true, moisSuivant: !!d[3], emoji: d[4], type: d[5],
-            parVehicule: PAR_VEHICULE.indexOf(norm_(d[0])) >= 0 };
+            parVehicule: PAR_VEHICULE.indexOf(norm_(d[0])) >= 0, parCompte: PAR_COMPTE.indexOf(norm_(d[0])) >= 0 || d[5] === 'epargne' };
         }));
       }
     } else {
@@ -1042,6 +1474,7 @@ function ensureSetup_() {
   if (getConfig_('version') !== APP_VERSION) {
     var prev = getConfig_('version');
     if (prev && verLt_(prev, '0.4.0')) migrate040_();
+    if (prev && verLt_(prev, '0.5.0')) migrate050Libs_();
     setConfig_('version', APP_VERSION);
     appendJournal_('système', prev ? 'Mise à jour' : 'Installation', 'Application',
       (prev ? 'v' + prev + ' → ' : '') + 'v' + APP_VERSION + ' (' + APP_STAGE + ')');
@@ -1098,6 +1531,20 @@ function migrate040_() {
   });
   appendJournal_('système', 'Migration v0.4.0', 'Véhicules & impôts',
     'Libellé Véhicules ajouté ; ' + nR + ' fixe(s) et ' + nM + ' mouvement(s) rattachés à un véhicule ; Impôts → type Impôts & taxes');
+}
+
+/** v0.5.0 : libellés « à imputer à un compte d'épargne » + libellé « Retrait épargne ». */
+function migrate050Libs_() {
+  _memo = { tables: {}, headers: {}, sheets: {} };
+  var libs = readTable_(SH.LIB);
+  if (!libs.some(function (l) { return norm_(l.nom) === 'retrait epargne'; })) {
+    appendRows_(SH.LIB, [{ id: newId_(), nom: 'Retrait épargne', sens: 'entree', groupe: GROUPES.entree, budget: 0,
+      ordre: libs.length, actif: true, moisSuivant: false, emoji: '🏦', type: 'revenu', parVehicule: false, parCompte: true }]);
+  }
+  readTable_(SH.LIB).forEach(function (l) {
+    if (!l.parCompte && (l.type === 'epargne' || PAR_COMPTE.indexOf(norm_(l.nom)) >= 0)) { l.parCompte = true; upsert_(SH.LIB, l); }
+  });
+  appendJournal_('système', 'Migration v0.5.0', 'Libellés', 'Libellés d\'épargne imputables à un compte ; libellé « Retrait épargne » ajouté');
 }
 
 /** v0.3.0 : emoji et type (besoin / envie / épargne / crédit) proposés pour les libellés existants. */

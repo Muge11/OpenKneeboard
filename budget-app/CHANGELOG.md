@@ -3,6 +3,24 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [0.5.0] — 2026-11-06 — *test*
+
+- **Épargne par compte** : versements (libellé Epargne…) et retraits (nouveau libellé *Retrait épargne*)
+  rattachés à un compte ; solde suivi automatiquement (solde de référence + versements − retraits) ;
+  fiche compte (solde, versements du mois / de l'année, évolution, historique) ; reconnu à la dictée.
+- **Confidentialité réelle** : chaque compte est un fichier Google séparé, partagé uniquement avec les
+  administrateurs et les personnes autorisées ; gestion des comptes et de la visibilité réservée à l'admin ;
+  journal sans nom ni montant ; comptes exclus des sauvegardes communes. Migration : les anciens soldes
+  deviennent des comptes privés visibles par l'administrateur seul.
+- **Compte rendu mensuel par e-mail** dès que le salaire du nouveau mois est saisi ou pointé (sinon le 5),
+  filtré par destinataire ; aperçu et envoi manuel (Plus › Compte rendu mensuel).
+- **Détail des coûts par véhicule** : périodes, répartition par poste, tableau mois par mois,
+  comparaisons, prêt restant.
+- **Sections repliables** partout, filtre déroulant dans Mouvements, « Plus d'options » dans la fiche.
+- **Thème clair / sombre / automatique** et **préférences par utilisateur** enregistrées sur le serveur.
+- **Nouveautés** affichées après chaque mise à jour (Plus › Nouveautés).
+- Nouvelles autorisations : envoi d'e-mails (`script.send_mail`).
+
 ## [0.4.0] — 2026-11-06 — *test*
 
 - **Imputation par véhicule** : véhicules Partner et Pajero (Plus › Véhicules, modifiables) ;

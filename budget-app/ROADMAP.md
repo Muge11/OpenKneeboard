@@ -119,9 +119,9 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
 
 ---
 
-# Version suivante (v0.5.0) — à développer
+# v0.5.0 — livrée (voir CHANGELOG)
 
-- [ ] **Imputation de l'épargne sur chaque compte d'épargne**
+- [x] **Imputation de l'épargne sur chaque compte d'épargne**
   - les mouvements du libellé *Epargne* (et des libellés de type « épargne ») se rattachent à un compte
     (Trade Republic, Crédit Agricole LLD, Assurance vie Elise, Epargne Elia, Epargne Thomas…), comme les véhicules ;
   - choix du compte dans la fiche (mémorisé pour les fixes : « Epargne Elia 25 € » → compte Epargne Elia),
@@ -129,16 +129,16 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - **solde suivi automatiquement** : solde de référence (saisi à une date) + versements − retraits ;
     libellé d'entrée « Retrait épargne » pour les retraits ; mise à jour manuelle du solde toujours possible ;
   - fiche compte : versements du mois / de l'année, historique, évolution du solde.
-- [ ] **Comptes d'épargne réservés à l'administrateur**
+- [x] **Comptes d'épargne réservés à l'administrateur**
   - création, modification, suppression et réglage de la visibilité des comptes : **administrateur uniquement**.
-- [ ] **Visibilité des comptes par utilisateur**
+- [x] **Visibilité des comptes par utilisateur**
   - pour chaque compte : « visible par tous » ou liste des personnes autorisées ;
   - un utilisateur non autorisé ne voit ni le compte, ni son solde, ni l'imputation des versements
     (il voit seulement « Épargne » dans le budget commun) ; totaux épargne calculés sur ses comptes visibles ;
   - **décision : confidentialité réelle (option B)** — chaque utilisateur ne voit que les comptes autorisés
     par l'administrateur, y compris en dehors de l'appli (voir ci-dessous).
 
-- [ ] **Nouveautés de chaque mise à jour affichées dans l'appli**
+- [x] **Nouveautés de chaque mise à jour affichées dans l'appli**
   - à la première ouverture après une mise à jour : fenêtre « Quoi de neuf en v0.x.0 ? » avec les nouveautés
     en langage simple (et, si plusieurs versions ont été sautées, celles de chaque version manquée) ;
   - mémorisé **par utilisateur** (sur le serveur, donc vu une seule fois même avec plusieurs appareils) ;
@@ -146,7 +146,7 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - pastille « Nouveau » sur les fonctions ajoutées tant qu'elles n'ont pas été ouvertes (facultatif) ;
   - le contenu suit le CHANGELOG, rédigé pour l'utilisateur (sans termes techniques).
 
-- [ ] **Détail des coûts de chaque véhicule** (fiche véhicule, depuis Plus › Véhicules ou les graphiques)
+- [x] **Détail des coûts de chaque véhicule** (fiche véhicule, depuis Plus › Véhicules ou les graphiques)
   - période au choix : mois, année, 12 derniers mois, depuis le début ; navigation année par année ;
   - **répartition par poste** (carburant, prêt, entretien / réparations, autres) en anneau + montants et % ;
   - **tableau mois par mois** : une ligne par mois, une colonne par poste, total et moyenne ;
@@ -156,7 +156,7 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - fin de prêt prévue (si le prêt est un fixe avec échéance) et coût restant à payer ;
   - *kilométrage : écarté (pas de saisie des km).*
 
-- [ ] **Compte rendu mensuel par e-mail**
+- [x] **Compte rendu mensuel par e-mail**
   - déclenchement : dès que le **salaire du nouveau mois** est saisi ou pointé (mouvement du libellé *Salaires*
     rattaché au mois M) → envoi du compte rendu du mois **M-1** ; un seul envoi par mois ;
     vérification automatique chaque matin (sauvegarde : envoi le 5 du mois si aucun salaire n'a été saisi) ;
@@ -169,7 +169,7 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - confidentialité respectée : chaque destinataire ne reçoit que les comptes d'épargne qu'il peut voir ;
   - bouton « Envoyer le compte rendu maintenant » et aperçu dans Plus › Compte rendu ; envoi tracé au journal.
 
-- [ ] **Sections repliables (affichage allégé)**
+- [x] **Sections repliables (affichage allégé)**
   - chaque bloc s'ouvre / se ferme d'un toucher (flèche ▸ / ▾), avec son total visible même replié ;
     l'état ouvert / fermé est mémorisé sur l'appareil ;
   - **Synthèse** : tableau par groupe replié par défaut (une ligne par groupe : prévu / réel / %),
@@ -184,7 +184,7 @@ Points de la v0.3.0 — **livrés** (voir CHANGELOG).
   - **Fiche d'un mouvement** : champs essentiels visibles (montant, libellé, description) ;
     date, mois de budget, répétition, pointage et outils regroupés sous « Plus d'options ».
 
-- [ ] **Thème clair au choix + préférences propres à chaque utilisateur**
+- [x] **Thème clair au choix + préférences propres à chaque utilisateur**
   - thème au choix : **Sombre** (par défaut), **Clair**, ou **Automatique** (suit le réglage du téléphone) ;
     thème clair soigné et cohérent avec le sombre (mêmes repères visuels, couleurs des graphiques
     revalidées pour fond clair) ; bascule instantanée, sans rechargement ;
