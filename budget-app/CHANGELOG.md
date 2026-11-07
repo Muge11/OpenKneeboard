@@ -3,6 +3,22 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.6.0] — 2026-11-07 — import calé sur les payes, annulation par mois
+
+- **Mois de budget d'après les payes du relevé** : les payes sont repérées par leur libellé (montant libre, ≥ 300 €) ;
+  la plus tôt de celles qui financent un mois fixe le début de la période ; toute opération datée de ce jour ou après
+  (prélèvements, achats de fin de mois) est comptée sur le mois suivant. Sans paye repérée : réglage « Jour de paye »,
+  sinon même jour que la paye la plus proche. Écran « Payes repérées » ; option « Utiliser ces dates dans l'appli »
+  (règle le jour de paye et les dates réelles par mois).
+- **Payes de montant variable** rattachées à leur fixe (même libellé et même mois, écart jusqu'à 40 %) : le montant
+  réel remplace le prévu, sans double compte.
+- **Annuler l'import d'un mois à tout moment** (bas de la liste des Mouvements du mois, ou Plus › Importer un relevé ›
+  Mois déjà importés) : supprime uniquement les opérations importées de ce mois, remet fixes et pointages comme avant,
+  retire le solde de départ importé ; les saisies à la main sont conservées. Registre `Imports` (Google Sheet),
+  serveur `annulerImportMois`.
+- Pointage d'une saisie à la main par le relevé plus strict : même montant **et** (même jour, même libellé ou nom en commun).
+- Saisie à la main : mois de budget proposé d'après le jour de paye quand il est réglé.
+
 ## [1.5.1] — 2026-11-07
 
 - Écran d'accueil : affiché 2,5 s au lieu de 1,5 s (pendant le chargement) ; plus aucun montant (date du jour et

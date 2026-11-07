@@ -949,6 +949,10 @@
   .ytab .ybar { height: 4px; border-radius: 2px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
   .ytab .ybar span { display: block; height: 100%; background: var(--bar); border-radius: 2px; }
   .import-done .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  .impmonth { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); font-weight: 600; }
+  .impmonth .btn svg { width: 16px; height: 16px; }
+  .rvpay { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .rvpay > div:first-child { margin-bottom: 2px; }
   .import-done .btn svg { width: 16px; height: 16px; }
 
   @media (min-width: 1700px) {
@@ -2286,6 +2290,9 @@ function mvtResultsHtml(c) {
   if (!list.length) h += '<div class="empty">' + (mvtQuery ? 'Aucun résultat ce mois-ci.<br><button class="link" data-act="mvtScope" data-v="tous">Chercher dans tous les mois</button>' :
     'Aucun mouvement.' + (canEdit() ? '<br>Touchez <b>+</b> pour en ajouter un.' : '')) + '</div>';
   h += mvtListHtml(list, markId);
+  var nImp = !mvtQuery && canEdit() ? importedCount(mois) : 0;
+  if (nImp) h += '<div class="impmonth"><span>' + nImp + ' opération' + (nImp > 1 ? 's' : '') + ' de ' + esc(monthName(mois)) + ' vien' + (nImp > 1 ? 'nent' : 't') + ' d\'un relevé importé.</span>' +
+    '<button class="btn ghost sm" data-act="cancelImpMonth" data-m="' + mois + '">' + svg('undo') + ' Annuler l\'import du mois</button></div>';
   var annules = D.mouvements.filter(function (x) { return x.mois === mois && x.statut === 'annule'; });
   if (annules.length && canEdit() && !mvtQuery) {
     h += '<div class="xs muted" style="margin-top:10px">Fixes retirés ce mois : ' + annules.map(function (x) {
@@ -3231,6 +3238,7 @@ function rvGuessLib(desc, sens) {
   return best ? best.id : '';
 }
 function rvMoisOf(date, libId) {
+  if (RV && RV.P) return rvMonthFor(date);
   var l = lib(libId);
   return l.moisSuivant && +date.substring(8, 10) >= 15 ? shiftMonth(date.substring(0, 7), 1) : date.substring(0, 7);
 }
@@ -3366,8 +3374,49 @@ function rvBuild() {
   if (out.length > 1 && out[0].date > out[out.length - 1].date) out.reverse();
   out.forEach(function (L, k) { L.i = k; });
   RV.lines = out;
+  rvPeriods();
   rvMatch();
   rvSoldes();
+}
+/** Ligne de paye : libellé de salaire (ou compté le mois suivant), assez importante. Le montant peut varier d'un mois à l'autre. */
+function rvIsPay(L) {
+  if (L.sens !== 'entree' || L.montant < 300) return false;
+  var l = lib(L.libelleId);
+  return !isInterne(l) && (!!l.moisSuivant || norm(l.nom) === 'salaires');
+}
+/**
+ * Dates de paye par mois de budget, lues sur le relevé (la plus tôt des payes qui financent ce mois) ;
+ * à défaut, le réglage « Jour de paye », sinon le même jour que la paye repérée la plus proche.
+ */
+function rvPeriods() {
+  var pays = {}, payLines = {};
+  RV.lines.forEach(function (L) {
+    if (!rvIsPay(L)) return;
+    var dm = L.date.substring(0, 7), T = +L.date.substring(8, 10) >= 15 ? shiftMonth(dm, 1) : dm;
+    if (!pays[T] || L.date < pays[T]) pays[T] = L.date;
+    (payLines[T] = payLines[T] || []).push(L);
+  });
+  RV.pays = pays; RV.payLines = payLines;
+  if (RV.savePays === undefined) RV.savePays = true;
+  var known = Object.keys(pays).sort(), cfg = paieCfg();
+  var P = function (M) {
+    if (pays[M]) return pays[M];
+    if (cfg.mois[M] || cfg.jour) return payDate(M, cfg);
+    if (!known.length) return M + '-01';
+    // même jour que la paye repérée la plus proche (ex. 28 → paye du 28 du mois précédent)
+    var ref = known.reduce(function (a, k) { return Math.abs(dOf(k + '-01') - dOf(M + '-01')) < Math.abs(dOf(a + '-01') - dOf(M + '-01')) ? k : a; }, known[0]);
+    var day = +pays[ref].substring(8, 10), pm = day >= 15 ? shiftMonth(M, -1) : M, y = +pm.substring(0, 4), mo = +pm.substring(5, 7);
+    return pm + '-' + pad(Math.min(day, new Date(y, mo, 0).getDate()));
+  };
+  RV.P = P;
+  RV.lines.forEach(function (L) { if (!L.moisManual && !L.majId) L.mois = rvMonthFor(L.date); });
+}
+/** Mois de budget d'une date : à partir du jour de la paye, on compte sur le mois suivant. */
+function rvMonthFor(d) {
+  var m = d.substring(0, 7), nx = shiftMonth(m, 1), pv = shiftMonth(m, -1);
+  if (d >= RV.P(nx)) return nx;
+  if (d < RV.P(m)) return pv;
+  return m;
 }
 /**
  * Fixes à compléter et doublons déjà saisis.
@@ -3382,7 +3431,10 @@ function rvMatch() {
     var hay = ' ' + norm(L.raw + ' ' + L.description + ' ' + (L.detail || '')).replace(/[^a-z0-9]+/g, ' ') + ' ';
     occs.forEach(function (x) {
       var l = lib(x.libelleId); if (l.sens !== L.sens) return;
-      var ref = +x.prevu || +x.montant, near = Math.abs(ref - L.montant) <= Math.max(1, ref * 0.05), when = x.mois === L.mois || dd(x.date, L.date) <= 7;
+      var ref = +x.prevu || +x.montant, when = x.mois === L.mois || dd(x.date, L.date) <= 7;
+      // une paye varie d'un mois à l'autre : même libellé, même mois de budget, écart jusqu'à 40 %
+      var payLike = l.sens === 'entree' && (l.moisSuivant || ltype(l) === 'revenu') && x.libelleId === L.libelleId && x.mois === L.mois;
+      var near = Math.abs(ref - L.montant) <= Math.max(1, ref * (payLike ? 0.4 : 0.05));
       if (!near || !when) return;
       var exact = Math.round(ref * 100) === Math.round(L.montant * 100), same = x.libelleId === L.libelleId;
       var named = words(x.description).some(function (w) { return hay.indexOf(' ' + w) >= 0; });
@@ -3404,7 +3456,13 @@ function rvMatch() {
     var cents = Math.round(L.montant * 100);
     var same = D.mouvements.filter(function (x) { return x.statut !== 'annule' && Math.round(+x.montant * 100) === cents && lib(x.libelleId).sens === L.sens && dd(x.date, L.date) <= 3 && (!x.recurrentId || x.pointe); })
       .sort(function (a, b) { return dd(a.date, L.date) - dd(b.date, L.date); });
-    var free = same.filter(function (x) { return !x.pointe && !usedP[x.id]; })[0];
+    // Pointer une saisie à la main : même montant ET (même jour, même libellé, ou un nom en commun) — un montant seul ne suffit pas.
+    var hay = ' ' + norm(L.raw + ' ' + L.description + ' ' + (L.detail || '')).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    var alike = function (x) {
+      return x.date === L.date || x.libelleId === L.libelleId ||
+        norm(x.description).split(/[^a-z0-9]+/).some(function (w) { return w.length > 2 && hay.indexOf(' ' + w) >= 0; });
+    };
+    var free = same.filter(function (x) { return !x.pointe && !usedP[x.id] && alike(x); })[0];
     if (free) { usedP[free.id] = true; L.pointId = free.id; L.libelleId = free.libelleId; L.mois = free.mois; L.on = true; return; }
     L.dup = same.length > 0;
     if (L.dup) L.on = false;
@@ -3417,8 +3475,7 @@ function rvSoldes() {
   if (ls.length < 2 || ls.every(function (L) { return L.solde === ls[0].solde; })) return;
   var months = {}; RV.lines.forEach(function (L) { months[L.mois] = true; });
   Object.keys(months).sort().forEach(function (m) {
-    var pay = RV.lines.filter(function (L) { var l = lib(L.libelleId); return L.mois === m && L.sens === 'entree' && l.moisSuivant && L.date < m + '-01'; }).map(function (L) { return L.date; }).sort()[0];
-    var ref = payDate(m) || pay || soldeRefDate(m), first = ls.filter(function (L) { return L.date >= ref; })[0];
+    var ref = (RV.pays && RV.pays[m]) || payDate(m) || soldeRefDate(m), first = ls.filter(function (L) { return L.date >= ref; })[0];
     if (!first || first.date > ymd(new Date(dOf(ref).getTime() + 5 * 864e5))) return;
     RV.soldes[m] = Math.round((first.solde - first.signed) * 100) / 100;
     if (RV.soldesOn[m] === undefined) RV.soldesOn[m] = soldeOf(m) === null;
@@ -3429,8 +3486,9 @@ function rvSetLib(i, id) {
   var L = RV.lines[i]; if (!L) return;
   // Même commerce, même sens : toutes les lignes suivent (sauf celles déjà réglées à la main).
   RV.manual[L.key + '|' + L.sens] = id;
-  RV.lines.forEach(function (x) { if (x === L || (x.key && x.key === L.key && x.sens === L.sens && !x.majId && !x.pinned)) { x.libelleId = id; x.mois = rvMoisOf(x.date, id); } });
+  RV.lines.forEach(function (x) { if (x === L || (x.key && x.key === L.key && x.sens === L.sens && !x.majId && !x.pinned)) { x.libelleId = id; } });
   L.pinned = true;
+  rvPeriods(); rvSoldes();
 }
 function releveView() {
   var h = backbar('Importer un relevé');
@@ -3441,7 +3499,13 @@ function releveView() {
     (RV ? '<div class="xs muted" style="margin-top:8px;text-align:center">' + esc(RV.name.length > 34 ? RV.name.slice(0, 16) + '…' + RV.name.slice(-14) : RV.name) + ' · ' + (RV.pdf ? RV.pdf.n + ' opérations lues' : RV.rows.length + ' lignes lues') + '</div>' : '') +
     (RV && RV.pdf && RV.pdf.check !== null ? '<div class="xs" style="margin-top:6px;text-align:center;font-weight:700" class="' + (RV.pdf.check ? 'pos' : 'neg') + '">' +
       (RV.pdf.check ? '<span class="pos">✓ Totaux conformes au relevé (ancien solde + opérations = nouveau solde)</span>' : '<span class="neg">⚠ Les totaux ne correspondent pas au relevé : vérifiez les lignes</span>') + '</div>' : '') + '</div>';
-  if (!RV) return h;
+  if (!RV) {
+    var im = importedMonths(), ks = Object.keys(im).sort().reverse();
+    if (ks.length && canEdit()) h += '<div class="card"><h2>Mois déjà importés</h2><div class="xs muted" style="margin-bottom:8px">Annuler un mois retire uniquement les opérations importées de ce mois et remet les fixes et pointages comme avant ; vos saisies à la main sont conservées.</div>' +
+      ks.map(function (m) { return '<div class="item" style="cursor:default;min-height:52px"><div class="main"><div class="title">' + esc(monthName(m).charAt(0).toUpperCase() + monthName(m).slice(1)) + '</div><div class="meta">' + im[m] + ' opération' + (im[m] > 1 ? 's' : '') + ' importée' + (im[m] > 1 ? 's' : '') + '</div></div>' +
+        '<button class="btn ghost sm" data-act="cancelImpMonth" data-m="' + m + '">Annuler</button></div>'; }).join('') + '</div>';
+    return h;
+  }
   var M = RV.map, cols = (M.hdr >= 0 ? RV.rows[M.hdr] : RV.rows[0].map(function (_, j) { return 'Colonne ' + (j + 1); })).map(function (c, j) { return [j, c || 'Colonne ' + (j + 1)]; });
   var sel = function (k, label, opt) {
     return '<div class="field"><label>' + label + '</label><select data-input="rvMap" data-k="' + k + '"><option value="">' + (opt ? '—' : 'Choisir') + '</option>' +
@@ -3475,6 +3539,15 @@ function releveView() {
           '<select data-input="rvCard" data-k="' + k + '" style="width:auto;max-width:170px"><option value="">Non attribuée</option>' +
           D.users.filter(function (u) { return u.actif; }).map(function (u) { return '<option value="' + esc(u.email) + '"' + (CA[k] && CA[k].toLowerCase() === u.email.toLowerCase() ? ' selected' : '') + '>' + esc(firstName(u.nom || u.email)) + '</option>'; }).join('') + '</select></div>';
       }).join(''), !ck.every(function (k) { return CA[k]; }));
+  }
+  var pk = Object.keys(RV.pays || {}).sort();
+  if (pk.length) {
+    h += fold('rv:payes', 'Payes repérées', '<span class="tag">' + pk.length + ' mois</span>', '<div class="xs muted" style="margin-bottom:8px">Tout ce qui arrive à partir du jour de la paye est compté sur le mois qu\'elle finance (prélèvements et achats de fin de mois compris). Les montants peuvent varier d\'un mois à l\'autre.</div>' +
+      pk.map(function (T) {
+        return '<div class="rvpay"><div><b>Budget de ' + esc(monthName(T)) + '</b><span class="muted"> · à partir du ' + esc(fmtD(RV.pays[T])) + '</span></div>' +
+          RV.payLines[T].map(function (L) { return '<div class="xs muted">' + esc(fmtD(L.date)) + ' · ' + esc(L.description) + ' · <b class="num pos">+' + eur(L.montant) + '</b></div>'; }).join('') + '</div>';
+      }).join('') +
+      '<label class="opt sw" style="margin-top:8px"><span>Utiliser ces dates dans l\'appli<br><span class="xs muted">jours restants, reste par jour, mois affiché à l\'ouverture</span></span><input type="checkbox" class="tg" data-act="rvSavePays"' + (RV.savePays ? ' checked' : '') + '></label>', false);
   }
   var sm = Object.keys(RV.soldes);
   if (sm.length) h += fold('rv:soldes', 'Soldes de début de mois', '<span class="tag">' + sm.length + '</span>', sm.map(function (m) {
@@ -3549,6 +3622,8 @@ function rvEdit(i) {
   openSheet(h);
 }
 var LAST_IMPORT = null;
+function importedCount(m) { return D.mouvements.filter(function (x) { return x.mois === m && /^csv/.test(x.source || '') && x.statut !== 'annule'; }).length; }
+function importedMonths() { var o = {}; D.mouvements.forEach(function (x) { if (/^csv/.test(x.source || '') && x.statut !== 'annule') o[x.mois] = (o[x.mois] || 0) + 1; }); return o; }
 function rvRead(file) {
   if (!file) return;
   if (file.size > 5e6) { toast('Fichier trop volumineux (5 Mo au plus)', true); return; }
@@ -3940,6 +4015,7 @@ function refreshBudgetMonth() {
   if (current && choices.indexOf(current) < 0) choices.push(current);
   var def;
   if (form.moisTouched && current) def = current;
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (paieCfg().jour || Object.keys(paieCfg().mois).length)) def = budgetMonthOf(d);
   else { var l = form.libelleId ? byId(D.libelles, form.libelleId) : null; def = l && l.moisSuivant ? shiftMonth(dm, 1) : dm; }
   sel.innerHTML = choices.map(function (m) {
     return '<option value="' + m + '" ' + (m === def ? 'selected' : '') + '>' + esc(monthName(m)) + (m === dm ? '' : m < dm ? ' (préc.)' : ' (suiv.)') + '</option>';
@@ -4383,6 +4459,7 @@ var ACT = {
   rvTog: function (d, el) { var L = RV && RV.lines[+d.i]; if (!L) return; L.on = el.checked; render(); },
   rvSolde: function (d, el) { RV.soldesOn[d.m] = el.checked; },
   rvStep: function (d) { RV.step = d.v; render(); window.scrollTo(0, 0); },
+  rvSavePays: function (d, el) { RV.savePays = el.checked; },
   rvMkLib: function (d) {
     var EM = { 'Assurances': ['🛡️', 'besoin', 'Charges fixes & crédits'] }, e = EM[d.n] || ['•', 'besoin', 'Vie courante'];
     write('saveLibelle', { nom: d.n, sens: d.s, groupe: d.s === 'entree' ? 'Entrées' : e[2], emoji: e[0], type: d.s === 'entree' ? 'revenu' : e[1] }).then(function (l) {
@@ -4406,12 +4483,20 @@ var ACT = {
     if (!v || v <= 0) { toast('Montant manquant', true); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(val('e_date'))) { toast('Date invalide', true); return; }
     L.montant = Math.abs(v); L.sens = form.sens; L.signed = L.sens === 'entree' ? L.montant : -L.montant;
-    L.description = val('e_desc').trim() || L.description; L.date = val('e_date'); L.mois = val('e_mois') || L.mois;
+    var mm = val('e_mois'); if (mm && mm !== L.mois) L.moisManual = true;
+    L.description = val('e_desc').trim() || L.description; L.date = val('e_date'); L.mois = mm || L.mois;
     if (!L.majId && val('e_lib')) L.libelleId = val('e_lib');
     L.on = checked('e_on'); L.pinned = true; L.dup = false;
+    if (!L.moisManual) { rvPeriods(); rvSoldes(); }
     closeSheet(); render();
   },
   rvDone: function () { LAST_IMPORT = null; render(); },
+  cancelImpMonth: function (d) {
+    var n = importedCount(d.m);
+    if (!confirm('Annuler l\'import de ' + monthName(d.m) + ' ?\n\n' + n + ' opération' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : '') + ' seront supprimée' + (n > 1 ? 's' : '') +
+      ', les fixes complétés et les pointages remis comme avant, et le solde de départ importé retiré. Vos saisies à la main sont conservées.')) return;
+    write('annulerImportMois', d.m).then(function (data) { setData(data); LAST_IMPORT = null; render(); toast('Import de ' + monthName(d.m) + ' annulé'); });
+  },
   rvFixes: function () {
     var cs = LAST_IMPORT.cands.filter(function (c) { return byId(D.mouvements, c.id); });
     openSheet('<h3>Prélèvements réguliers</h3><div class="small t2" style="margin-bottom:12px">Suivis comme <b>fixes</b>, ils seront prévus chaque mois automatiquement (et complétés à chaque import de relevé). ' +
@@ -4433,7 +4518,7 @@ var ACT = {
   rvUndo: function () {
     if (!LAST_IMPORT || !confirm('Annuler l\'import du relevé ? Les ' + LAST_IMPORT.added.length + ' mouvements ajoutés seront supprimés et les fixes complétés remis comme avant.')) return;
     var li = LAST_IMPORT;
-    write('undoImport', li.added, li.originals, li.soldes).then(function (r) {
+    write('undoImport', li.added, li.originals, li.soldes, li.importId).then(function (r) {
       D.mouvements = D.mouvements.filter(function (x) { return li.added.indexOf(x.id) < 0; });
       li.originals.forEach(function (o) { upsertLocal(D.mouvements, o); });
       if (r && r.soldes !== undefined) D.soldes = r.soldes;
@@ -4447,9 +4532,16 @@ var ACT = {
     // Prélèvements réguliers sans fixe : proposés comme fixes après l'import
     var rawOf = {}; RV.lines.forEach(function (L) { if (L.on && !L.majId && !L.pointId) rawOf[L.date + '|' + Math.round(L.montant * 100) + '|' + L.description] = L; });
     var so = {}; Object.keys(RV.soldes).forEach(function (m) { if (RV.soldesOn[m]) so[m] = RV.soldes[m]; });
+    // Dates de paye du relevé → réglage « Jour de paye » (jour habituel s'il n'est pas réglé, dates réelles par mois)
+    if (RV.savePays && Object.keys(RV.pays || {}).length) {
+      var pc = paieCfg(), pk2 = Object.keys(RV.pays).sort(), nc = { jour: pc.jour, weekend: !!pc.weekend, mois: JSON.parse(JSON.stringify(pc.mois)), decouvert: +pc.decouvert || 0 };
+      if (!nc.jour) { var lastDay = +RV.pays[pk2[pk2.length - 1]].substring(8, 10); nc.jour = lastDay; }
+      pk2.forEach(function (T) { if (payDate(T, { jour: nc.jour, weekend: nc.weekend, mois: {} }) !== RV.pays[T]) nc.mois[T] = RV.pays[T]; else delete nc.mois[T]; });
+      D.paie = JSON.stringify(nc); bg('savePaie', [nc], function (j) { D.paie = j; });
+    }
     if (!ls.length) return;
     var b = document.querySelector('[data-act=rvImport]'); if (b) { b.disabled = true; b.textContent = 'Import en cours…'; }
-    write('importReleve', ls, so).then(function (r) {
+    write('importReleve', ls, so, { fichier: RV.name }).then(function (r) {
       var cands = r.added.filter(function (x) {
         var L = rawOf[x.date + '|' + Math.round(+x.montant * 100) + '|' + x.description], l = lib(x.libelleId);
         if (!L || isInterne(l) || !/^(prlv|pr[ée]l[èe]vement|ech\.? pr[êe]t|[ée]ch[ée]ance)/i.test(String(L.raw).trim())) return false;
@@ -4459,7 +4551,7 @@ var ACT = {
         var k = rvKey(x.description), seen = D.mouvements.some(function (y) { return y.id !== x.id && y.mois !== x.mois && rvKey(y.description) === k && Math.abs(+y.montant - +x.montant) <= Math.max(1, +x.montant * 0.1); });
         return { id: x.id, on: seen };
       });
-      LAST_IMPORT = { added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length - (r.pointed || []).length, nPt: (r.pointed || []).length, cands: cands };
+      LAST_IMPORT = { importId: r.importId, added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length - (r.pointed || []).length, nPt: (r.pointed || []).length, cands: cands };
       r.added.forEach(function (x) { D.mouvements.push(x); });
       r.updated.forEach(function (x) { upsertLocal(D.mouvements, x); });
       if (r.soldes !== undefined) D.soldes = r.soldes;
