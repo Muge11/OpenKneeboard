@@ -3,6 +3,15 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.7.0] — 2026-11-07 — recaler sur le solde réel
+
+- **Recaler sur le solde réel** (tuile « Compte en banque », fiche du solde de départ, ou Plus › Paye et compte
+  bancaire) : saisie à tout moment du solde affiché par l'appli bancaire (créditeur / débiteur, à une date au choix) ;
+  le solde de départ de chaque mois, depuis le mois choisi, est recalculé en remontant les mouvements datés ;
+  aperçu avant validation (solde estimé par l'appli, écart, tableau avant / après par mois) ; bouton « Annuler »
+  après le recalage ; historique des 24 derniers recalages ; serveur `saveSoldesMany`.
+- La tuile « Solde de votre compte » de la Synthèse ouvre directement le recalage.
+
 ## [1.6.0] — 2026-11-07 — import calé sur les payes, annulation par mois
 
 - **Mois de budget d'après les payes du relevé** : les payes sont repérées par leur libellé (montant libre, ≥ 300 €) ;

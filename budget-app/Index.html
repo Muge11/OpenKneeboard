@@ -949,6 +949,12 @@
   .ytab .ybar { height: 4px; border-radius: 2px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
   .ytab .ybar span { display: block; height: 100%; background: var(--bar); border-radius: 2px; }
   .import-done .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  .acct-sync { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; opacity: .8; }
+  .acct-sync svg.ic { width: 12px; height: 12px; stroke-width: 2.4; }
+  .t.acct .k { padding-right: 0; }
+  .rcgap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--input-bg); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 13px; margin-bottom: 8px; }
+  .rcgap.ok { border-color: color-mix(in srgb, var(--pos) 50%, transparent); }
+  .rctab { margin-bottom: 8px; } .rctab td, .rctab th { padding: 8px 4px; } .rctab tr.same td { opacity: .5; }
   .impmonth { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); font-weight: 600; }
   .impmonth .btn svg { width: 16px; height: 16px; }
   .rvpay { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
@@ -1393,16 +1399,84 @@ function accountForecast(m) {
   return { start: start, today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, end: Math.round(acc * 100) / 100, next: b,
     decouvert: +cfg.decouvert || 0, pts: pts, from: a };
 }
+/* ---------------- Recalage sur le solde réel (appli bancaire) ---------------- */
+function recalagesAll() { try { return JSON.parse(D.recalages || '[]') || []; } catch (e) { return []; } }
+function signedMv(x) { return (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0); }
+/** Solde de départ du mois m déduit d'un solde réel connu à la date d (on remonte ou on avance avec les mouvements datés). */
+function startFromAnchor(m, d, amount) {
+  var ref = soldeRefDate(m), s0 = amount;
+  D.mouvements.forEach(function (x) {
+    if (x.statut === 'annule' || !x.date) return;
+    if (ref <= d && x.date >= ref && x.date <= d) s0 -= signedMv(x);
+    else if (ref > d && x.date > d && x.date < ref) s0 += signedMv(x);
+  });
+  return Math.round(s0 * 100) / 100;
+}
+/** Solde estimé par l'appli à la date d (d'après le solde de départ de la période qui la contient). */
+function estimatedAt(d) {
+  var m = budgetMonthOf(d), st = soldeOf(m); if (st === null) return null;
+  var ref = soldeRefDate(m), v = st;
+  D.mouvements.forEach(function (x) { if (x.statut !== 'annule' && x.date && x.date >= ref && x.date <= d) v += signedMv(x); });
+  return Math.round(v * 100) / 100;
+}
+/** Mois pouvant être recalés : du premier mois qui a des mouvements jusqu'au mois de la date. */
+function recalMonths(d) {
+  var last = budgetMonthOf(d), first = D.mouvements.reduce(function (a, x) { return x.statut !== 'annule' && x.mois && (!a || x.mois < a) ? x.mois : a; }, '') || last, out = [];
+  for (var m = first; m <= last && out.length < 120; m = shiftMonth(m, 1)) out.push(m);
+  return out;
+}
+function openRecalage() {
+  var last = recalagesAll().slice(-1)[0];
+  form = { kind: 'recal', neg: false, before: JSON.parse(D.soldes || '{}') };
+  var ms = recalMonths(todayStr());
+  var h = '<h3>Solde réel du compte</h3>' +
+    '<div class="info">Indiquez le solde affiché par votre <b>appli bancaire</b>. Le solde de départ de chaque mois est recalculé à partir de vos mouvements, ' +
+    'pour que le reste à vivre colle à la réalité.</div>' +
+    '<div class="seg sgn"><button data-act="rcSign" data-v="0" class="on">Créditeur</button><button data-act="rcSign" data-v="1">Débiteur</button></div>' +
+    '<div class="field"><input id="rc_amt" class="amount" inputmode="decimal" placeholder="0,00 €" data-input="rc"></div>' +
+    '<div class="row2"><div class="field"><label>Solde au</label><input id="rc_date" type="date" value="' + todayStr() + '" max="' + todayStr() + '" data-input="rc"></div>' +
+    '<div class="field"><label>Recalculer depuis</label><select id="rc_from" data-input="rc">' + ms.map(function (m, i) { return '<option value="' + m + '"' + (i === 0 ? ' selected' : '') + '>' + esc(monthName(m)) + '</option>'; }).join('') + '</select></div></div>' +
+    '<div id="rcPrev"></div>' +
+    (last ? '<div class="xs muted" style="margin:4px 0 8px">Dernier recalage : ' + esc(fmtD(last.date)) + ' · ' + eur(last.montant) + (last.ecart !== '' && last.ecart !== undefined ? ' (écart ' + (last.ecart >= 0 ? '+' : '') + eur(last.ecart) + ')' : '') + '</div>' : '') +
+    '<div class="actions"><button class="btn ghost" data-act="close">Annuler</button><button class="btn" id="saveBtn" data-act="rcSave">Recaler</button></div>';
+  openSheet(h);
+  rcPreview();
+  setTimeout(function () { var i = document.getElementById('rc_amt'); if (i) i.focus(); }, 50);
+}
+function rcRead() {
+  var v = parseAmount(val('rc_amt')), d = val('rc_date');
+  if (v === null || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  v = Math.abs(v) * (form.neg ? -1 : 1);
+  var ms = recalMonths(d).filter(function (m) { return m >= (val('rc_from') || '0'); });
+  var rows = ms.map(function (m) { return { m: m, old: soldeOf(m), neu: startFromAnchor(m, d, v) }; });
+  var est = estimatedAt(d);
+  return { v: v, d: d, rows: rows, est: est, ecart: est === null ? null : Math.round((v - est) * 100) / 100 };
+}
+function rcPreview() {
+  var el = document.getElementById('rcPrev'); if (!el) return;
+  var r = rcRead();
+  if (!r) { el.innerHTML = '<div class="xs muted" style="margin-bottom:8px">Saisissez le montant pour voir le recalcul.</div>'; return; }
+  var h = '';
+  if (r.est !== null) h += '<div class="rcgap ' + (Math.abs(r.ecart) < 0.005 ? 'ok' : '') + '"><span>Estimé par l\'appli : <b class="num">' + eur(r.est) + '</b></span><span>Écart : <b class="num ' + (r.ecart < -0.005 ? 'neg' : r.ecart > 0.005 ? 'pos' : '') + '">' +
+    (Math.abs(r.ecart) < 0.005 ? 'aucun ✓' : (r.ecart > 0 ? '+' : '−') + eur(Math.abs(r.ecart))) + '</b></span></div>' +
+    (r.ecart < -1 ? '<div class="xs muted" style="margin:-4px 0 8px">Un écart négatif signale souvent une dépense non saisie ou des frais bancaires.</div>' : '');
+  h += '<table class="rctab"><thead><tr><th>Solde de départ</th><th>Avant</th><th>Après</th></tr></thead><tbody>' + r.rows.slice().reverse().map(function (x) {
+    var ch = x.old === null || Math.abs(x.old - x.neu) >= 0.005;
+    return '<tr' + (ch ? '' : ' class="same"') + '><td>' + esc(monthName(x.m)) + '</td><td class="num muted">' + (x.old === null ? '—' : eur(x.old)) + '</td><td class="num"><b class="' + (x.neu < 0 ? 'neg' : '') + '">' + eur(x.neu) + '</b></td></tr>';
+  }).join('') + '</tbody></table>';
+  el.innerHTML = h;
+}
 function accountTile(m) {
   var F = accountForecast(m); if (!F) return '';
   var over = F.min < -F.decouvert, neg = F.min < 0, cls = over ? 'peach' : neg ? 'butter' : 'sky';
   var dl = function (d) { return esc(fmtD(d)); };
-  return '<div class="t ' + cls + ' w2 click acct" data-act="sub" data-sub="paie"><div class="k">Compte en banque · estimé aujourd\'hui</div>' +
+  var lr = recalagesAll().slice(-1)[0];
+  return '<div class="t ' + cls + ' w2 click acct" data-act="openRecalage"><div class="k">Compte en banque · estimé aujourd\'hui<span class="acct-sync">' + svg('recur') + (lr ? 'recalé le ' + esc(fmtD(lr.date)) : 'Recaler') + '</span></div>' +
     '<div class="acct-row"><div class="v num">' + eurBig(F.today) + '</div>' +
     (F.min < F.today - 0.5 ? '<div class="acct-low"><span class="s">Plus bas avant la paye</span><b class="num ' + (neg ? 'neg' : '') + '">' + eur0(F.min) + '</b><span class="s">le ' + dl(F.minDate) + '</span></div>'
       : '<div class="acct-low"><span class="s">Avant la paye</span><b class="num">' + eur0(F.end) + '</b><span class="s">aucune baisse prévue</span></div>') + '</div>' +
     '<div class="s">' + (over ? '⚠ Au-delà du découvert autorisé (−' + eur0(F.decouvert) + ') : décalez une dépense ou alimentez le compte.' :
-      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : 'Prélèvements à venir compris · paye le ' + dl(F.next) + '.') + '</div></div>';
+      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : 'Prélèvements à venir compris · paye le ' + dl(F.next).replace(/\.$/, '') + '.') + '</div></div>';
 }
 function openSolde(m) {
   m = m || mois;
@@ -1415,7 +1489,7 @@ function openSolde(m) {
     '<div class="field"><input id="s_amt" class="amount" inputmode="decimal" placeholder="0,00 €" value="' + (cur !== null ? amtInput(Math.abs(cur)) : '') + '"></div>' +
     '<div class="xs muted" style="margin:-4px 0 12px">Reste à vivre calculé pour ' + esc(monthName(shiftMonth(m, -1))) + ' : <b class="num">' + eur(prev) + '</b>' +
     (cur !== null ? ' · écart avec le compte : <b class="num ' + (cur - prev < 0 ? 'neg' : 'pos') + '">' + (cur - prev >= 0 ? '+' : '') + eur(cur - prev) + '</b>' : '') + '</div>';
-  if (canEdit()) h += actions(cur !== null ? 'delSolde' : '', 'Retirer', 'saveSolde', m);
+  if (canEdit()) h += '<button class="link small" data-act="openRecalage" style="margin:-4px 0 8px">Recaler sur le solde de l\'appli bancaire ›</button>' + actions(cur !== null ? 'delSolde' : '', 'Retirer', 'saveSolde', m);
   openSheet(h);
   if (!canEdit()) disableSheet();
 }
@@ -1915,7 +1989,7 @@ function bentoHtml(c) {
   if (b.report !== null && isCur) h += accountTile(mois);
   // Solde de début de mois à renseigner (mois en cours, une fois la période commencée)
   if (b.report === null && canEdit() && isCur) {
-    h += '<div class="t sky w2 click solde-ask" data-act="openSolde"><div class="k">Solde du compte en début de mois<small>Pour compter un découvert ou un supplément</small></div>' +
+    h += '<div class="t sky w2 click solde-ask" data-act="openRecalage"><div class="k">Solde de votre compte<small>Celui de l\'appli bancaire : découvert ou supplément compté, mois passés recalculés</small></div>' +
       '<span class="btn sm" style="pointer-events:none">Renseigner</span></div>';
   }
   // Entrées / sorties
@@ -2938,7 +3012,7 @@ var SUBVIEWS = {
       (P.state === 'encours' ? ' · jour ' + P.day + ', ' + (P.len - P.day + 1) + ' jours restants' : '') + '</div>';
     h += '<div class="card"><h2>Compte bancaire</h2><div class="field"><label>Découvert autorisé</label><input id="paieDec" inputmode="decimal" placeholder="0 €" value="' + (+cfg.decouvert ? amtInput(+cfg.decouvert) : '') + '"></div>' +
       '<div class="xs muted">Indiqué sur vos relevés. L\'appli vous prévient avant de le dépasser.</div>' +
-      (accountForecast(mois) ? '' : '<div class="xs muted" style="margin-top:8px">Pour suivre le solde du compte, renseignez le solde de début de mois depuis la Synthèse.</div>') + '</div>';
+      '<button class="btn ghost block" data-act="openRecalage" style="margin-top:12px">Recaler sur le solde réel du compte</button></div>';
     h += '<button class="btn block" data-act="savePaie">Enregistrer</button>';
     return h;
   },
@@ -4438,6 +4512,28 @@ var ACT = {
   setTheme: function (d) { setPref('theme', d.v); render(); },
   setAccent: function (d) { setPref('accent', d.v); render(); },
   openSolde: function () { openSolde(mois); },
+  openRecalage: function () { if (canEdit()) openRecalage(); },
+  rcSign: function (d) {
+    form.neg = d.v === '1';
+    Array.prototype.forEach.call(document.querySelectorAll('.seg.sgn button'), function (b) { b.classList.toggle('on', b.dataset.v === d.v); b.classList.toggle('neg', b.dataset.v === '1' && d.v === '1'); });
+    rcPreview();
+  },
+  rcSave: function () {
+    var r = rcRead(); if (!r) { toast('Montant manquant', true); return; }
+    var map = {}, before = form.before, prev = {};
+    r.rows.forEach(function (x) { map[x.m] = x.neu; prev[x.m] = before[x.m] ? before[x.m].montant : null; });
+    var all = JSON.parse(D.soldes || '{}'); Object.keys(map).forEach(function (m) { all[m] = { montant: map[m], le: nowIso(), par: D.me.email, source: 'recalage' }; });
+    D.soldes = JSON.stringify(all);
+    var h = recalagesAll(); h.push({ date: r.d, montant: r.v, ecart: r.ecart === null ? '' : r.ecart, le: nowIso() }); D.recalages = JSON.stringify(h.slice(-24));
+    resetCalc(); closeSheet(); render();
+    bg('saveSoldesMany', [map, { date: r.d, montant: r.v, ecart: r.ecart === null ? '' : r.ecart }], function (res) { D.soldes = res.soldes; D.recalages = res.recalages; resetCalc(); render(); });
+    toast(r.rows.length + ' mois recalé' + (r.rows.length > 1 ? 's' : '') + (r.ecart !== null && Math.abs(r.ecart) >= 0.005 ? ' · écart ' + (r.ecart > 0 ? '+' : '−') + eur(Math.abs(r.ecart)) : ''), false, function () {
+      var back = JSON.parse(D.soldes || '{}'); Object.keys(prev).forEach(function (m) { if (prev[m] === null) delete back[m]; else back[m] = before[m]; });
+      D.soldes = JSON.stringify(back); resetCalc(); render();
+      bg('saveSoldesMany', [prev, null], function (res) { D.soldes = res.soldes; resetCalc(); render(); });
+      toast('Recalage annulé');
+    });
+  },
   soldeSign: function (d) {
     form.neg = d.v === '1';
     Array.prototype.forEach.call(document.querySelectorAll('.seg.sgn button'), function (b) { b.classList.toggle('on', b.dataset.v === d.v); b.classList.toggle('neg', b.dataset.v === '1' && d.v === '1'); });
@@ -4667,6 +4763,8 @@ document.addEventListener('input', function (e) {
     RV.map[e.target.dataset.k] = e.target.value === '' ? -1 : +e.target.value; rvBuild(); render();
   } else if (k === 'rvInv') {
     RV.invert = e.target.checked; rvBuild(); render();
+  } else if (k === 'rc') {
+    rcPreview();
   } else if (k === 'rvCard') {
     var CA = cartesAll(); if (e.target.value) CA[e.target.dataset.k] = e.target.value; else delete CA[e.target.dataset.k];
     D.cartes = JSON.stringify(CA); bg('saveCartes', [CA], function (j) { D.cartes = j; }); render();

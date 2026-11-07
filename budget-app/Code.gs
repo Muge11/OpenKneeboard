@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.6.0';
+var APP_VERSION = '1.7.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -255,6 +255,7 @@ function data_(me) {
     paie: getConfig_('paie'),
     cartes: getConfig_('cartes'),
     soldes: getConfig_('soldes'),
+    recalages: getConfig_('recalages'),
     vapidPublic: (function () { try { return wpKeys_().pub; } catch (e) { return ''; } })(),
     pushDevices: readTable_(SH.PUSH).filter(function (d) { return d.email.toLowerCase() === me.email.toLowerCase(); })
       .map(function (d) { return { id: d.id, appareil: d.appareil, creeLe: d.creeLe, endpoint: d.endpoint }; }),
@@ -838,6 +839,33 @@ function toFixeMany(ids) {
 }
 
 /** Solde réel du compte au début d'un mois de budget (juste avant la paye) : découvert ou supplément reporté. */
+/**
+ * Recalage sur le solde réel du compte (celui de l'appli bancaire) : soldes de départ recalculés pour plusieurs mois en une fois.
+ * map : { 'AAAA-MM': montant | null (retire) } ; ancre : { date, montant, ecart } (gardée dans l'historique des recalages).
+ */
+function saveSoldesMany(map, ancre) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var all = parsePrefs_(getConfig_('soldes')), n = 0, now = nowIso_();
+    Object.keys(map || {}).forEach(function (m) {
+      if (!/^\d{4}-\d{2}$/.test(m)) return;
+      if (map[m] === null || map[m] === '' || map[m] === undefined) { delete all[m]; n++; return; }
+      if (!isFinite(Number(map[m]))) return;
+      all[m] = { montant: num_(map[m]), le: now, par: me.email, source: 'recalage' }; n++;
+    });
+    setConfig_('soldes', JSON.stringify(all));
+    var hist = [];
+    try { hist = JSON.parse(getConfig_('recalages') || '[]') || []; } catch (e) {}
+    if (ancre && /^\d{4}-\d{2}-\d{2}$/.test(ancre.date || '') && isFinite(Number(ancre.montant))) {
+      hist.push({ date: ancre.date, montant: num_(ancre.montant), ecart: isFinite(Number(ancre.ecart)) ? num_(ancre.ecart) : '', le: now, par: me.email });
+      hist = hist.slice(-24);
+      setConfig_('recalages', JSON.stringify(hist));
+    }
+    log_(me, 'Recalage', 'Solde du compte', (ancre ? 'solde réel ' + fmtEur_(ancre.montant) + ' au ' + ancre.date + (isFinite(Number(ancre.ecart)) ? ' (écart ' + fmtEur_(ancre.ecart) + ')' : '') + ' · ' : '') + n + ' mois recalculé(s)');
+    return { soldes: JSON.stringify(all), recalages: JSON.stringify(hist) };
+  });
+}
+
 function saveSolde(mois, montant) {
   var me = ctx_(ROLES.editeur);
   checkMonth_(mois);
@@ -1286,6 +1314,10 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.7.0', titre: 'Recaler sur le solde réel', items: [
+    'Saisissez à tout moment le solde affiché par votre appli bancaire : les soldes de départ de tous les mois passés sont recalculés à partir de vos mouvements.',
+    'L\'écart entre le solde estimé et le solde réel s\'affiche (frais oubliés, dépense non saisie…) ; le recalage s\'annule d\'un appui.'
+  ] },
   { v: '1.6.0', titre: 'Import calé sur vos payes', items: [
     'Import des relevés : le jour de chaque paye est repéré sur le relevé (même si son montant change), et tout ce qui arrive ensuite (prélèvements, achats de fin de mois) est compté sur le mois qu\'elle finance.',
     'Une paye dont le montant varie complète quand même son mouvement fixe.',
