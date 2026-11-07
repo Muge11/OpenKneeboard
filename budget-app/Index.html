@@ -2074,6 +2074,11 @@ function mvtFilterFn(x) {
 }
 
 function viewMouvements(c) {
+  var undo = LAST_IMPORT ? '<div class="card" style="display:flex;align-items:center;gap:12px"><div class="small" style="flex:1"><b>Relevé importé</b> : ' + LAST_IMPORT.added.length + ' ajouté(s)' +
+    (LAST_IMPORT.nUpd ? ', ' + LAST_IMPORT.nUpd + ' fixe(s) complété(s)' : '') + '. Une erreur ? Corrigez une ligne en la touchant, ou annulez tout.</div><button class="btn ghost sm" data-act="rvUndo">Annuler l\'import</button></div>' : '';
+  return undo + viewMouvements0(c);
+}
+function viewMouvements0(c) {
   var F = { tous: 'Tous', sortie: 'Sorties', entree: 'Entrées', fixes: 'Fixes', ponctuels: 'Ponctuels', apointer: 'À pointer' };
   var h = '<div class="search"><input id="searchMvt" type="search" placeholder="Rechercher : nom, montant, date…" value="' + esc(mvtQuery) + '" data-input="searchMvt" autocomplete="off">' +
     (mvtQuery ? '<button class="clear" data-act="clearSearch" data-v="mvt" aria-label="Effacer">✕</button>' : '') + '</div>';
@@ -2988,7 +2993,7 @@ function rvNum(s) {
   var v = parseFloat(t); return Math.round((neg ? -v : v) * 100) / 100;
 }
 function rvGuessMap(rows) {
-  var map = { hdr: -1, date: -1, lib: -1, amt: -1, debit: -1, credit: -1, solde: -1 };
+  var map = { hdr: -1, date: -1, lib: -1, amt: -1, debit: -1, credit: -1, solde: -1, detail: -1 };
   for (var i = 0; i < Math.min(rows.length, 30); i++) {
     var r = rows[i].map(norm);
     if (r.some(function (c) { return /date/.test(c); }) && r.some(function (c) { return /montant|debit|credit|amount/.test(c); })) { map.hdr = i; break; }
@@ -2999,6 +3004,7 @@ function rvGuessMap(rows) {
     map.date = find(/date/, /valeur/); if (map.date < 0) map.date = find(/date/);
     map.lib = find(/libelle.*simplifi/); if (map.lib < 0) map.lib = find(/libell/); if (map.lib < 0) map.lib = find(/label|description|intitul|detail|nature|operation/, /date|montant/);
     map.amt = find(/montant|amount/); map.debit = find(/debit/); map.credit = find(/credit/); map.solde = find(/solde|balance/);
+    map.detail = find(/^detail/); if (map.detail === map.lib) map.detail = -1;
     if (map.amt >= 0) { map.debit = -1; map.credit = -1; }
   } else {
     var body = rows.slice(0, 40), n = body.reduce(function (a, r) { return Math.max(a, r.length); }, 0), best = -1;
@@ -3018,19 +3024,55 @@ function rvClean(s) {
     .replace(/^(PRLV|PRELEVEMENT|PRÉLÈVEMENT)(\s+SEPA)?\s*/i, '')
     .replace(/^(VIREMENT|VIR)\b(\s+SEPA)?(\s+(RECU|REÇU|EMIS|ÉMIS|INST|INSTANTANE|PERMANENT))?(\s+EN\s+VOTRE\s+FAVEUR)?\s*(DE\s*:?\s*)?/i, '')
     .replace(/^(RETRAIT|RET)\s+(DAB|GAB)\b\s*/i, 'Retrait ')
-    .replace(/\b\d{2}[\/.]\d{2}([\/.]\d{2,4})?\b/g, ' ').replace(/\b[A-Z]*\d[A-Z0-9]{5,}\b/g, ' ').replace(/\s+/g, ' ').trim();
+    .replace(/\b\d{2}[\/.]\d{2}([\/.]\d{2,4})?\b/g, ' ').replace(/\b[A-Z]*\d[A-Z0-9]{5,}\b/g, ' ').replace(/\b\d{5,}\b/g, ' ').replace(/\s+/g, ' ').replace(/[\s\/\-*.,]+$/, '').trim();
   if (caps) t = t.toLowerCase().replace(/(^|[\s'\-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); });
   return (t || String(s || '').trim()).substring(0, 60);
 }
 function rvKey(desc) { return norm(desc).split(/[^a-z0-9]+/).filter(function (w) { return w.length > 1; }).slice(0, 2).join(' '); }
-/** Libellé proposé : d'après vos mouvements déjà saisis, puis les mots-clés usuels. */
+var BANK_KW = {
+  sortie: [
+    [['pret automobile', 'pret auto', 'credit auto'], ['Prêt auto']],
+    [['pret habitat', 'pret immo', 'ech pret', 'echeance pret', 'pret immobilier'], ['Prêt maison']],
+    [['pret personnel', 'consumer finance', 'cofidis', 'sofinco', 'cetelem', 'oney', 'floa', 'paiement 4x', 'paiement en 4'], ['Crédit conso']],
+    [['assurance', 'mutuelle', 'mgen', 'maif', 'macif', 'matmut', 'predica', 'pacifica', 'prevoyance', 'axa', 'allianz', 'groupama', 'generali', 'mutuelle nationale'], ['Assurances', 'Divers']],
+    [['parc gare', 'parking', 'stationnement', 'peage', 'autoroute', 'vinci', 'sanef', 'garage', 'controle technique', 'norauto', 'feu vert', 'midas', 'speedy', 'pneu'], ['Véhicules', 'Carburant']],
+    [['station', 'esso', 'total', 'totalenergies', 'shell', 'avia', 'agip', 'carburant', 'gazole', 'essence'], ['Carburant']],
+    [['leclerc', 'carrefour', 'auchan', 'intermarche', 'lidl', 'aldi', 'super u', 'hyper u', 'monoprix', 'franprix', 'casino', 'spar', 'picard', 'grand frais', 'biocoop', 'boulangerie', 'boucherie', 'primeur', 'netto', 'proxi', 'vival', 'utile', 'marche'], ['Alimentaire']],
+    [['mcdonald', 'mc donald', 'burger', 'kfc', 'quick', 'deliveroo', 'uber eats', 'just eat', 'pizza', 'restaurant', 'brasserie', 'sushi', 'kebab', 'cafe ', 'snack'], ['Resto']],
+    [['edf', 'engie', 'electricite', 'totalenergies elec', 'enercoop'], ['Electricité']],
+    [['eau ', 'veolia', 'saur', 'suez', 'kyrnolia'], ['Eau']],
+    [['dgfip', 'finances publiques', 'direction generale des finances', 'impot', 'tresor public', 'taxe'], ['Impôts']],
+    [['orange', 'sfr', 'bouygues', 'free mobile', 'free telecom', 'sosh', 'red by', 'netflix', 'spotify', 'disney', 'canal', 'deezer', 'youtube', 'google one', 'google you', 'icloud', 'apple com', 'amazon prime', 'anthropic', 'openai', 'offre premium', 'famileo'], ['Abonnements']],
+    [['college', 'lycee', 'ecole', 'cantine', 'scolarite', 'periscolaire', 'garderie'], ['Scolarité']],
+    [['decathlon', 'fnac', 'cultura', 'steam', 'playstation', 'nintendo', 'cinema', 'pathe', 'gaumont', 'piscine'], ['Loisirs']],
+    [['hotel', 'airbnb', 'booking', 'sncf', 'air france', 'corsica ferries', 'easyjet', 'ryanair', 'location'], ['Voyage / Vacances']],
+    [['livret', 'epargne', 'assurance vie'], ['Epargne']],
+    [['pharmacie', 'amazon', 'paypal', 'vinted', 'cdiscount', 'temu', 'shein', 'retrait', 'cheque', 'interets debiteurs', 'frais', 'cotisation carte'], ['Divers']]
+  ],
+  entree: [
+    [['*paye', '*remuneration', '*salaire', 'traitement'], ['Salaires']],
+    [['cpam', 'ameli', 'remboursement soins', 'mutuelle', 'mgen'], ['Remboursements médicaux', 'Remboursements divers']],
+    [['remboursement', 'rembt', 'avoir', 'indemn', 'pacifica', 'assurance', 'retour'], ['Remboursements divers']],
+    [['livret', 'epargne'], ['Retrait épargne']],
+    [['caf ', 'allocation', 'prime'], ['Entrées exceptionnelles']]
+  ]
+};
+/** Libellé proposé : d'après vos mouvements déjà saisis, puis le vocabulaire des banques et les mots-clés usuels. */
 function rvGuessLib(desc, sens) {
   var k = rvKey(desc);
   if (k && RV.learn[k]) {
     var c = RV.learn[k], ids = Object.keys(c).filter(function (id) { return lib(id).sens === sens && lib(id).actif; }).sort(function (a, b) { return c[b] - c[a]; });
     if (ids.length) return ids[0];
   }
-  var n = ' ' + norm(desc).replace(/[^a-z0-9 ]/g, ' ') + ' ', best = null;
+  var n = ' ' + norm(desc).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ', best = null;
+  (BANK_KW[sens] || []).some(function (rule) {
+    if (!rule[0].some(function (w) { return w.charAt(0) === '*' ? n.indexOf(w.slice(1)) >= 0 : n.indexOf(' ' + w) >= 0; })) return false;
+    rule[1].some(function (nm) { best = libsSorted(sens).filter(function (l) { return norm(l.nom) === norm(nm); })[0] || null; return !!best; });
+    // libellé conseillé absent (ex. « Assurances ») : noté pour proposer de le créer
+    if (best && norm(best.nom) !== norm(rule[1][0]) && RV) { RV.want = RV.want || {}; RV._want = rule[1][0]; }
+    return !!best;
+  });
+  if (best) return best.id;
   libsSorted(sens).forEach(function (l) { var ln = norm(l.nom); if (ln.length > 3 && n.indexOf(' ' + ln.replace(/s$/, '')) >= 0 && (!best || ln.length > norm(best.nom).length)) best = l; });
   if (!best) Object.keys(KEYWORDS).some(function (kw) {
     if (!KEYWORDS[kw].some(function (w) { return n.indexOf(' ' + w) >= 0; })) return false;
@@ -3047,9 +3089,107 @@ function rvMoisOf(date, libId) {
   var l = lib(libId);
   return l.moisSuivant && +date.substring(8, 10) >= 15 ? shiftMonth(date.substring(0, 7), 1) : date.substring(0, 7);
 }
-function rvLoad(name, text) {
-  var rows = rvParse(text);
-  RV = { name: name, rows: rows, map: rvGuessMap(rows), invert: false, lines: [], manual: {}, soldes: {}, soldesOn: {} };
+/* Lecture d'un relevé bancaire PDF (texte positionné de pdf.js) → opérations. Même code que dans l'appli. */
+function pdfStatement(pages) {
+  // pages : [{ items: [{ str, x, y, w }] }] (y vers le bas)
+  var MONTHS = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
+  var nrm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  var num = function (s) { var t = String(s).replace(/[\s ]/g, ''); return /^-?\d+,\d{2}$/.test(t) ? parseFloat(t.replace(',', '.')) : null; };
+  var all = pages.map(function (p) { return p.items.map(function (i) { return i.str; }).join(' '); }).join(' ');
+  // Année : date d'arrêté, sinon une date complète du relevé
+  var end = null, m = nrm(all).match(/arrete\s*:?\s*(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if (m && MONTHS[m[2]]) end = { y: +m[3], m: MONTHS[m[2]] };
+  if (!end) { m = all.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/); if (m) end = { y: +m[3], m: +m[2] }; }
+  var ops = [], ancien = null, nouveau = null, cur = null, cols = null;
+  pages.forEach(function (pg) {
+    // lignes : regroupement par ordonnée
+    var its = pg.items.filter(function (i) { return i.str.trim(); }).sort(function (a, b) { return a.y - b.y || a.x - b.x; }), lines = [];
+    its.forEach(function (i) { var L = lines[lines.length - 1]; if (L && Math.abs(L.y - i.y) <= 2.5) L.items.push(i); else lines.push({ y: i.y, items: [i] }); });
+    lines.forEach(function (L) {
+      L.items.sort(function (a, b) { return a.x - b.x; });
+      var txt = L.items.map(function (i) { return i.str; }).join(' ').replace(/\s+/g, ' ').trim(), n = nrm(txt);
+      // en-tête du tableau : positions des colonnes Débit / Crédit
+      var deb = L.items.filter(function (i) { return /^d[ée]bit/i.test(i.str.trim()); })[0], cre = L.items.filter(function (i) { return /^cr[ée]dit/i.test(i.str.trim()); })[0];
+      if (deb && cre && /date|libell/.test(n)) { cols = { deb: deb.x + deb.w, cre: cre.x + cre.w, lib: (L.items.filter(function (i) { return /libell/i.test(i.str); })[0] || { x: 0 }).x - 4 }; cur = null; return; }
+      if (!cols) return;
+      // la case à cocher du relevé (colonne de droite) est ignorée
+      L.items = L.items.filter(function (i) { return i.x <= cols.cre + 4 && !/^[^\w€*]$/.test(i.str.trim()); });
+      if (!L.items.length) return;
+      txt = L.items.map(function (i) { return i.str; }).join(' ').replace(/\s+/g, ' ').trim(); n = nrm(txt);
+      var amts = L.items.filter(function (i) { return num(i.str) !== null && i.x > cols.lib + 60; });
+      var side = function (i) { var r = i.x + i.w; return Math.abs(r - cols.deb) < Math.abs(r - cols.cre) ? 'D' : 'C'; };
+      if (/ancien solde/.test(n) || /nouveau solde/.test(n)) {
+        if (amts.length) { var v = num(amts[amts.length - 1].str) * (/debiteur/.test(n) || side(amts[amts.length - 1]) === 'D' ? -1 : 1); if (/ancien/.test(n)) ancien = v; else nouveau = v; }
+        var dm = txt.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/); if (dm && /ancien/.test(n)) ancien = { v: ancien, date: dm[3] + '-' + dm[2] + '-' + dm[1] };
+        cur = null; return;
+      }
+      if (/^total des operations|^page \d|^releve de comptes|^date d.arrete/.test(n)) { cur = null; return; }
+      var first = L.items[0], dmatch = first && first.x < cols.lib && first.str.trim().match(/^(\d{2})[.\/](\d{2})(?:[.\/](\d{2,4}))?$/);
+      var label = L.items.filter(function (i) { return i.x >= cols.lib && amts.indexOf(i) < 0; }).map(function (i) { return i.str; }).join(' ').replace(/\s+/g, ' ').trim();
+      if (dmatch) {
+        var mo = +dmatch[2], y = dmatch[3] ? (dmatch[3].length === 2 ? 2000 + +dmatch[3] : +dmatch[3]) : (end ? (mo > end.m + 1 ? end.y - 1 : end.y) : new Date().getFullYear());
+        cur = { date: y + '-' + dmatch[2] + '-' + dmatch[1], label: label.replace(/^\*+\s*/, ''), more: [], debit: null, credit: null };
+        ops.push(cur);
+      } else if (cur && label && L.y - cur.lastY < 30) cur.more.push(label);
+      if (cur) {
+        amts.forEach(function (a) { if (side(a) === 'D') cur.debit = num(a.str); else cur.credit = num(a.str); });
+        cur.lastY = L.y;
+      }
+    });
+    cur = null;
+  });
+  return { ops: ops.filter(function (o) { return o.debit !== null || o.credit !== null; }), ancien: ancien, nouveau: nouveau, end: end };
+}
+
+var PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+var _pdfjs = null;
+/** Charge pdf.js à la demande (seulement si un relevé PDF est choisi). */
+function loadPdfJs() {
+  if (_pdfjs) return _pdfjs;
+  _pdfjs = new Promise(function (res, rej) {
+    var sc = document.createElement('script'); sc.src = PDFJS_URL + 'pdf.min.js';
+    sc.onload = function () {
+      var lib = window.pdfjsLib; if (!lib) return rej(new Error('pdf.js indisponible'));
+      // Le moteur de lecture tourne dans un « worker » ; à défaut, pdf.js lit dans la page.
+      fetch(PDFJS_URL + 'pdf.worker.min.js').then(function (r) { return r.blob(); })
+        .then(function (b) { lib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([b], { type: 'text/javascript' })); }, function () { lib.GlobalWorkerOptions.workerSrc = PDFJS_URL + 'pdf.worker.min.js'; })
+        .then(function () { res(lib); });
+    };
+    sc.onerror = function () { _pdfjs = null; rej(new Error('Lecture des PDF indisponible (connexion ?)')); };
+    document.head.appendChild(sc);
+  });
+  return _pdfjs;
+}
+/** Relevé PDF → lignes de tableau (Date, Libellé, Débit, Crédit, Solde, Détail) + contrôle des totaux. */
+function rvPdf(buf) {
+  return loadPdfJs().then(function (lib) { return lib.getDocument({ data: new Uint8Array(buf) }).promise; }).then(function (doc) {
+    var pages = [], k = 1;
+    var next = function () {
+      if (k > doc.numPages) return Promise.resolve();
+      return doc.getPage(k++).then(function (pg) {
+        var vp = pg.getViewport({ scale: 1 });
+        return pg.getTextContent().then(function (tc) {
+          pages.push({ items: tc.items.map(function (it) { return { str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width }; }) });
+        });
+      }).then(next);
+    };
+    return next().then(function () { return pdfStatement(pages); });
+  }).then(function (st) {
+    if (!st.ops.length) throw new Error('Aucune opération trouvée dans ce PDF');
+    var bal = st.ancien && isFinite(st.ancien.v) ? st.ancien.v : null, deb = 0, cre = 0;
+    var rows = [['Date', 'Libellé', 'Débit', 'Crédit', 'Solde', 'Détail']];
+    st.ops.forEach(function (o) {
+      deb += o.debit || 0; cre += o.credit || 0;
+      if (bal !== null) bal = Math.round((bal + (o.credit || 0) - (o.debit || 0)) * 100) / 100;
+      rows.push([o.date, o.label, o.debit !== null ? String(o.debit).replace('.', ',') : '', o.credit !== null ? String(o.credit).replace('.', ',') : '', bal !== null ? String(bal).replace('.', ',') : '', o.more.join(' ')]);
+    });
+    var check = st.ancien && st.nouveau !== null ? Math.abs(st.ancien.v + cre - deb - st.nouveau) < 0.005 : null;
+    return { rows: rows, check: check, ancien: st.ancien, nouveau: st.nouveau, n: st.ops.length };
+  });
+}
+function rvLoad(name, text) { rvLoadRows(name, rvParse(text), {}); }
+function rvLoadRows(name, rows, extra) {
+  RV = { name: name, rows: rows, map: rvGuessMap(rows), invert: false, lines: [], manual: {}, soldes: {}, soldesOn: {}, step: 'list', open: {}, pdf: extra.pdf || null };
   RV.learn = {};
   D.mouvements.forEach(function (x) { if (x.statut === 'annule') return; var k = rvKey(x.description); if (!k) return; var c = RV.learn[k] || (RV.learn[k] = {}); c[x.libelleId] = (c[x.libelleId] || 0) + 1; });
   rvBuild();
@@ -3062,10 +3202,16 @@ function rvBuild() {
     var v = M.amt >= 0 ? rvNum(r[M.amt]) : (function () { var d = rvNum(r[M.debit]), c = rvNum(r[M.credit]); if (d === null && c === null) return null; return (c ? Math.abs(c) : 0) - (d ? Math.abs(d) : 0); })();
     if (!date || v === null || v === 0) { if (i > M.hdr + 0) bad++; return; }
     if (RV.invert) v = -v;
-    var raw = M.lib >= 0 ? r[M.lib] : '', desc = rvClean(raw), sens = v > 0 ? 'entree' : 'sortie';
+    var raw = M.lib >= 0 ? r[M.lib] : '', det = M.detail >= 0 ? r[M.detail] || '' : '', desc = rvClean(raw), sens = v > 0 ? 'entree' : 'sortie';
+    if (det && desc.split(' ').length <= 3) {
+      var dw = det.replace(/(\d)([A-Za-zÀ-ÿ])/g, '$1 $2').replace(/([a-zà-ÿ])([A-Z])/g, '$1 $2').replace(/[\-*:\/()]/g, ' ').split(/\s+/).filter(function (x) { return x.length > 2 && !/\d/.test(x) && !/^(sepa|core|prlvt|prel|ref|refclient|facture|echeance|échéance|periode|période|du|de|la|le|les|des|votre|n|cotisation|contrat)$/i.test(x); }).slice(0, 4).join(' ');
+      if (dw.length >= 6 && norm(desc).indexOf(norm(dw.split(' ')[0])) < 0) desc = (desc + ' · ' + (dw === dw.toUpperCase() ? dw.toLowerCase().replace(/(^|\s)(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }) : dw)).substring(0, 60);
+    }
     var L = { i: out.length, row: i, date: date, raw: raw, description: desc, montant: Math.abs(v), signed: v, sens: sens, solde: M.solde >= 0 ? rvNum(r[M.solde]) : null, on: true };
     L.key = rvKey(desc);
-    L.libelleId = RV.manual[L.key + '|' + sens] || rvGuessLib(raw + ' ' + desc, sens);
+    L.detail = det; RV._want = '';
+    L.libelleId = RV.manual[L.key + '|' + sens] || rvGuessLib(raw + ' ' + desc + ' ' + det, sens);
+    L.want = RV.manual[L.key + '|' + sens] ? '' : RV._want;
     L.mois = rvMoisOf(date, L.libelleId);
     out.push(L);
   });
@@ -3077,19 +3223,37 @@ function rvBuild() {
   rvMatch();
   rvSoldes();
 }
-/** Fixes à compléter et doublons déjà saisis. */
+/**
+ * Fixes à compléter et doublons déjà saisis.
+ * Une ligne complète un fixe si le montant est proche ET (montant identique, même libellé, ou nom du fixe présent dans le libellé de la banque) ;
+ * chaque fixe va à la ligne qui lui ressemble le plus.
+ */
 function rvMatch() {
-  var used = {}, dd = function (a, b) { return Math.abs(dOf(a) - dOf(b)) / 864e5; };
+  var dd = function (a, b) { return Math.abs(dOf(a) - dOf(b)) / 864e5; }, words = function (t) { return norm(t).split(/[^a-z0-9]+/).filter(function (w) { return w.length > 2; }); };
+  var occs = D.mouvements.filter(function (x) { return x.recurrentId && x.statut !== 'annule' && !x.pointe; }), pairs = [];
   RV.lines.forEach(function (L) {
     L.majId = ''; L.dup = false;
-    var occ = D.mouvements.filter(function (x) {
-      if (!x.recurrentId || x.statut === 'annule' || x.pointe || used[x.id] || lib(x.libelleId).sens !== L.sens) return false;
-      var ref = +x.prevu || +x.montant;
-      return (x.mois === L.mois || dd(x.date, L.date) <= 7) && Math.abs(ref - L.montant) <= Math.max(1, ref * 0.05);
-    }).sort(function (a, b) { return dd(a.date, L.date) - dd(b.date, L.date); })[0];
-    if (occ) { L.majId = occ.id; used[occ.id] = true; L.libelleId = occ.libelleId; L.mois = occ.mois; return; }
+    var hay = ' ' + norm(L.raw + ' ' + L.description + ' ' + (L.detail || '')).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    occs.forEach(function (x) {
+      var l = lib(x.libelleId); if (l.sens !== L.sens) return;
+      var ref = +x.prevu || +x.montant, near = Math.abs(ref - L.montant) <= Math.max(1, ref * 0.05), when = x.mois === L.mois || dd(x.date, L.date) <= 7;
+      if (!near || !when) return;
+      var exact = Math.round(ref * 100) === Math.round(L.montant * 100), same = x.libelleId === L.libelleId;
+      var named = words(x.description).some(function (w) { return hay.indexOf(' ' + w) >= 0; });
+      if (!exact && !same && !named) return;
+      pairs.push({ L: L, x: x, sc: (exact ? 3 : 0) + (same ? 3 : 0) + (named ? 2 : 0) + (dd(x.date, L.date) <= 2 ? 1 : dd(x.date, L.date) <= 7 ? 0.5 : 0) - Math.abs(ref - L.montant) / Math.max(1, ref) });
+    });
+  });
+  var usedL = {}, usedX = {};
+  pairs.sort(function (a, b) { return b.sc - a.sc; }).forEach(function (pr) {
+    if (usedL[pr.L.i] || usedX[pr.x.id]) return;
+    usedL[pr.L.i] = usedX[pr.x.id] = true;
+    pr.L.majId = pr.x.id; pr.L.libelleId = pr.x.libelleId; pr.L.mois = pr.x.mois;
+  });
+  RV.lines.forEach(function (L) {
+    if (L.majId) return;
     var cents = Math.round(L.montant * 100);
-    L.dup = D.mouvements.some(function (x) { return x.statut !== 'annule' && Math.round(+x.montant * 100) === cents && lib(x.libelleId).sens === L.sens && dd(x.date, L.date) <= 2; });
+    L.dup = D.mouvements.some(function (x) { return x.statut !== 'annule' && Math.round(+x.montant * 100) === cents && lib(x.libelleId).sens === L.sens && dd(x.date, L.date) <= 2 && (!x.recurrentId || x.pointe); });
     if (L.dup) L.on = false;
   });
 }
@@ -3100,7 +3264,8 @@ function rvSoldes() {
   if (ls.length < 2 || ls.every(function (L) { return L.solde === ls[0].solde; })) return;
   var months = {}; RV.lines.forEach(function (L) { months[L.mois] = true; });
   Object.keys(months).sort().forEach(function (m) {
-    var ref = soldeRefDate(m), first = ls.filter(function (L) { return L.date >= ref; })[0];
+    var pay = RV.lines.filter(function (L) { var l = lib(L.libelleId); return L.mois === m && L.sens === 'entree' && l.moisSuivant && L.date < m + '-01'; }).map(function (L) { return L.date; }).sort()[0];
+    var ref = payDate(m) || pay || soldeRefDate(m), first = ls.filter(function (L) { return L.date >= ref; })[0];
     if (!first || first.date > ymd(new Date(dOf(ref).getTime() + 5 * 864e5))) return;
     RV.soldes[m] = Math.round((first.solde - first.signed) * 100) / 100;
     if (RV.soldesOn[m] === undefined) RV.soldesOn[m] = soldeOf(m) === null;
@@ -3115,10 +3280,13 @@ function rvSetLib(i, id) {
 }
 function releveView() {
   var h = backbar('Importer un relevé');
-  h += '<div class="card"><h2>Fichier de la banque</h2><div class="small t2" style="margin-bottom:12px">Sur le site de votre banque, exportez l\'historique du compte au format <b>CSV</b> ' +
-    '(ou « Excel / tableur »), puis choisissez le fichier ici. Rien n\'est enregistré avant votre validation.</div>' +
-    '<label class="btn block filebtn">' + (RV ? 'Choisir un autre fichier' : 'Choisir le fichier CSV') + '<input type="file" id="csvFile" accept=".csv,text/csv,text/plain,.txt"></label>' +
-    (RV ? '<div class="xs muted" style="margin-top:8px;text-align:center">' + esc(RV.name) + ' · ' + RV.rows.length + ' lignes lues</div>' : '') + '</div>';
+  if (RV && RV.step === 'review') return rvReview();
+  h += '<div class="card"><h2>Relevé de la banque</h2><div class="small t2" style="margin-bottom:12px">Choisissez un <b>relevé PDF</b> (celui que la banque envoie chaque mois) ' +
+    'ou un export <b>CSV</b> de l\'historique. Le fichier est lu sur cet appareil ; rien n\'est enregistré avant votre validation.</div>' +
+    '<label class="btn block filebtn">' + (RV ? 'Choisir un autre relevé' : 'Choisir le relevé (PDF ou CSV)') + '<input type="file" id="csvFile" accept=".pdf,application/pdf,.csv,text/csv,text/plain,.txt"></label>' +
+    (RV ? '<div class="xs muted" style="margin-top:8px;text-align:center">' + esc(RV.name.length > 34 ? RV.name.slice(0, 16) + '…' + RV.name.slice(-14) : RV.name) + ' · ' + (RV.pdf ? RV.pdf.n + ' opérations lues' : RV.rows.length + ' lignes lues') + '</div>' : '') +
+    (RV && RV.pdf && RV.pdf.check !== null ? '<div class="xs" style="margin-top:6px;text-align:center;font-weight:700" class="' + (RV.pdf.check ? 'pos' : 'neg') + '">' +
+      (RV.pdf.check ? '<span class="pos">✓ Totaux conformes au relevé (ancien solde + opérations = nouveau solde)</span>' : '<span class="neg">⚠ Les totaux ne correspondent pas au relevé : vérifiez les lignes</span>') + '</div>' : '') + '</div>';
   if (!RV) return h;
   var M = RV.map, cols = (M.hdr >= 0 ? RV.rows[M.hdr] : RV.rows[0].map(function (_, j) { return 'Colonne ' + (j + 1); })).map(function (c, j) { return [j, c || 'Colonne ' + (j + 1)]; });
   var sel = function (k, label, opt) {
@@ -3135,6 +3303,13 @@ function releveView() {
     '<div><b class="num">' + add + '</b><span>à ajouter</span></div><div><b class="num">' + maj + '</b><span>fixes complétés</span></div><div><b class="num">' + dups + '</b><span>déjà saisis</span></div></div>' +
     '<div class="xs muted" style="margin-top:8px">Libellés proposés d\'après vos saisies et les mots-clés ; changer celui d\'une ligne change aussi les lignes du même commerce. Les mouvements importés sont marqués « pointés ».' +
     (RV.bad ? ' ' + RV.bad + ' ligne(s) sans date ou montant ignorée(s).' : '') + '</div></div>';
+  var wants = {}; RV.lines.forEach(function (L) { if (L.want && !L.pinned && !L.majId) wants[L.want + '|' + L.sens] = (wants[L.want + '|' + L.sens] || 0) + 1; });
+  Object.keys(wants).forEach(function (k) {
+    var nm = k.split('|')[0];
+    h += '<div class="card" style="display:flex;align-items:center;gap:12px"><div class="small" style="flex:1"><b>' + wants[k] + ' ligne' + (wants[k] > 1 ? 's' : '') + '</b> ressemblent à « ' + esc(nm) + ' », un libellé que vous n\'avez pas encore. ' +
+      'Elles sont classées en « ' + esc(lib(RV.lines.filter(function (L) { return L.want === nm; })[0].libelleId).nom) + ' ».</div>' +
+      (canEdit() ? '<button class="btn sm" data-act="rvMkLib" data-n="' + esc(nm) + '" data-s="' + k.split('|')[1] + '">Créer « ' + esc(nm) + ' »</button>' : '') + '</div>';
+  });
   var sm = Object.keys(RV.soldes);
   if (sm.length) h += fold('rv:soldes', 'Soldes de début de mois', '<span class="tag">' + sm.length + '</span>', sm.map(function (m) {
     return '<label class="opt sw"><span>' + esc(monthName(m)) + ' · <b class="num ' + (RV.soldes[m] < 0 ? 'neg' : '') + '">' + eur(RV.soldes[m]) + '</b>' + (soldeOf(m) !== null ? '<br><span class="xs muted">déjà renseigné : ' + eur(soldeOf(m)) + '</span>' : '') + '</span>' +
@@ -3148,25 +3323,78 @@ function releveView() {
     h += fold('rv:m:' + m, esc(monthName(m)), '<span class="num small">' + (tE ? '<span class="pos">+' + eur0(tE) + '</span> · ' : '') + '−' + eur0(tS) + '</span>', ls.slice().reverse().map(function (L) {
       var l = lib(L.libelleId), occ = L.majId ? byId(D.mouvements, L.majId) : null;
       return '<div class="rvl' + (L.on ? '' : ' off') + '"><input type="checkbox" class="tg" data-act="rvTog" data-i="' + L.i + '"' + (L.on ? ' checked' : '') + '>' +
-        '<div class="main"><div class="title" title="' + esc(L.raw) + '">' + esc(L.description) + '</div><div class="meta"><span>' + esc(L.date.substring(8, 10) + '/' + L.date.substring(5, 7)) + '</span>' +
+        '<div class="main"><div class="title" data-act="rvEdit" data-i="' + L.i + '" title="' + esc(L.raw) + '">' + esc(L.description) + ' <span class="muted">✎</span></div><div class="meta"><span>' + esc(L.date.substring(8, 10) + '/' + L.date.substring(5, 7)) + '</span>' +
         (occ ? '<span class="tag acc">↻ complète « ' + esc(occ.description || lib(occ.libelleId).nom) + ' »</span>' : '<select data-input="rvLib" data-i="' + L.i + '" aria-label="Libellé">' + opts(L.sens, L.libelleId) + '</select>') +
         (L.dup ? '<span class="tag warn">déjà saisi ?</span>' : '') + '</div></div>' +
-        '<div class="amt num ' + (L.sens === 'entree' ? 'pos' : '') + '">' + (L.sens === 'entree' ? '+' : '−') + eur(L.montant) + '</div></div>';
+        '<div class="amt num ' + (L.sens === 'entree' ? 'pos' : '') + '" data-act="rvEdit" data-i="' + L.i + '">' + (L.sens === 'entree' ? '+' : '−') + eur(L.montant) + '</div></div>';
     }).join(''), k === 0);
   });
-  h += '<button class="btn block" data-act="rvImport"' + (on.length ? '' : ' disabled') + '>Importer ' + on.length + ' mouvement' + (on.length > 1 ? 's' : '') + '</button>';
+  h += '<button class="btn block" data-act="rvStep" data-v="review"' + (on.length ? '' : ' disabled') + '>Vérifier avant d\'importer (' + on.length + ')</button>';
   return h;
 }
+/** Étape de vérification : ce qui va être rempli, mois par mois et libellé par libellé ; tout reste modifiable. */
+function rvReview() {
+  var on = RV.lines.filter(function (L) { return L.on; }), h = backbar('Vérifier l\'import');
+  var byM = {}; on.forEach(function (L) { (byM[L.mois] = byM[L.mois] || []).push(L); });
+  var maj = on.filter(function (L) { return L.majId; }).length;
+  h += '<div class="card"><div class="small t2">Voici ce qui sera rempli. Touchez un libellé pour voir ses lignes, puis une ligne pour la corriger. ' +
+    'Rien n\'est enregistré avant « Valider l\'import ».</div><div class="rvsum" style="margin-top:12px"><div><b class="num">' + (on.length - maj) + '</b><span>mouvements ajoutés</span></div>' +
+    '<div><b class="num">' + maj + '</b><span>fixes complétés</span></div><div><b class="num">' + Object.keys(byM).length + '</b><span>mois</span></div></div></div>';
+  Object.keys(byM).sort().reverse().forEach(function (m) {
+    var ls = byM[m], tE = 0, tS = 0, per = {};
+    ls.forEach(function (L) { if (L.sens === 'entree') tE += L.montant; else tS += L.montant; var g = per[L.libelleId] || (per[L.libelleId] = { n: 0, t: 0, ls: [] }); g.n++; g.t += L.montant; g.ls.push(L); });
+    var so = RV.soldesOn[m] && RV.soldes[m] !== undefined ? RV.soldes[m] : null;
+    h += '<div class="card"><div class="sec-head"><h2>' + esc(monthName(m)) + '</h2><span class="num small"><span class="pos">+' + eur0(tE) + '</span> · −' + eur0(tS) + '</span></div>' +
+      (so !== null ? '<div class="xs" style="margin:-4px 0 8px">Solde de départ : <b class="num ' + (so < 0 ? 'neg' : '') + '">' + eur(so) + '</b></div>' : '');
+    Object.keys(per).sort(function (a, b) { var A = lib(a), B = lib(b); return A.sens === B.sens ? per[b].t - per[a].t : (A.sens === 'entree' ? -1 : 1); }).forEach(function (id) {
+      var g = per[id], l = lib(id), k = m + '|' + id, open = !!RV.open[k];
+      h += '<div class="item" data-act="rvGrp" data-k="' + esc(k) + '" style="min-height:48px">' + emo(l) + '<div class="main"><div class="title">' + esc(l.nom) + '</div><div class="meta">' + g.n + ' ligne' + (g.n > 1 ? 's' : '') +
+        (g.ls.some(function (L) { return L.majId; }) ? ' · ↻ fixe' : '') + '</div></div><div class="amt num ' + (l.sens === 'entree' ? 'pos' : '') + '">' + (l.sens === 'entree' ? '+' : '−') + eur(g.t) + '</div>' + chev() + '</div>';
+      if (open) h += '<div style="padding:0 0 8px 56px">' + g.ls.map(function (L) {
+        return '<div class="rvl" data-act="rvEdit" data-i="' + L.i + '" style="cursor:pointer"><div class="main"><div class="title">' + esc(L.description) + ' <span class="muted">✎</span></div>' +
+          '<div class="meta">' + esc(L.date.substring(8, 10) + '/' + L.date.substring(5, 7)) + (L.majId ? ' · complète un fixe' : '') + '</div></div><div class="amt num">' + eur(L.montant) + '</div></div>';
+      }).join('') + '</div>';
+    });
+    h += '</div>';
+  });
+  h += '<div class="actions"><button class="btn ghost" data-act="rvStep" data-v="list">‹ Modifier</button><button class="btn" data-act="rvImport">Valider l\'import (' + on.length + ')</button></div>';
+  return h;
+}
+/** Fiche d'une ligne du relevé : tout est modifiable avant l'import. */
+function rvEdit(i) {
+  var L = RV.lines[i]; if (!L) return;
+  form = { kind: 'rv', i: i, sens: L.sens };
+  var occ = L.majId ? byId(D.mouvements, L.majId) : null, dm = L.date.substring(0, 7);
+  var ms = [shiftMonth(dm, -1), dm, shiftMonth(dm, 1)]; if (ms.indexOf(L.mois) < 0) ms.push(L.mois);
+  var h = '<h3>Ligne du relevé</h3>' + (L.raw ? '<div class="info" style="font-size:12px">' + esc(L.raw) + (L.detail ? '<br><span class="muted">' + esc(L.detail) + '</span>' : '') + '</div>' : '') +
+    '<div class="seg"><button data-act="rvESens" data-v="sortie" class="s ' + (L.sens === 'sortie' ? 'on' : '') + '">− Sortie</button><button data-act="rvESens" data-v="entree" class="e ' + (L.sens === 'entree' ? 'on' : '') + '">+ Entrée</button></div>' +
+    '<div class="field"><input id="e_amt" class="amount" inputmode="decimal" value="' + amtInput(L.montant) + '"></div>' +
+    '<div class="field"><label>Description</label><input id="e_desc" value="' + esc(L.description) + '"></div>' +
+    '<div class="row2"><div class="field"><label>Date</label><input id="e_date" type="date" value="' + L.date + '"></div>' +
+    '<div class="field"><label>Mois de budget</label><select id="e_mois">' + ms.map(function (m) { return '<option value="' + m + '"' + (m === L.mois ? ' selected' : '') + '>' + esc(monthName(m)) + '</option>'; }).join('') + '</select></div></div>';
+  if (occ) h += '<div class="info">↻ Complète le fixe <b>' + esc(occ.description || lib(occ.libelleId).nom) + '</b> (' + esc(monthName(occ.mois)) + ', prévu ' + eur(+occ.prevu || +occ.montant) + ').' +
+    '<br><button class="link" data-act="rvDetach">Ne pas le rattacher : créer un mouvement à part</button></div>';
+  else h += '<div class="field"><label>Libellé</label><select id="e_lib">' + libsSorted(L.sens).map(function (l) { return '<option value="' + l.id + '"' + (l.id === L.libelleId ? ' selected' : '') + '>' + esc(icon(l) + ' ' + l.nom) + '</option>'; }).join('') + '</select></div>';
+  h += '<label class="opt sw"><span>Importer cette ligne</span><input type="checkbox" class="tg" id="e_on"' + (L.on ? ' checked' : '') + '></label>' +
+    '<div class="actions"><button class="btn ghost" data-act="close">Annuler</button><button class="btn" data-act="rvESave">OK</button></div>';
+  openSheet(h);
+}
+var LAST_IMPORT = null;
 function rvRead(file) {
   if (!file) return;
   if (file.size > 5e6) { toast('Fichier trop volumineux (5 Mo au plus)', true); return; }
   var fr = new FileReader();
   fr.onload = function () {
-    var buf = fr.result, text;
+    var buf = fr.result, text, head = new Uint8Array(buf.slice(0, 5));
+    var done = function () { render(); toast(RV.lines.length ? RV.lines.length + ' opérations reconnues' : 'Aucune opération reconnue', !RV.lines.length); };
+    if (String.fromCharCode.apply(null, head) === '%PDF-') {
+      toast('Lecture du relevé PDF…');
+      rvPdf(buf).then(function (r) { rvLoadRows(file.name, r.rows, { pdf: r }); done(); }, function (e) { toast((e && e.message) || 'PDF illisible', true); });
+      return;
+    }
     try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
-    rvLoad(file.name, text.replace(/^﻿/, ''));
-    render();
-    toast(RV.lines.length ? RV.lines.length + ' opérations reconnues' : 'Aucune opération reconnue', !RV.lines.length);
+    rvLoad(file.name, text.replace(/^\uFEFF/, ''));
+    done();
   };
   fr.readAsArrayBuffer(file);
 }
@@ -3967,12 +4195,53 @@ var ACT = {
   setStyle: function (d) { setPref('style', d.v); render(); },
   rvTog: function (d, el) { var L = RV && RV.lines[+d.i]; if (!L) return; L.on = el.checked; render(); },
   rvSolde: function (d, el) { RV.soldesOn[d.m] = el.checked; },
+  rvStep: function (d) { RV.step = d.v; render(); window.scrollTo(0, 0); },
+  rvMkLib: function (d) {
+    var EM = { 'Assurances': ['🛡️', 'besoin', 'Charges fixes & crédits'] }, e = EM[d.n] || ['•', 'besoin', 'Vie courante'];
+    write('saveLibelle', { nom: d.n, sens: d.s, groupe: d.s === 'entree' ? 'Entrées' : e[2], emoji: e[0], type: d.s === 'entree' ? 'revenu' : e[1] }).then(function (l) {
+      upsertLocal(D.libelles, l);
+      RV.lines.forEach(function (L) { if (L.want === d.n && L.sens === d.s && !L.pinned && !L.majId) { L.libelleId = l.id; L.want = ''; L.mois = rvMoisOf(L.date, l.id); } });
+      render(); toast('Libellé « ' + d.n + ' » créé');
+    });
+  },
+  rvGrp: function (d) { RV.open[d.k] = !RV.open[d.k]; render(); },
+  rvEdit: function (d) { rvEdit(+d.i); },
+  rvESens: function (d) {
+    form.sens = d.v;
+    Array.prototype.forEach.call(document.querySelectorAll('.sheet .seg button'), function (b) { b.classList.toggle('on', b.dataset.v === d.v); });
+    var sel = document.getElementById('e_lib'), L = RV.lines[form.i];
+    if (sel) sel.innerHTML = libsSorted(d.v).map(function (l) { return '<option value="' + l.id + '">' + esc(icon(l) + ' ' + l.nom) + '</option>'; }).join('');
+    if (sel && L) sel.value = rvGuessLib(L.raw + ' ' + L.description + ' ' + (L.detail || ''), d.v);
+  },
+  rvDetach: function () { var L = RV.lines[form.i]; L.majId = ''; rvEdit(form.i); },
+  rvESave: function () {
+    var L = RV.lines[form.i], v = parseAmount(val('e_amt'));
+    if (!v || v <= 0) { toast('Montant manquant', true); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(val('e_date'))) { toast('Date invalide', true); return; }
+    L.montant = Math.abs(v); L.sens = form.sens; L.signed = L.sens === 'entree' ? L.montant : -L.montant;
+    L.description = val('e_desc').trim() || L.description; L.date = val('e_date'); L.mois = val('e_mois') || L.mois;
+    if (!L.majId && val('e_lib')) L.libelleId = val('e_lib');
+    L.on = checked('e_on'); L.pinned = true; L.dup = false;
+    closeSheet(); render();
+  },
+  rvUndo: function () {
+    if (!LAST_IMPORT || !confirm('Annuler l\'import du relevé ? Les ' + LAST_IMPORT.added.length + ' mouvements ajoutés seront supprimés et les fixes complétés remis comme avant.')) return;
+    var li = LAST_IMPORT;
+    write('undoImport', li.added, li.originals, li.soldes).then(function (r) {
+      D.mouvements = D.mouvements.filter(function (x) { return li.added.indexOf(x.id) < 0; });
+      li.originals.forEach(function (o) { upsertLocal(D.mouvements, o); });
+      if (r && r.soldes !== undefined) D.soldes = r.soldes;
+      LAST_IMPORT = null; resetCalc(); render(); toast('Import annulé');
+    });
+  },
   rvImport: function () {
     var ls = RV.lines.filter(function (L) { return L.on; }).map(function (L) { return { date: L.date, mois: L.mois, libelleId: L.libelleId, description: L.description, montant: L.montant, majId: L.majId }; });
+    var originals = RV.lines.filter(function (L) { return L.on && L.majId; }).map(function (L) { return JSON.parse(JSON.stringify(byId(D.mouvements, L.majId) || {})); }).filter(function (o) { return o.id; });
     var so = {}; Object.keys(RV.soldes).forEach(function (m) { if (RV.soldesOn[m]) so[m] = RV.soldes[m]; });
     if (!ls.length) return;
     var b = document.querySelector('[data-act=rvImport]'); if (b) { b.disabled = true; b.textContent = 'Import en cours…'; }
     write('importReleve', ls, so).then(function (r) {
+      LAST_IMPORT = { added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length };
       r.added.forEach(function (x) { D.mouvements.push(x); });
       r.updated.forEach(function (x) { upsertLocal(D.mouvements, x); });
       if (r.soldes !== undefined) D.soldes = r.soldes;

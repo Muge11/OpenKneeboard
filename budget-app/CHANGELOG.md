@@ -16,6 +16,19 @@ Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-têt
   (« CB », « PRLV SEPA », « VIREMENT EN VOTRE FAVEUR »…), libellé proposé d'après vos saisies puis par mots-clés,
   correction appliquée à tout le même commerce, salaires de fin de mois comptés le mois suivant, occurrences de fixes
   complétées et pointées, doublons repérés (ré-import sans effet), mouvements importés pointés ; serveur `importReleve`.
+- **Relevés PDF** (format des relevés mensuels, ex. Crédit Agricole) : lus sur l'appareil avec pdf.js (chargé à la demande
+  depuis cdnjs), colonnes Date / Libellé / Débit / Crédit repérées par position, lignes de détail rattachées,
+  année déduite de la date d'arrêté, solde courant recalculé depuis l'« ancien solde » ; **contrôle** : ancien solde +
+  opérations = nouveau solde (affiché ✓ ou ⚠).
+- **Vérifier avant d'importer** : écran récapitulatif mois par mois et libellé par libellé (ce qui sera rempli, fixes
+  complétés, soldes de départ) ; chaque ligne s'ouvre et se corrige (montant, sens, description, date, mois de budget,
+  libellé, rattachement au fixe, inclusion). Après l'import : bandeau « Annuler l'import » (serveur `undoImport` :
+  supprime les mouvements ajoutés, rétablit les fixes complétés et les soldes ajoutés).
+- **Classement des opérations bancaires** : vocabulaire des banques (prêts, assurances et mutuelles, payes,
+  parkings et péages, enseignes, abonnements, impôts…) ; proposition de créer un libellé manquant (ex. « Assurances »)
+  et d'y reclasser les lignes ; descriptions complétées par le détail pour les prélèvements génériques ;
+  rattachement aux fixes strict (montant identique, même libellé ou nom du fixe dans le libellé bancaire) ;
+  deux opérations identiques d'un même relevé sont conservées.
 - **Solde réel en début de mois** (juste avant la paye) : découvert ou supplément reporté dans le reste à vivre,
   la courbe, le tableau et le compte rendu e-mail ; tuile « Renseigner » sur la Synthèse, écart avec le reste calculé ;
   rempli automatiquement depuis la colonne Solde d'un relevé ; serveur `saveSolde`.

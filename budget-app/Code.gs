@@ -825,7 +825,7 @@ function importReleve(lignes, soldes) {
       var rec = { id: newId_(), mois: mois, date: l.date, libelleId: l.libelleId, description: String(l.description || '').substring(0, 120), montant: num_(l.montant),
         prevu: '', recurrentId: '', pointe: true, modifie: false, statut: '', saisiPar: me.email, saisiLe: now, modifPar: '', modifLe: '', vehiculeId: '', source: 'csv' };
       if (seen[key(rec)]) { skipped++; return; }
-      seen[key(rec)] = true; added.push(rec);
+      added.push(rec);
     });
     appendRows_(SH.MVT, added);
     var nS = 0;
@@ -841,6 +841,31 @@ function importReleve(lignes, soldes) {
     log_(me, 'Import', 'Relevé CSV', added.length + ' ajouté(s), ' + updated.length + ' fixe(s) complété(s), ' + skipped + ' ignoré(s)' +
       (mois.length ? ' · ' + mois[0] + ' → ' + mois[mois.length - 1] : '') + (nS ? ' · ' + nS + ' solde(s) de début de mois' : ''));
     return { added: added, updated: updated, skipped: skipped, soldes: getConfig_('soldes') };
+  });
+}
+
+/** Annule un import de relevé : supprime les mouvements ajoutés, remet les fixes complétés comme avant. */
+function undoImport(ids, originals, soldesMois) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var want = {}; (ids || []).forEach(function (id) { want[String(id)] = true; });
+    var sh = sheet_(SH.MVT), data = readTable_(SH.MVT), rows = [];
+    data.forEach(function (x) { if (want[x.id] && x.source === 'csv') { var r = rowOf_(SH.MVT, 'id', x.id); if (r > 0) rows.push(r); } });
+    rows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+    invalidate_(SH.MVT);
+    var n = 0;
+    (originals || []).forEach(function (o) {
+      var cur = o && o.id ? findBy_(SH.MVT, 'id', o.id) : null;
+      if (!cur || !cur.recurrentId) return;
+      var back = clone_(cur);
+      ['montant', 'date', 'pointe', 'modifie', 'modifPar', 'modifLe'].forEach(function (k) { if (o[k] !== undefined) back[k] = o[k]; });
+      upsert_(SH.MVT, back); n++;
+    });
+    var all = parsePrefs_(getConfig_('soldes')), ns = 0;
+    (soldesMois || []).forEach(function (m) { if (all[m] && all[m].source === 'csv') { delete all[m]; ns++; } });
+    if (ns) setConfig_('soldes', JSON.stringify(all));
+    log_(me, 'Annulation', 'Import de relevé', rows.length + ' mouvement(s) supprimé(s), ' + n + ' fixe(s) rétabli(s)' + (ns ? ', ' + ns + ' solde(s) retiré(s)' : ''));
+    return { deleted: rows.length, restored: n, soldes: getConfig_('soldes') };
   });
 }
 
@@ -1162,7 +1187,7 @@ var RELEASES = [
   { v: '1.4.0', titre: 'Thèmes, relevés et solde du compte', items: [
     'Cinq thèmes au choix (Bento, Minuit, Ardoise, Forêt, Terracotta), en clair comme en sombre.',
     'Barre du bas parfaitement répartie, bouton + au centre ; vos réglages s\'ouvrent avec votre initiale en haut à gauche.',
-    'Import de vos relevés bancaires au format CSV (Plus › Importer un relevé) : historique rempli, libellés reconnus, fixes complétés, doublons ignorés.',
+    'Import de vos relevés bancaires PDF ou CSV (Plus › Importer un relevé) : lus sur le téléphone, vérifiés et modifiables ligne par ligne avant validation, import annulable.',
     'Solde réel du compte en début de mois : découvert ou supplément reporté dans le reste à vivre.',
     'Icônes et textes recentrés au pixel près, libellés en tuiles dans la saisie.'
   ] },
