@@ -3,7 +3,25 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
-## [1.4.0] — 2026-11-07 — thèmes, relevés CSV, solde du compte *(non déployée)*
+## [1.5.0] — 2026-11-07 — compte en banque, bilan annuel, import intelligent
+
+- **Compte en banque** (Synthèse) : solde estimé aujourd'hui et point le plus bas avant la paye, d'après le solde de
+  départ et les mouvements datés (prélèvements à venir compris) ; **découvert autorisé** réglable (Plus › Paye et compte
+  bancaire) ; tuile bleue / jaune (passage à découvert) / rouge (au-delà de l'autorisé). Notification « Risque de
+  découvert » (une fois par période et par niveau), réglable ; serveur `accountForecast_`.
+- **Bilan de l'année** (Synthèse › Année) : solde de l'année et moyenne mensuelle, entrées / sorties comparées à
+  l'année précédente, barres mois par mois (un mois s'ouvre d'un appui), tableau par libellé (total, moyenne / mois,
+  évolution vs N-1).
+- **Virements internes** : type de libellé « hors budget » et libellés « Virements internes » créés automatiquement ;
+  exclus des totaux, du reste à vivre, des graphiques, des conseils et des alertes, mais comptés dans le solde du compte ;
+  reconnus à l'import (virement vers / depuis un membre du foyer).
+- **Import** : une dépense déjà saisie à la main est **pointée** par la ligne du relevé (rapprochement) au lieu d'être
+  doublée ; **cartes bancaires** (X5480…) associées à une personne (achats attribués) ; **prélèvements réguliers**
+  proposés comme fixes après l'import (frais et intérêts exclus ; ceux vus un autre mois pré-cochés) ; serveur
+  `saveCartes`, `toFixeMany` ; l'annulation d'import rétablit aussi les pointages.
+- **Annuler** : bouton dans le message après une suppression ou une modification de mouvement (6 s).
+
+## [1.4.0] — 2026-11-07 — thèmes, relevés CSV, solde du compte
 
 - **Cinq thèmes** (Bento, Minuit, Ardoise, Forêt, Terracotta), chacun en clair et en sombre, choisis dans Mes préférences
   (galerie d'aperçus) ; couleur d'accent « celle du thème » ou au choix. Toutes les couleurs passent par des variables ;

@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.4.0';
+var APP_VERSION = '1.5.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -100,7 +100,7 @@ var DEFAULT_LIBELLES = [
   ['Scolarité', 'sortie', GROUPES.courant, false, '🎒', 'besoin']
 ];
 
-var LIB_TYPES = ['revenu', 'besoin', 'envie', 'epargne', 'credit', 'impot'];
+var LIB_TYPES = ['revenu', 'besoin', 'envie', 'epargne', 'credit', 'impot', 'interne'];
 
 // Libellés imputés à un véhicule par défaut.
 var PAR_VEHICULE = ['carburant', 'pret auto', 'vehicules'];
@@ -109,8 +109,9 @@ var PAR_COMPTE = ['epargne', 'retrait epargne'];
 
 /** Type par défaut d'un libellé (libellés existants ou créés à la volée). */
 function defaultType_(nom, sens, groupe) {
-  if (sens === 'entree') return 'revenu';
   var n = norm_(nom);
+  if (/virement.? interne|entre comptes/.test(n)) return 'interne';
+  if (sens === 'entree') return 'revenu';
   for (var i = 0; i < DEFAULT_LIBELLES.length; i++) {
     if (norm_(DEFAULT_LIBELLES[i][0]) === n) return DEFAULT_LIBELLES[i][5];
   }
@@ -195,6 +196,20 @@ function getAll() {
   // Le mois suivant aussi : un salaire versé fin de mois pour le mois suivant doit pouvoir être pointé.
   // Le verrou n'est pris que s'il y a réellement des fixes à reporter (ouverture plus rapide, sans attente).
   var cur = currentMonth_(), nxt = shiftMonth_(cur, 1);
+  if (ROLES[me.role] >= ROLES.editeur && !getConfig_('mig150_interne')) {
+    withLock_(function () {
+      _memo = { tables: {}, headers: {}, sheets: {} };
+      if (getConfig_('mig150_interne')) return;
+      var libs = readTable_(SH.LIB), add = [];
+      ['sortie', 'entree'].forEach(function (sens) {
+        if (libs.some(function (l) { return l.sens === sens && l.type === 'interne'; })) return;
+        add.push({ id: newId_(), nom: 'Virements internes', sens: sens, groupe: 'Hors budget', budget: 0, ordre: libs.length + add.length, actif: true,
+          moisSuivant: false, emoji: '🔁', type: 'interne', parVehicule: false, parCompte: false });
+      });
+      appendRows_(SH.LIB, add);
+      setConfig_('mig150_interne', nowIso_());
+    });
+  }
   if (ROLES[me.role] >= ROLES.editeur && (monthNeedsFixes_(cur) || monthNeedsFixes_(nxt))) {
     withLock_(function () {
       _memo = { tables: {}, headers: {}, sheets: {} };
@@ -235,6 +250,7 @@ function data_(me) {
     vehicules: readTable_(SH.VEH),
     reperes: getConfig_('reperes'),
     paie: getConfig_('paie'),
+    cartes: getConfig_('cartes'),
     soldes: getConfig_('soldes'),
     vapidPublic: (function () { try { return wpKeys_().pub; } catch (e) { return ''; } })(),
     pushDevices: readTable_(SH.PUSH).filter(function (d) { return d.email.toLowerCase() === me.email.toLowerCase(); })
@@ -768,7 +784,7 @@ function savePaie(paie) {
   var me = ctx_(ROLES.editeur);
   paie = paie || {};
   var jour = parseInt(paie.jour, 10);
-  var out = { jour: jour >= 1 && jour <= 31 ? jour : '', weekend: !!paie.weekend, mois: {} };
+  var out = { jour: jour >= 1 && jour <= 31 ? jour : '', weekend: !!paie.weekend, mois: {}, decouvert: Math.max(0, num_(paie.decouvert || 0)) };
   Object.keys(paie.mois || {}).forEach(function (m) {
     var d = String(paie.mois[m] || '');
     if (/^\d{4}-\d{2}$/.test(m) && /^\d{4}-\d{2}-\d{2}$/.test(d)) out.mois[m] = d;
@@ -779,6 +795,42 @@ function savePaie(paie) {
     setConfig_('paie', json);
     log_(me, 'Modification', 'Jour de paye', json.substring(0, 300));
     return json;
+  });
+}
+
+/** Cartes bancaires du relevé (« X5480 ») associées à une personne du foyer. */
+function saveCartes(map) {
+  var me = ctx_(ROLES.editeur);
+  var users = readTable_(SH.USERS).map(function (u) { return u.email.toLowerCase(); }), out = {};
+  Object.keys(map || {}).forEach(function (k) {
+    var e = String(map[k] || '').toLowerCase();
+    if (/^X?\d{4}$/i.test(k) && (e === '' || users.indexOf(e) >= 0)) { if (e) out[k.toUpperCase()] = e; }
+  });
+  return withLock_(function () {
+    setConfig_('cartes', JSON.stringify(out));
+    log_(me, 'Modification', 'Cartes bancaires', Object.keys(out).length + ' carte(s)');
+    return JSON.stringify(out);
+  });
+}
+
+/** Mouvements → mouvements fixes (prélèvements réguliers repérés à l'import). */
+function toFixeMany(ids) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var m = findBy_(SH.MVT, 'id', id);
+      if (!m || m.recurrentId || m.statut === 'annule') return;
+      var lib = findBy_(SH.LIB, 'id', m.libelleId);
+      var rec = { id: newId_(), libelleId: m.libelleId, description: m.description, montant: m.montant, jour: Number(m.date.substring(8, 10)), debut: m.mois, fin: '',
+        actif: true, creePar: me.email, creeLe: nowIso_(), modifPar: '', modifLe: '', decalage: m.date.substring(0, 7) < m.mois ? -1 : 0, vehiculeId: m.vehiculeId || '' };
+      upsert_(SH.REC, rec);
+      var mm = clone_(m); mm.recurrentId = rec.id; mm.prevu = m.montant; mm.modifPar = me.email; mm.modifLe = nowIso_();
+      upsert_(SH.MVT, mm); n++;
+      log_(me, 'Ponctuel → fixe', 'Mouvement', describeRec_(rec, lib));
+    });
+    if (n) { ensureMonth_(currentMonth_(), me); ensureMonth_(shiftMonth_(currentMonth_(), 1), me); }
+    return data_(me);
   });
 }
 
@@ -810,7 +862,15 @@ function importReleve(lignes, soldes) {
     var existing = readTable_(SH.MVT), now = nowIso_(), added = [], updated = [], skipped = 0;
     var key = function (x) { return x.date + '|' + Math.round(Number(x.montant) * 100) + '|' + (libs[x.libelleId] ? libs[x.libelleId].sens : '') + '|' + norm_(x.description).substring(0, 12); };
     var seen = {}; existing.forEach(function (x) { if (x.statut !== 'annule') seen[key(x)] = true; });
+    var emails = {}; readTable_(SH.USERS).forEach(function (u) { if (u.actif) emails[u.email.toLowerCase()] = u.email; });
+    var pointed = [];
     lignes.forEach(function (l) {
+      if (l.pointId) {
+        var ex = findBy_(SH.MVT, 'id', l.pointId);
+        if (ex && !ex.pointe) { var e2 = clone_(ex); e2.pointe = true; e2.modifPar = me.email; e2.modifLe = now; upsert_(SH.MVT, e2); updated.push(e2); pointed.push(e2.id); }
+        else skipped++;
+        return;
+      }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(l.date || '') || !libs[l.libelleId] || !(Number(l.montant) >= 0)) { skipped++; return; }
       var mois = /^\d{4}-\d{2}$/.test(l.mois || '') ? l.mois : l.date.substring(0, 7);
       if (l.majId) {
@@ -823,7 +883,7 @@ function importReleve(lignes, soldes) {
         }
       }
       var rec = { id: newId_(), mois: mois, date: l.date, libelleId: l.libelleId, description: String(l.description || '').substring(0, 120), montant: num_(l.montant),
-        prevu: '', recurrentId: '', pointe: true, modifie: false, statut: '', saisiPar: me.email, saisiLe: now, modifPar: '', modifLe: '', vehiculeId: '', source: 'csv' };
+        prevu: '', recurrentId: '', pointe: true, modifie: false, statut: '', saisiPar: emails[String(l.saisiPar || '').toLowerCase()] || me.email, saisiLe: now, modifPar: '', modifLe: '', vehiculeId: '', source: 'csv' };
       if (seen[key(rec)]) { skipped++; return; }
       added.push(rec);
     });
@@ -838,9 +898,9 @@ function importReleve(lignes, soldes) {
       if (nS) setConfig_('soldes', JSON.stringify(all));
     }
     var mois = added.concat(updated).map(function (x) { return x.mois; }).sort();
-    log_(me, 'Import', 'Relevé CSV', added.length + ' ajouté(s), ' + updated.length + ' fixe(s) complété(s), ' + skipped + ' ignoré(s)' +
+    log_(me, 'Import', 'Relevé', added.length + ' ajouté(s), ' + (updated.length - pointed.length) + ' fixe(s) complété(s), ' + pointed.length + ' pointé(s), ' + skipped + ' ignoré(s)' +
       (mois.length ? ' · ' + mois[0] + ' → ' + mois[mois.length - 1] : '') + (nS ? ' · ' + nS + ' solde(s) de début de mois' : ''));
-    return { added: added, updated: updated, skipped: skipped, soldes: getConfig_('soldes') };
+    return { added: added, updated: updated, pointed: pointed, skipped: skipped, soldes: getConfig_('soldes') };
   });
 }
 
@@ -856,7 +916,7 @@ function undoImport(ids, originals, soldesMois) {
     var n = 0;
     (originals || []).forEach(function (o) {
       var cur = o && o.id ? findBy_(SH.MVT, 'id', o.id) : null;
-      if (!cur || !cur.recurrentId) return;
+      if (!cur) return;
       var back = clone_(cur);
       ['montant', 'date', 'pointe', 'modifie', 'modifPar', 'modifLe'].forEach(function (k) { if (o[k] !== undefined) back[k] = o[k]; });
       upsert_(SH.MVT, back); n++;
@@ -1184,6 +1244,13 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.5.0', titre: 'Compte en banque et bilan annuel', items: [
+    'Solde du compte prévu jusqu\'à la paye (prélèvements à venir compris), découvert autorisé et notification avant un passage dans le rouge.',
+    'Bilan de l\'année : totaux par libellé, mois par mois, comparaison avec l\'année précédente (Synthèse › Année).',
+    'Virements entre vos comptes classés « hors budget » : ils ne faussent plus les totaux.',
+    'Import des relevés : les dépenses déjà saisies sont pointées, chaque carte bancaire est rattachée à sa personne, et les prélèvements réguliers peuvent devenir des fixes en un appui.',
+    'Après une suppression ou une modification, un bouton « Annuler » permet de revenir en arrière.'
+  ] },
   { v: '1.4.0', titre: 'Thèmes, relevés et solde du compte', items: [
     'Cinq thèmes au choix (Bento, Minuit, Ardoise, Forêt, Terracotta), en clair comme en sombre.',
     'Barre du bas parfaitement répartie, bouton + au centre ; vos réglages s\'ouvrent avec votre initiale en haut à gauche.',
@@ -1348,6 +1415,7 @@ function computeMonth_(m) {
   var t = { eP: 0, eR: 0, sP: 0, sR: 0, types: {}, veh: {} };
   Object.keys(per).forEach(function (k) {
     var p = per[k]; p.prevu = p.env > 0 ? p.env : p.fixes;
+    if (p.lib.type === 'interne') return;
     if (p.lib.sens === 'entree') { t.eP += p.prevu; t.eR += p.reel; }
     else { t.sP += p.prevu; t.sR += p.reel; var ty = p.lib.type || 'envie'; t.types[ty] = (t.types[ty] || 0) + p.reel; }
   });
@@ -1855,7 +1923,34 @@ var WP_ = (function () {
   return { encrypt: encrypt, vapid: vapid, newKeys: newKeys, s8: s8, _t: { sign: sign, gcm: gcm, aesBlock: aesBlock, expand: expand, mul: mul, G: G, toBn: toBn, fromBn: fromBn, unb64u: unb64u, b64u: b64u } };
 })();
 
-var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false };
+var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false, decouvert: true };
+
+/**
+ * Solde du compte prévu jusqu'à la prochaine paye, d'après le solde de départ et les mouvements datés (fixes à venir compris).
+ * Renvoie null sans solde de départ ; sinon { today, min, minDate, decouvert }.
+ */
+function accountForecast_(m) {
+  var soldes = parsePrefs_(getConfig_('soldes'));
+  if (!soldes[m]) return null;
+  var cfg = parsePrefs_(getConfig_('paie')), libs = {}; readTable_(SH.LIB).forEach(function (l) { libs[l.id] = l; });
+  var mvts = readTable_(SH.MVT).filter(function (x) { return x.statut !== 'annule'; });
+  var refOf = function (mm) {
+    var pd = payDate_(mm, cfg); if (pd) return pd;
+    var sal = mvts.filter(function (x) { var l = libs[x.libelleId]; return x.mois === mm && l && l.sens === 'entree' && l.moisSuivant && x.date < mm + '-01'; }).map(function (x) { return x.date; }).sort()[0];
+    return sal || mm + '-01';
+  };
+  var a = refOf(m), b = refOf(shiftMonth_(m, 1)), today = nowIso_().substring(0, 10), bal = Number(soldes[m].montant) || 0, days = {};
+  mvts.forEach(function (x) {
+    if (x.date < a || x.date >= b) return;
+    var l = libs[x.libelleId]; if (!l) return;
+    days[x.date] = (days[x.date] || 0) + (l.sens === 'entree' ? 1 : -1) * (Number(x.montant) || 0);
+  });
+  var ds = Object.keys(days).sort(), cur = bal, min = null, minDate = '';
+  ds.forEach(function (d) { if (d <= today) cur += days[d]; });
+  var run = cur; min = cur; minDate = today;
+  ds.forEach(function (d) { if (d > today) { run += days[d]; if (run < min) { min = run; minDate = d; } } });
+  return { today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, decouvert: Number(cfg.decouvert) || 0 };
+}
 
 /** Clés VAPID du foyer (créées une seule fois, gardées dans les propriétés du script). */
 function wpKeys_() {
@@ -1954,7 +2049,8 @@ function notifyCheck_(hour) {
   var mvts = readTable_(SH.MVT), libs = readTable_(SH.LIB);
   var eur = function (n) { return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €'; };
   // Rythme : dépenses ponctuelles de la période jusqu'à aujourd'hui, comparées aux 4 périodes précédentes au même jour.
-  var sortieIds = {}; libs.forEach(function (l) { if (l.sens === 'sortie') sortieIds[l.id] = true; });
+  var sortieIds = {}; libs.forEach(function (l) { if (l.sens === 'sortie' && l.type !== 'interne') sortieIds[l.id] = true; });
+  var fc = null; try { fc = accountForecast_(m); } catch (e) {}
   var ponct = function (mm, lim) { return mvts.filter(function (x) { return x.mois === mm && x.statut !== 'annule' && !x.recurrentId && sortieIds[x.libelleId] && x.date <= lim; })
     .reduce(function (t, x) { return t + (Number(x.montant) || 0); }, 0); };
   var curP = ponct(m, today), hist = [];
@@ -1993,6 +2089,14 @@ function notifyCheck_(hour) {
           if (!sent[key]) out.push({ key: key, p: { title: 'Enveloppe ' + p.lib.nom + ' à ' + Math.round(ratio * 100) + ' %', body: N.montants ? 'Il reste ' + eur(p.env - p.reel) + ' pour ' + left + ' jours.' : 'Il reste ' + left + ' jours dans la période : levez le pied sur ce poste.', tag: 'env-' + id } });
         }
       });
+      // Risque de découvert : solde prévu avant la prochaine paye (fixes à venir compris)
+      if (N.decouvert && fc && fc.min < 0) {
+        var over = fc.min < -fc.decouvert, dl = fc.minDate.substring(8, 10) + '/' + fc.minDate.substring(5, 7);
+        key = u.email + '|' + (over ? 'dec2' : 'dec1') + '|' + m;
+        if (!sent[key] && (over || !sent[u.email + '|dec2|' + m])) out.push({ key: key, p: {
+          title: over ? 'Découvert autorisé dépassé le ' + dl : 'Compte à découvert prévu le ' + dl,
+          body: (N.montants ? 'Solde prévu : ' + eur(fc.min) + (fc.decouvert ? ' (autorisé : −' + eur(fc.decouvert) + ')' : '') + '. ' : '') + 'D\'après les prélèvements à venir avant la paye.', tag: 'decouvert' } });
+      }
       // Rythme de dépense inhabituel (au plus une fois par semaine)
       if (N.rythme && avgP > 50 && curP > avgP * 1.15 && curP - avgP > 40) {
         key = u.email + '|rythme|' + week;

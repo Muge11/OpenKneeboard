@@ -916,6 +916,41 @@
   .pchip.clk { cursor: pointer; }
   .seg.sgn button.on.neg { background: var(--neg); color: #fff; }
 
+
+  /* ================= v1.5.0 ================= */
+  .toast { display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100vw - 32px); }
+  .toast span { min-width: 0; }
+  .toast[hidden] { display: none; }
+  .toast.act { padding: 8px 8px 8px 16px; }
+  .toast button { border: 0; border-radius: 10px; height: 32px; padding: 0 12px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+    background: var(--acc); color: var(--acc-ink); line-height: 1; padding-bottom: .07em; flex: none; }
+  .t.acct .acct-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 4px; }
+  .t.acct .acct-low { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+  .t.acct .acct-low b { font-size: 17px; font-weight: 800; line-height: 1.2; }
+  .t.acct .acct-low .s { margin: 0; }
+  .t.acct > .s:last-child { margin-top: 8px; }
+  .t.butter .s, .t.butter .v, .t.butter .acct-low b { color: var(--tip-p); } .t.butter .acct-low .s { color: var(--tip-t); }
+  .yearbar { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 auto 12px; height: 48px; padding: 4px; border-radius: 999px; background: var(--surface); width: max-content; }
+  .yearbar b { font-size: 17px; font-weight: 800; min-width: 64px; text-align: center; padding-bottom: .07em; }
+  .yearbar button { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--text); display: grid; place-items: center; cursor: pointer; }
+  .yearbar button:disabled { opacity: .3; cursor: default; }
+  .yearbar button:not(:disabled):hover { background: var(--surface-3); }
+  .lgd2 { font-size: 11px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .lgd2 i { width: 8px; height: 8px; border-radius: 3px; display: inline-block; margin-left: 6px; }
+  .ybars { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 150px; }
+  .yb { height: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; min-width: 0; }
+  .yb .ybp { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-radius: 6px; padding: 0 2px; }
+  .yb .ybp span { width: 40%; max-width: 10px; border-radius: 3px 3px 1px 1px; min-height: 0; }
+  .yb em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--muted); line-height: 1; text-transform: capitalize; }
+  .yb.cur em { color: var(--text); } .yb.cur .ybp { background: var(--surface-2); }
+  .yb.off .ybp span { opacity: .25; }
+  .ytab td, .ytab th { padding: 10px 4px; }
+  .ytab td:first-child { width: 46%; }
+  .ytab .ybar { height: 4px; border-radius: 2px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
+  .ytab .ybar span { display: block; height: 100%; background: var(--bar); border-radius: 2px; }
+  .import-done .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  .import-done .btn svg { width: 16px; height: 16px; }
+
   @media (min-width: 1700px) {
     #view[data-layout="cols"] { column-count: 3; }
     main { max-width: 1640px; }
@@ -1013,6 +1048,9 @@ var SVG = {
   check: '<path d="M5 12l5 5L20 7"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
   bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  chevL: '<path d="M15 18l-6-6 6-6"/>',
+  chevR: '<path d="M9 18l6-6-6-6"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   arrIn: '<path d="M12 5v14M5 12l7 7 7-7"/>',
   arrOut: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   spark: '<path d="M12 4l1.9 5.8L20 12l-6.1 2.2L12 20l-1.9-5.8L4 12l6.1-2.2z"/>',
@@ -1335,6 +1373,33 @@ function soldeRefDate(m) {
     .map(function (x) { return x.date; }).sort()[0];
   return sal && sal < m + '-01' ? sal : m + '-01';
 }
+/** Solde du compte d'aujourd'hui à la prochaine paye, d'après le solde de départ et les mouvements datés (fixes à venir compris). */
+function accountForecast(m) {
+  var start = soldeOf(m); if (start === null) return null;
+  var a = soldeRefDate(m), b = soldeRefDate(shiftMonth(m, 1)), today = todayStr(), days = {};
+  D.mouvements.forEach(function (x) {
+    if (x.statut === 'annule' || x.date < a || x.date >= b) return;
+    days[x.date] = (days[x.date] || 0) + (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0);
+  });
+  var ds = Object.keys(days).sort(), cur = start;
+  ds.forEach(function (d) { if (d <= today) cur += days[d]; });
+  var run = cur, min = cur, minDate = today < a ? a : today, pts = [[a, start]];
+  var acc = start; ds.forEach(function (d) { acc += days[d]; pts.push([d, acc]); if (d > today && acc < min) { min = acc; minDate = d; } });
+  var cfg = paieCfg();
+  return { start: start, today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, end: Math.round(acc * 100) / 100, next: b,
+    decouvert: +cfg.decouvert || 0, pts: pts, from: a };
+}
+function accountTile(m) {
+  var F = accountForecast(m); if (!F) return '';
+  var over = F.min < -F.decouvert, neg = F.min < 0, cls = over ? 'peach' : neg ? 'butter' : 'sky';
+  var dl = function (d) { return esc(fmtD(d)); };
+  return '<div class="t ' + cls + ' w2 click acct" data-act="sub" data-sub="paie"><div class="k">Compte en banque · estimé aujourd\'hui</div>' +
+    '<div class="acct-row"><div class="v num">' + eurBig(F.today) + '</div>' +
+    (F.min < F.today - 0.5 ? '<div class="acct-low"><span class="s">Plus bas avant la paye</span><b class="num ' + (neg ? 'neg' : '') + '">' + eur0(F.min) + '</b><span class="s">le ' + dl(F.minDate) + '</span></div>'
+      : '<div class="acct-low"><span class="s">Avant la paye</span><b class="num">' + eur0(F.end) + '</b><span class="s">aucune baisse prévue</span></div>') + '</div>' +
+    '<div class="s">' + (over ? '⚠ Au-delà du découvert autorisé (−' + eur0(F.decouvert) + ') : décalez une dépense ou alimentez le compte.' :
+      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : 'Prélèvements à venir compris · paye le ' + dl(F.next) + '.') + '</div></div>';
+}
 function openSolde(m) {
   m = m || mois;
   var cur = soldeOf(m), prev = compute(shiftMonth(m, -1)).bilan.reel, ref = soldeRefDate(m), neg = cur !== null ? cur < 0 : false;
@@ -1516,6 +1581,7 @@ function computeRaw(m) {
   Object.keys(per).forEach(function (k) {
     var p = per[k];
     if (!p.prevu && !p.reel && !p.lib.actif) return;
+    if (isInterne(p.lib)) return; // virements entre vos comptes : hors budget
     var s = p.lib.sens;
     tot[s].prevu += p.prevu; tot[s].reel += p.reel;
     if (s === 'sortie') types[ltype(p.lib)] = (types[ltype(p.lib)] || 0) + p.reel;
@@ -1538,6 +1604,7 @@ function computeRange(m, n) {
     var c = compute(shiftMonth(m, -k));
     agg.entrees += c.tot.entree.reel; agg.sorties += c.tot.sortie.reel;
     c.mv.forEach(function (x) { if (x.vehiculeId) agg.veh[x.vehiculeId] = (agg.veh[x.vehiculeId] || 0) + (+x.montant || 0); });
+    Object.keys(c.per).forEach(function (id) { if (isInterne(c.per[id].lib)) delete c.per[id]; });
     Object.keys(c.types).forEach(function (t) { agg.types[t] = (agg.types[t] || 0) + c.types[t]; });
     Object.keys(c.per).forEach(function (id) {
       var p = c.per[id];
@@ -1632,9 +1699,10 @@ function segHtml(act, cur, items) {
 
 /* ---------------- Synthèse ---------------- */
 function viewSynthese(c) {
-  var h = segHtml('synSeg', synSeg, [['resume', 'Résumé'], ['graph', 'Graphiques'], ['conseils', 'Conseils']]);
+  var h = segHtml('synSeg', synSeg, [['resume', 'Résumé'], ['graph', 'Graphiques'], ['conseils', 'Conseils'], ['annee', 'Année']]);
   if (synSeg === 'graph') return h + viewGraphs();
   if (synSeg === 'conseils') return h + viewConseils();
+  if (synSeg === 'annee') return h + viewAnnee();
   var b = c.bilan;
   h += bentoHtml(c);
 
@@ -1668,6 +1736,55 @@ function viewSynthese(c) {
   h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez une ligne pour voir ses mouvements ; la flèche déplie le groupe.</div></div>';
   return h;
 }
+
+/* ---------------- Bilan de l'année ---------------- */
+var anYear = 0;
+function viewAnnee() {
+  var Y = anYear || +mois.substring(0, 4), cm = ymNow();
+  var months = []; for (var k = 1; k <= 12; k++) months.push(Y + '-' + pad(k));
+  var yr = function (y) {
+    var out = { e: 0, s: 0, ep: 0, per: {}, mo: [], n: 0 };
+    for (var k = 1; k <= 12; k++) {
+      var m = y + '-' + pad(k), c = compute(m), has = c.mv.length > 0;
+      out.mo.push({ m: m, e: c.tot.entree.reel, s: c.tot.sortie.reel, has: has });
+      if (has) out.n++;
+      out.e += c.tot.entree.reel; out.s += c.tot.sortie.reel; out.ep += c.types.epargne || 0;
+      Object.keys(c.per).forEach(function (id) { var p = c.per[id]; if (isInterne(p.lib) || !p.reel) return; var a = out.per[id] || (out.per[id] = { lib: p.lib, t: 0, n: 0 }); a.t += p.reel; a.n++; });
+    }
+    return out;
+  };
+  var A = yr(Y), B = yr(Y - 1), sol = A.e - A.s;
+  var h = '<div class="yearbar"><button data-act="anYear" data-v="-1" aria-label="Année précédente">' + svg('chevL') + '</button><b>' + Y + '</b>' +
+    '<button data-act="anYear" data-v="1" aria-label="Année suivante"' + (Y >= +cm.substring(0, 4) ? ' disabled' : '') + '>' + svg('chevR') + '</button></div>';
+  if (!A.n) return h + '<div class="empty">Aucun mouvement en ' + Y + '.<br><span class="small">Importez vos relevés (Plus › Importer un relevé) pour remplir l\'historique.</span></div>';
+  h += '<div class="bento"><div class="t hero w2"><div class="k">Solde de l\'année · ' + A.n + ' mois</div><div class="big num' + (sol < 0 ? ' neg' : '') + '">' + eurBig(sol) + '</div>' +
+    '<div class="chips2"><span class="pchip ghost num">' + eur0(sol / A.n) + ' / mois en moyenne</span>' + (B.n ? '<span class="pchip ' + (sol >= B.e - B.s ? 'lime' : 'red') + ' num">' + (sol >= B.e - B.s ? '▲ ' : '▼ ') + eur0(Math.abs(sol - (B.e - B.s))) + ' vs ' + (Y - 1) + '</span>' : '') + '</div></div>' +
+    '<div class="t sage"><div class="k">Entrées</div><div class="v num">' + eur0(A.e) + '</div><div class="s">' + (B.e ? delta(A.e, B.e) + ' vs ' + (Y - 1) : eur0(A.e / A.n) + ' / mois') + '</div></div>' +
+    '<div class="t peach"><div class="k">Sorties</div><div class="v num">' + eur0(A.s) + '</div><div class="s">' + (B.s ? delta(A.s, B.s) + ' vs ' + (Y - 1) : eur0(A.s / A.n) + ' / mois') + '</div></div></div>';
+  // Mois par mois
+  var mx = Math.max.apply(null, A.mo.map(function (o) { return Math.max(o.e, o.s); }).concat([1]));
+  h += '<div class="card"><div class="sec-head"><h2>Mois par mois</h2><span class="lgd2"><i style="background:var(--sage-bar)"></i>Entrées <i style="background:var(--peach-bar)"></i>Sorties</span></div><div class="ybars">' +
+    A.mo.map(function (o, i) {
+      return '<div class="yb' + (o.m === cm ? ' cur' : '') + (o.has ? '' : ' off') + '" data-act="anGo" data-m="' + o.m + '" title="' + esc(monthName(o.m)) + ' : +' + eur0(o.e) + ' / −' + eur0(o.s) + '">' +
+        '<div class="ybp"><span style="height:' + (o.e / mx * 100).toFixed(1) + '%;background:var(--sage-bar)"></span><span style="height:' + (o.s / mx * 100).toFixed(1) + '%;background:var(--peach-bar)"></span></div>' +
+        '<em>' + esc(monthName(o.m, true).replace('.', '').slice(0, 3)) + '</em></div>';
+    }).join('') + '</div><div class="xs muted" style="margin-top:8px">Touchez un mois pour l\'ouvrir.</div></div>';
+  // Par libellé
+  var rows = Object.keys(A.per).map(function (id) { return A.per[id]; });
+  ['sortie', 'entree'].forEach(function (sens) {
+    var rs = rows.filter(function (a) { return a.lib.sens === sens; }).sort(function (a, b) { return b.t - a.t; }), tot = rs.reduce(function (t, a) { return t + a.t; }, 0);
+    if (!rs.length) return;
+    h += '<div class="card"><div class="sec-head"><h2>' + (sens === 'sortie' ? 'Sorties' : 'Entrées') + ' par libellé</h2><b class="num small">' + eur0(tot) + '</b></div>' +
+      '<table class="ytab"><thead><tr><th></th><th>' + Y + '</th><th>/ mois</th><th>' + (Y - 1) + '</th></tr></thead><tbody>' +
+      rs.map(function (a) {
+        var bp = B.per[a.lib.id], bt = bp ? bp.t : 0;
+        return '<tr><td>' + icon(a.lib) + ' ' + esc(a.lib.nom) + '<div class="ybar"><span style="width:' + (a.t / rs[0].t * 100).toFixed(1) + '%"></span></div></td>' +
+          '<td class="num"><b>' + eur0(a.t) + '</b></td><td class="num muted">' + eur0(a.t / A.n) + '</td><td class="num">' + (bt ? '<span class="' + (sens === 'sortie' ? (a.t > bt * 1.05 ? 'neg' : a.t < bt * 0.95 ? 'pos' : 'muted') : 'muted') + '">' + delta(a.t, bt) + '</span>' : '<span class="muted">—</span>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  });
+  return h;
+}
+function delta(a, b) { if (!b) return '—'; var v = (a - b) / b * 100; return (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %'; }
 
 /** Montant avec les centimes en plus petit. */
 function eurBig(n) {
@@ -1728,7 +1845,7 @@ function rhythm(libId) {
 /** Conseil du jour : ce qui sort de vos habitudes ce mois-ci (les fixes et prélèvements sont ignorés). */
 function dailyTip(c, env, joursRestants) {
   var P = periodOf(mois), out = [];
-  var ponct = c.mv.filter(function (x) { return !x.recurrentId && lib(x.libelleId).sens === 'sortie'; });
+  var ponct = c.mv.filter(function (x) { var l = lib(x.libelleId); return !x.recurrentId && l.sens === 'sortie' && !isInterne(l); });
   // 1. Enveloppe dépassée (libellés avec des dépenses ponctuelles)
   var over = env.filter(function (p) { return p.reel > p.env + 0.005 && ponct.some(function (x) { return x.libelleId === p.lib.id; }); })
     .sort(function (a, z) { return (z.reel - z.env) - (a.reel - a.env); });
@@ -1791,13 +1908,14 @@ function bentoHtml(c) {
     (today ? '<div class="mprog"><i style="width:' + (today / nd * 100) + '%"></i><b style="left:' + (today / nd * 100) + '%"></b></div>' : '') +
     '<div class="mpl"><span>' + (isCur ? 'Jour ' + today + ' / ' + nd + ' · ' + joursRestants + ' j' + (P.paie ? ' jusqu\'à la paye' : ' restant' + (joursRestants > 1 ? 's' : '')) : today ? 'Période terminée' : 'Période à venir') + '</span>' +
     '<span class="num">Prévu ' + eur0(b.prevu) + '</span></div></div>';
+  if (b.report !== null && isCur) h += accountTile(mois);
   // Solde de début de mois à renseigner (mois en cours, une fois la période commencée)
   if (b.report === null && canEdit() && isCur) {
     h += '<div class="t sky w2 click solde-ask" data-act="openSolde"><div class="k">Solde du compte en début de mois<small>Pour compter un découvert ou un supplément</small></div>' +
       '<span class="btn sm" style="pointer-events:none">Renseigner</span></div>';
   }
   // Entrées / sorties
-  var ent = Object.keys(c.per).map(function (k) { return c.per[k]; }).filter(function (p) { return p.lib.sens === 'entree' && (p.reel || p.prevu); })
+  var ent = Object.keys(c.per).map(function (k) { return c.per[k]; }).filter(function (p) { return p.lib.sens === 'entree' && !isInterne(p.lib) && (p.reel || p.prevu); })
     .sort(function (a, z) { return z.reel - a.reel; });
   h += '<div class="t sage click" data-act="goFilter" data-f="entree"><div class="corner">' + svg('arrIn') + '</div><div class="k">Entrées</div>' +
     '<div class="v num">' + eur0(c.tot.entree.reel) + '</div>' +
@@ -2058,6 +2176,7 @@ function mvtItem(x) {
   if (x.vehiculeId) meta += ' <span>' + esc((veh(x.vehiculeId) || {}).emoji || '🚗') + '</span>';
   else if (l.parVehicule && vehs().length) meta += ' <span class="tag warn">véhicule ?</span>';
   if (x.date.substring(0, 7) !== x.mois) meta += ' <span class="tag">↪ ' + esc(monthName(x.mois, true)) + '</span>';
+  if (isInterne(l)) meta += ' <span class="tag">hors budget</span>';
   return '<li class="item" data-act="openMvt" data-id="' + x.id + '">' + chk + emo(l) +
     '<div class="main"><div class="title">' + esc(x.description || l.nom) + '</div><div class="meta">' + meta + '</div></div>' +
     '<div class="amt num ' + (entree ? 'pos' : '') + '">' + (entree ? '+' : '−') + eur(Math.abs(x.montant)).replace('-', '') + '</div></li>';
@@ -2074,8 +2193,14 @@ function mvtFilterFn(x) {
 }
 
 function viewMouvements(c) {
-  var undo = LAST_IMPORT ? '<div class="card" style="display:flex;align-items:center;gap:12px"><div class="small" style="flex:1"><b>Relevé importé</b> : ' + LAST_IMPORT.added.length + ' ajouté(s)' +
-    (LAST_IMPORT.nUpd ? ', ' + LAST_IMPORT.nUpd + ' fixe(s) complété(s)' : '') + '. Une erreur ? Corrigez une ligne en la touchant, ou annulez tout.</div><button class="btn ghost sm" data-act="rvUndo">Annuler l\'import</button></div>' : '';
+  var undo = '';
+  if (LAST_IMPORT) {
+    var li = LAST_IMPORT, nc = (li.cands || []).length;
+    undo = '<div class="card import-done"><div class="small"><b>Relevé importé</b> : ' + li.added.length + ' ajouté(s)' + (li.nUpd ? ', ' + li.nUpd + ' fixe(s) complété(s)' : '') + (li.nPt ? ', ' + li.nPt + ' pointé(s)' : '') +
+      '. Une erreur ? Touchez une ligne pour la corriger, ou annulez tout.</div><div class="tools" style="margin:12px 0 0">' +
+      (nc ? '<button class="btn sm" data-act="rvFixes">Suivre ' + nc + ' prélèvement' + (nc > 1 ? 's' : '') + ' comme fixe' + (nc > 1 ? 's' : '') + '</button>' : '') +
+      '<button class="btn ghost sm" data-act="rvUndo">' + svg('undo') + ' Annuler l\'import</button><button class="btn ghost sm" data-act="rvDone">OK</button></div></div>';
+  }
   return undo + viewMouvements0(c);
 }
 function viewMouvements0(c) {
@@ -2207,7 +2332,8 @@ function viewEnveloppes(c) {
   var unset = [], masq = [];
   ['sortie', 'entree'].forEach(function (sens) {
     groupsOf(sens).forEach(function (g) {
-      var all = libsSorted(sens).filter(function (l) { return l.groupe === g; }).map(function (l) { return c.per[l.id]; });
+      var all = libsSorted(sens).filter(function (l) { return l.groupe === g && !isInterne(l); }).map(function (l) { return c.per[l.id]; });
+      if (!all.length) return;
       // Libellés sans enveloppe ni dépense : rangés à part pour alléger la page.
       all.filter(function (p) { return envHidden(p.lib.id); }).forEach(function (p) { masq.push(p); });
       all = all.filter(function (p) { return !envHidden(p.lib.id); });
@@ -2438,7 +2564,7 @@ function viewPlusMenu() {
   menu += menuItem('✨', 'Nouveautés', 'Version ' + D.version + ' · historique des mises à jour', 'releases');
   menu += menuItem('🏷️', 'Libellés', libsSorted().length + ' libellés · emoji · types', 'libelles');
   if (canEdit()) menu += menuItem('📄', 'Importer un relevé', 'Fichier CSV de votre banque · historique des mois passés', 'releve');
-  if (canEdit()) menu += menuItem('📅', 'Jour de paye', paieCfg().jour ? 'Le ' + paieCfg().jour + ' · période ' + fmtD(periodOf(mois).start) + ' → ' + fmtD(periodOf(mois).end) : 'Non réglé · mois calendaire', 'paie');
+  if (canEdit()) menu += menuItem('📅', 'Paye et compte bancaire', paieCfg().jour ? 'Le ' + paieCfg().jour + ' · période ' + fmtD(periodOf(mois).start) + ' → ' + fmtD(periodOf(mois).end) : 'Non réglé · mois calendaire', 'paie');
   menu += menuItem('🚗', 'Véhicules', vehs().map(function (v) { return v.nom; }).join(', ') + ' · coût par véhicule', 'vehicules');
   if (isAdmin()) {
     menu += menuItem('✉️', 'Compte rendu mensuel', 'Destinataires, aperçu, envoi', 'rapport');
@@ -2459,7 +2585,8 @@ function menuItem(ic, title, meta, target) {
 function backbar(title, extra) {
   return '<div class="backbar"><button class="btn ghost sm" data-act="sub" data-sub="">‹ Retour</button><h1>' + title + '</h1>' + (extra || '') + '</div>';
 }
-var TYPE_LABEL = { revenu: 'Revenu', besoin: 'Besoin', envie: 'Envie', credit: 'Crédit', epargne: 'Épargne', impot: 'Impôts & taxes' };
+var TYPE_LABEL = { revenu: 'Revenu', besoin: 'Besoin', envie: 'Envie', credit: 'Crédit', epargne: 'Épargne', impot: 'Impôts & taxes', interne: 'Virement interne (hors budget)' };
+function isInterne(l) { return (l && l.type) === 'interne'; }
 
 function vehiculesView() {
   var h = backbar('Véhicules');
@@ -2781,7 +2908,8 @@ var SUBVIEWS = {
       '<div class="row2" style="margin-top:8px"><div class="field"><label>Si rien n\'est saisi depuis</label>' + sel('delai', [[1, '1 jour'], [2, '2 jours'], [3, '3 jours'], [5, '5 jours'], [7, '7 jours']]) + '</div>' +
       '<div class="field"><label>Heure du rappel</label>' + sel('heure', [8, 9, 10, 12, 13, 17, 18, 19, 20, 21, 22].map(function (x) { return [x, x + ' h']; })) + '</div></div></div>';
     h += '<div class="card"><h2>Alertes budget</h2><div class="field"><label>Enveloppe presque vide : alerte à partir de</label>' + sel('seuil', [[0, 'Jamais'], [70, '70 %'], [80, '80 %'], [90, '90 %']]) + '</div>' +
-      tog('depasse', 'Enveloppe dépassée') + tog('rythme', 'Rythme de dépense inhabituel', 'au plus une fois par semaine') +
+      tog('depasse', 'Enveloppe dépassée') + tog('decouvert', 'Risque de découvert', 'avant un passage dans le rouge (solde de départ et découvert autorisé requis)') +
+      tog('rythme', 'Rythme de dépense inhabituel', 'au plus une fois par semaine') +
       tog('montants', 'Afficher les montants', 'désactivé : notifications sans chiffres sur l\'écran verrouillé') +
       '<div class="xs muted" style="margin-top:8px">Les enveloppes masquées ne déclenchent pas d\'alerte. Vérification toutes les heures, de 9 h à 21 h.</div></div>';
     return h;
@@ -2789,7 +2917,7 @@ var SUBVIEWS = {
   releve: function () { return releveView(); },
   paie: function () {
     var cfg = paieCfg(), m = mois, P = periodOf(m), nm = shiftMonth(m, 1);
-    var h = backbar('Jour de paye');
+    var h = backbar('Paye et compte bancaire');
     h += '<div class="card"><h2>Jour habituel</h2>' +
       '<div class="field"><label>Jour du mois où la paye arrive</label><select id="paieJour">' + '<option value="">Non réglé (mois calendaire)</option>' +
       Array.from({ length: 31 }, function (_, i) { return '<option value="' + (i + 1) + '"' + (+cfg.jour === i + 1 ? ' selected' : '') + '>Le ' + (i + 1) + '</option>'; }).join('') + '</select></div>' +
@@ -2801,6 +2929,9 @@ var SUBVIEWS = {
       '<div class="xs muted">Laissez la date proposée si elle est juste ; seules les dates modifiées sont retenues.</div></div>';
     h += '<div class="info">Période de ' + esc(monthName(m)) + ' : <b>' + esc(fmtD(P.start)) + ' → ' + esc(fmtD(P.end)) + '</b> (' + P.len + ' jours)' +
       (P.state === 'encours' ? ' · jour ' + P.day + ', ' + (P.len - P.day + 1) + ' jours restants' : '') + '</div>';
+    h += '<div class="card"><h2>Compte bancaire</h2><div class="field"><label>Découvert autorisé</label><input id="paieDec" inputmode="decimal" placeholder="0 €" value="' + (+cfg.decouvert ? amtInput(+cfg.decouvert) : '') + '"></div>' +
+      '<div class="xs muted">Indiqué sur vos relevés. L\'appli vous prévient avant de le dépasser.</div>' +
+      (accountForecast(mois) ? '' : '<div class="xs muted" style="margin-top:8px">Pour suivre le solde du compte, renseignez le solde de début de mois depuis la Synthèse.</div>') + '</div>';
     h += '<button class="btn block" data-act="savePaie">Enregistrer</button>';
     return h;
   },
@@ -3072,6 +3203,13 @@ function rvGuessLib(desc, sens) {
     if (ids.length) return ids[0];
   }
   var n = ' ' + norm(desc).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ', best = null;
+  // Virement vers / depuis un compte de la famille (« Vir Inst vers Guillaume … », « Virement de M. … ») : hors budget
+  if (/ (vir|virement|vrt)\b/.test(n) && /\b(vers|de m|de mme|de mr|de m et mme|depuis)\b/.test(n)) {
+    var fam = []; D.users.forEach(function (u) { String(u.nom + ' ' + u.email.split('@')[0]).split(/[\s._\-]+/).forEach(function (w) { w = norm(w); if (w.length >= 4 && fam.indexOf(w) < 0) fam.push(w); }); });
+    var hits = fam.filter(function (w) { return n.indexOf(' ' + w + ' ') >= 0; }).length;
+    var inter = libsSorted(sens).filter(isInterne)[0];
+    if (hits >= 1 && inter) return inter.id;
+  }
   (BANK_KW[sens] || []).some(function (rule) {
     if (!rule[0].some(function (w) { return w.charAt(0) === '*' ? n.indexOf(w.slice(1)) >= 0 : n.indexOf(' ' + w) >= 0; })) return false;
     rule[1].some(function (nm) { best = libByName(nm, sens); return !!best; });
@@ -3217,6 +3355,7 @@ function rvBuild() {
     var L = { i: out.length, row: i, date: date, raw: raw, description: desc, montant: Math.abs(v), signed: v, sens: sens, solde: M.solde >= 0 ? rvNum(r[M.solde]) : null, on: true };
     L.key = rvKey(desc);
     L.detail = det; RV._want = '';
+    var cm = String(raw).match(/\bX(\d{4})\b/i); L.carte = cm ? 'X' + cm[1] : '';
     L.libelleId = RV.manual[L.key + '|' + sens] || rvGuessLib(raw + ' ' + desc + ' ' + det, sens);
     L.want = RV.manual[L.key + '|' + sens] ? '' : RV._want;
     L.mois = rvMoisOf(date, L.libelleId);
@@ -3257,10 +3396,17 @@ function rvMatch() {
     usedL[pr.L.i] = usedX[pr.x.id] = true;
     pr.L.majId = pr.x.id; pr.L.libelleId = pr.x.libelleId; pr.L.mois = pr.x.mois;
   });
+  // Déjà saisi à la main : la ligne du relevé le pointe (rapprochement bancaire) ; déjà pointé : doublon.
+  var usedP = {};
   RV.lines.forEach(function (L) {
+    L.pointId = '';
     if (L.majId) return;
     var cents = Math.round(L.montant * 100);
-    L.dup = D.mouvements.some(function (x) { return x.statut !== 'annule' && Math.round(+x.montant * 100) === cents && lib(x.libelleId).sens === L.sens && dd(x.date, L.date) <= 2 && (!x.recurrentId || x.pointe); });
+    var same = D.mouvements.filter(function (x) { return x.statut !== 'annule' && Math.round(+x.montant * 100) === cents && lib(x.libelleId).sens === L.sens && dd(x.date, L.date) <= 3 && (!x.recurrentId || x.pointe); })
+      .sort(function (a, b) { return dd(a.date, L.date) - dd(b.date, L.date); });
+    var free = same.filter(function (x) { return !x.pointe && !usedP[x.id]; })[0];
+    if (free) { usedP[free.id] = true; L.pointId = free.id; L.libelleId = free.libelleId; L.mois = free.mois; L.on = true; return; }
+    L.dup = same.length > 0;
     if (L.dup) L.on = false;
   });
 }
@@ -3278,6 +3424,7 @@ function rvSoldes() {
     if (RV.soldesOn[m] === undefined) RV.soldesOn[m] = soldeOf(m) === null;
   });
 }
+function cartesAll() { try { return JSON.parse(D.cartes || '{}') || {}; } catch (e) { return {}; } }
 function rvSetLib(i, id) {
   var L = RV.lines[i]; if (!L) return;
   // Même commerce, même sens : toutes les lignes suivent (sauf celles déjà réglées à la main).
@@ -3304,10 +3451,10 @@ function releveView() {
     '<div class="rvmap">' + sel('date', 'Date') + sel('lib', 'Libellé') + sel('amt', 'Montant (+ / −)', 1) + sel('solde', 'Solde', 1) + sel('debit', 'Débit', 1) + sel('credit', 'Crédit', 1) + '</div>' +
     '<label class="opt sw" style="margin-top:8px"><span>Inverser les signes<br><span class="xs muted">si les dépenses apparaissent en entrées</span></span><input type="checkbox" class="tg" data-input="rvInv"' + (RV.invert ? ' checked' : '') + '></label>', !RV.lines.length);
   if (!RV.lines.length) return h + '<div class="empty">Aucune ligne reconnue : vérifiez les colonnes Date et Montant.</div>';
-  var on = RV.lines.filter(function (L) { return L.on; }), add = on.filter(function (L) { return !L.majId; }).length, maj = on.filter(function (L) { return L.majId; }).length;
+  var on = RV.lines.filter(function (L) { return L.on; }), add = on.filter(function (L) { return !L.majId && !L.pointId; }).length, maj = on.filter(function (L) { return L.majId || L.pointId; }).length;
   var dups = RV.lines.filter(function (L) { return L.dup; }).length;
   h += '<div class="card"><h2>' + esc(fmtD(RV.lines[0].date)) + ' → ' + esc(fmtD(RV.lines[RV.lines.length - 1].date)) + '</h2><div class="rvsum">' +
-    '<div><b class="num">' + add + '</b><span>à ajouter</span></div><div><b class="num">' + maj + '</b><span>fixes complétés</span></div><div><b class="num">' + dups + '</b><span>déjà saisis</span></div></div>' +
+    '<div><b class="num">' + add + '</b><span>à ajouter</span></div><div><b class="num">' + maj + '</b><span>complétés / pointés</span></div><div><b class="num">' + dups + '</b><span>doublons</span></div></div>' +
     '<div class="xs muted" style="margin-top:8px">Libellés proposés d\'après vos saisies et les mots-clés ; changer celui d\'une ligne change aussi les lignes du même commerce. Les mouvements importés sont marqués « pointés ».' +
     (RV.bad ? ' ' + RV.bad + ' ligne(s) sans date ou montant ignorée(s).' : '') + '</div></div>';
   var wants = {}; RV.lines.forEach(function (L) { if (L.want && !L.pinned && !L.majId) wants[L.want + '|' + L.sens] = (wants[L.want + '|' + L.sens] || 0) + 1; });
@@ -3317,6 +3464,18 @@ function releveView() {
       'Elles sont classées en « ' + esc(lib(RV.lines.filter(function (L) { return L.want === nm; })[0].libelleId).nom) + ' ».</div>' +
       (canEdit() ? '<button class="btn sm" data-act="rvMkLib" data-n="' + esc(nm) + '" data-s="' + k.split('|')[1] + '">Créer « ' + esc(nm) + ' »</button>' : '') + '</div>';
   });
+  // Cartes bancaires : à qui appartient chaque carte (les dépenses sont attribuées à cette personne)
+  var cards = {}; RV.lines.forEach(function (L) { if (L.carte) cards[L.carte] = (cards[L.carte] || 0) + 1; });
+  var ck = Object.keys(cards).sort();
+  if (ck.length) {
+    var CA = cartesAll();
+    h += fold('rv:cartes', 'Cartes bancaires', '<span class="tag">' + ck.length + '</span>', '<div class="xs muted" style="margin-bottom:8px">Les achats par carte sont attribués à la personne choisie (pastille « saisi par »).</div>' +
+      ck.map(function (k) {
+        return '<div class="opt sw"><span>Carte <b>' + esc(k.replace('X', 'X·')) + '</b> <span class="muted xs">· ' + cards[k] + ' achat' + (cards[k] > 1 ? 's' : '') + '</span></span>' +
+          '<select data-input="rvCard" data-k="' + k + '" style="width:auto;max-width:170px"><option value="">Non attribuée</option>' +
+          D.users.filter(function (u) { return u.actif; }).map(function (u) { return '<option value="' + esc(u.email) + '"' + (CA[k] && CA[k].toLowerCase() === u.email.toLowerCase() ? ' selected' : '') + '>' + esc(firstName(u.nom || u.email)) + '</option>'; }).join('') + '</select></div>';
+      }).join(''), !ck.every(function (k) { return CA[k]; }));
+  }
   var sm = Object.keys(RV.soldes);
   if (sm.length) h += fold('rv:soldes', 'Soldes de début de mois', '<span class="tag">' + sm.length + '</span>', sm.map(function (m) {
     return '<label class="opt sw"><span>' + esc(monthName(m)) + ' · <b class="num ' + (RV.soldes[m] < 0 ? 'neg' : '') + '">' + eur(RV.soldes[m]) + '</b>' + (soldeOf(m) !== null ? '<br><span class="xs muted">déjà renseigné : ' + eur(soldeOf(m)) + '</span>' : '') + '</span>' +
@@ -3331,7 +3490,10 @@ function releveView() {
       var l = lib(L.libelleId), occ = L.majId ? byId(D.mouvements, L.majId) : null;
       return '<div class="rvl' + (L.on ? '' : ' off') + '"><input type="checkbox" class="tg" data-act="rvTog" data-i="' + L.i + '"' + (L.on ? ' checked' : '') + '>' +
         '<div class="main"><div class="title" data-act="rvEdit" data-i="' + L.i + '" title="' + esc(L.raw) + '">' + esc(L.description) + ' <span class="muted">✎</span></div><div class="meta"><span>' + esc(L.date.substring(8, 10) + '/' + L.date.substring(5, 7)) + '</span>' +
-        (occ ? '<span class="tag acc">↻ complète « ' + esc(occ.description || lib(occ.libelleId).nom) + ' »</span>' : '<select data-input="rvLib" data-i="' + L.i + '" aria-label="Libellé">' + opts(L.sens, L.libelleId) + '</select>') +
+        (occ ? '<span class="tag acc">↻ complète « ' + esc(occ.description || lib(occ.libelleId).nom) + ' »</span>' :
+          L.pointId ? '<span class="tag acc">✓ pointe « ' + esc((byId(D.mouvements, L.pointId) || {}).description || lib(L.libelleId).nom) + ' »</span>' :
+          '<select data-input="rvLib" data-i="' + L.i + '" aria-label="Libellé">' + opts(L.sens, L.libelleId) + '</select>') +
+        (L.carte && cartesAll()[L.carte] ? (function (u) { return u ? '<span class="who" title="' + esc(u.nom) + '"><i style="background:' + esc(u.couleur) + '">' + esc(firstName(u.nom || u.email).charAt(0)) + '</i></span>' : ''; })(user(cartesAll()[L.carte])) : '') +
         (L.dup ? '<span class="tag warn">déjà saisi ?</span>' : '') + '</div></div>' +
         '<div class="amt num ' + (L.sens === 'entree' ? 'pos' : '') + '" data-act="rvEdit" data-i="' + L.i + '">' + (L.sens === 'entree' ? '+' : '−') + eur(L.montant) + '</div></div>';
     }).join(''), k === 0);
@@ -3343,10 +3505,10 @@ function releveView() {
 function rvReview() {
   var on = RV.lines.filter(function (L) { return L.on; }), h = backbar('Vérifier l\'import');
   var byM = {}; on.forEach(function (L) { (byM[L.mois] = byM[L.mois] || []).push(L); });
-  var maj = on.filter(function (L) { return L.majId; }).length;
+  var maj = on.filter(function (L) { return L.majId || L.pointId; }).length;
   h += '<div class="card"><div class="small t2">Voici ce qui sera rempli. Touchez un libellé pour voir ses lignes, puis une ligne pour la corriger. ' +
     'Rien n\'est enregistré avant « Valider l\'import ».</div><div class="rvsum" style="margin-top:12px"><div><b class="num">' + (on.length - maj) + '</b><span>mouvements ajoutés</span></div>' +
-    '<div><b class="num">' + maj + '</b><span>fixes complétés</span></div><div><b class="num">' + Object.keys(byM).length + '</b><span>mois</span></div></div></div>';
+    '<div><b class="num">' + maj + '</b><span>complétés / pointés</span></div><div><b class="num">' + Object.keys(byM).length + '</b><span>mois</span></div></div></div>';
   Object.keys(byM).sort().reverse().forEach(function (m) {
     var ls = byM[m], tE = 0, tS = 0, per = {};
     ls.forEach(function (L) { if (L.sens === 'entree') tE += L.montant; else tS += L.montant; var g = per[L.libelleId] || (per[L.libelleId] = { n: 0, t: 0, ls: [] }); g.n++; g.t += L.montant; g.ls.push(L); });
@@ -3408,7 +3570,7 @@ function rvRead(file) {
 document.addEventListener('change', function (e) { if (e.target && e.target.id === 'csvFile') rvRead(e.target.files && e.target.files[0]); });
 
 /* ---------------- Notifications : liaison avec l'appli installée (la coquille reçoit les notifications) ---------------- */
-var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false };
+var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false, decouvert: true };
 function notifPrefs() { var n = JSON.parse(JSON.stringify(pref('notif', {}) || {})); Object.keys(NOTIF_DEF).forEach(function (k) { if (n[k] === undefined) n[k] = NOTIF_DEF[k]; }); return n; }
 var pushState = null, shellReq = {}, shellSeq = 0;
 function shellAsk(msg, ms) {
@@ -3809,11 +3971,18 @@ function saveMvt(id, forceZero) {
     local.pointe = payload.pointe; local.modifPar = D.me.email; local.modifLe = nowIso();
     if (x.recurrentId && (x.montant !== amt || x.date !== date || x.description !== payload.description || x.libelleId !== payload.libelleId || (x.vehiculeId || '') !== payload.vehiculeId)) local.modifie = true;
   }
+  var before = x ? JSON.parse(JSON.stringify(x)) : null;
   upsertLocal(D.mouvements, local);
   if (payload.compteId !== undefined) setLocalImputation(payload.compteId, 'mvt', payload.id);
   closeSheet();
   if (local.mois !== mois) { mois = local.mois; }
-  render(); buzz(); toast(repeter ? 'Mouvement fixe créé' : 'Enregistré');
+  render(); buzz();
+  toast(repeter ? 'Mouvement fixe créé' : id ? 'Modifié' : 'Enregistré', false, before ? function () {
+    upsertLocal(D.mouvements, before); render();
+    bg('saveMouvement', [{ id: before.id, date: before.date, mois: before.mois, montant: before.montant, libelleId: before.libelleId, description: before.description, vehiculeId: before.vehiculeId || '', pointe: !!before.pointe }, null],
+      function (res) { upsertLocal(D.mouvements, res.mouvement); render(); });
+    toast('Modification annulée');
+  } : null);
   bg('saveMouvement', [payload, repeter], function (res) {
     upsertLocal(D.mouvements, res.mouvement);
     if (res.recurrent) { D.recurrents.push(res.recurrent); if (payload.compteId) setLocalImputation(payload.compteId, 'rec', res.recurrent.id); }
@@ -3822,11 +3991,19 @@ function saveMvt(id, forceZero) {
 }
 
 function delMvt(id) {
-  var x = byId(D.mouvements, id);
-  if (!confirm(x.recurrentId ? 'Retirer ce mouvement fixe pour ' + monthName(x.mois) + ' seulement ?' : 'Supprimer ce mouvement ?')) return;
+  var x = byId(D.mouvements, id), before = JSON.parse(JSON.stringify(x));
   if (x.recurrentId) x.statut = 'annule'; else removeLocal(D.mouvements, id);
-  closeSheet(); render(); toast(x.recurrentId ? 'Retiré pour ce mois' : 'Supprimé');
+  closeSheet(); render(); buzz();
   bg('deleteMouvement', [id]);
+  toast(x.recurrentId ? 'Retiré pour ' + monthName(x.mois) : 'Mouvement supprimé', false, function () {
+    if (before.recurrentId) { var y = byId(D.mouvements, id); if (y) y.statut = ''; render(); bg('restoreOccurrence', [id]); }
+    else {
+      D.mouvements.push(before); render();
+      bg('saveMouvement', [{ id: before.id, date: before.date, mois: before.mois, montant: before.montant, libelleId: before.libelleId, description: before.description, vehiculeId: before.vehiculeId || '', pointe: !!before.pointe }, null],
+        function (res) { upsertLocal(D.mouvements, res.mouvement); render(); });
+    }
+    toast('Rétabli');
+  });
 }
 
 /* ---------------- Mouvement fixe ---------------- */
@@ -3917,7 +4094,7 @@ function openLib(id) {
   if (!canModify) disableSheet();
 }
 function typeOptions(sens, cur) {
-  var opts = sens === 'entree' ? ['revenu'] : ['besoin', 'envie', 'credit', 'epargne', 'impot'];
+  var opts = sens === 'entree' ? ['revenu', 'interne'] : ['besoin', 'envie', 'credit', 'epargne', 'impot', 'interne'];
   return opts.map(function (t) { return '<option value="' + t + '" ' + (t === cur ? 'selected' : '') + '>' + TYPE_LABEL[t] + '</option>'; }).join('');
 }
 
@@ -4002,7 +4179,9 @@ var ACT = {
     mp.focus(); mp.click();
   },
   sub: function (d) { if (d.sub === 'notifs') refreshPushState(); if (d.sub === 'releve') RV = null; if (d.sub && !sub) histPush('sub'); sub = d.sub; if (sub === 'journal') journalCache = null; if (sub === 'backups') backupsCache = null; if (sub === 'rapport') rapportCache = null; render(); window.scrollTo(0, 0); },
-  synSeg: function (d) { var o = ['resume', 'graph', 'conseils']; navDir = o.indexOf(d.v) - o.indexOf(synSeg); synSeg = d.v; vizSel = null; render(); },
+  anGo: function (d) { navDir = 0; mois = d.m; synSeg = 'resume'; render(); window.scrollTo(0, 0); ensureMonthClient(); },
+  anYear: function (d) { anYear = (anYear || +mois.substring(0, 4)) + (+d.v); render(); },
+  synSeg: function (d) { var o = ['resume', 'graph', 'conseils', 'annee']; navDir = o.indexOf(d.v) - o.indexOf(synSeg); synSeg = d.v; vizSel = null; render(); },
   vizPeriod: function (d) { vizPeriod = +d.v; setPref('vizPeriod', vizPeriod); render(); },
   vizSel: function (d) { vizSel = d.v && vizSel !== d.v ? d.v : null; render(); },
   evoSel: function (d) { form.evoSel = d.v; render(); },
@@ -4154,6 +4333,7 @@ var ACT = {
     setOpen(d.k, !closed);
   },
   dayFold: function (d, el) { el.classList.toggle('closed'); },
+  toastUndo: function () { var f = toastUndo; toastUndo = null; var t = document.getElementById('toast'); if (t) t.hidden = true; if (f) f(); },
   toggleMore: function (d, el) { var b = document.getElementById('moreBox'); b.hidden = !b.hidden; el.querySelector('.chev').style.transform = b.hidden ? 'rotate(-90deg)' : ''; },
   pickCpt: function (d) { form.compteId = d.id; form.cptChanged = true; refreshCpt(); },
   openCompte: function (d) { openCompte(d.id); },
@@ -4231,6 +4411,25 @@ var ACT = {
     L.on = checked('e_on'); L.pinned = true; L.dup = false;
     closeSheet(); render();
   },
+  rvDone: function () { LAST_IMPORT = null; render(); },
+  rvFixes: function () {
+    var cs = LAST_IMPORT.cands.filter(function (c) { return byId(D.mouvements, c.id); });
+    openSheet('<h3>Prélèvements réguliers</h3><div class="small t2" style="margin-bottom:12px">Suivis comme <b>fixes</b>, ils seront prévus chaque mois automatiquement (et complétés à chaque import de relevé). ' +
+      'Ceux déjà vus un autre mois sont cochés.</div>' + cs.map(function (c) {
+        var x = byId(D.mouvements, c.id), l = lib(x.libelleId);
+        return '<label class="opt sw"><span>' + icon(l) + ' ' + esc(x.description) + '<br><span class="xs muted">' + esc(l.nom) + ' · le ' + (+x.date.substring(8, 10)) + ' du mois · <b class="num">' + eur(x.montant) + '</b></span></span>' +
+          '<input type="checkbox" class="tg fxc" value="' + x.id + '"' + (c.on ? ' checked' : '') + '></label>';
+      }).join('') + '<div class="actions"><button class="btn ghost" data-act="close">Plus tard</button><button class="btn" data-act="rvFixesOk">Créer les fixes</button></div>');
+  },
+  rvFixesOk: function () {
+    var ids = Array.prototype.map.call(document.querySelectorAll('.sheet .fxc:checked'), function (e) { return e.value; });
+    if (!ids.length) { closeSheet(); return; }
+    var b = document.getElementById('saveBtn') || document.querySelector('[data-act=rvFixesOk]'); if (b) { b.disabled = true; b.textContent = 'Création…'; }
+    write('toFixeMany', ids).then(function (data) {
+      setData(data); LAST_IMPORT.cands = LAST_IMPORT.cands.filter(function (c) { return ids.indexOf(c.id) < 0; }); LAST_IMPORT.cands = [];
+      closeSheet(); render(); toast(ids.length + ' fixe' + (ids.length > 1 ? 's' : '') + ' créé' + (ids.length > 1 ? 's' : ''));
+    });
+  },
   rvUndo: function () {
     if (!LAST_IMPORT || !confirm('Annuler l\'import du relevé ? Les ' + LAST_IMPORT.added.length + ' mouvements ajoutés seront supprimés et les fixes complétés remis comme avant.')) return;
     var li = LAST_IMPORT;
@@ -4242,20 +4441,32 @@ var ACT = {
     });
   },
   rvImport: function () {
-    var ls = RV.lines.filter(function (L) { return L.on; }).map(function (L) { return { date: L.date, mois: L.mois, libelleId: L.libelleId, description: L.description, montant: L.montant, majId: L.majId }; });
-    var originals = RV.lines.filter(function (L) { return L.on && L.majId; }).map(function (L) { return JSON.parse(JSON.stringify(byId(D.mouvements, L.majId) || {})); }).filter(function (o) { return o.id; });
+    var CA = cartesAll();
+    var ls = RV.lines.filter(function (L) { return L.on; }).map(function (L) { return { date: L.date, mois: L.mois, libelleId: L.libelleId, description: L.description, montant: L.montant, majId: L.majId, pointId: L.pointId, saisiPar: L.carte ? CA[L.carte] || '' : '' }; });
+    var originals = RV.lines.filter(function (L) { return L.on && (L.majId || L.pointId); }).map(function (L) { return JSON.parse(JSON.stringify(byId(D.mouvements, L.majId || L.pointId) || {})); }).filter(function (o) { return o.id; });
+    // Prélèvements réguliers sans fixe : proposés comme fixes après l'import
+    var rawOf = {}; RV.lines.forEach(function (L) { if (L.on && !L.majId && !L.pointId) rawOf[L.date + '|' + Math.round(L.montant * 100) + '|' + L.description] = L; });
     var so = {}; Object.keys(RV.soldes).forEach(function (m) { if (RV.soldesOn[m]) so[m] = RV.soldes[m]; });
     if (!ls.length) return;
     var b = document.querySelector('[data-act=rvImport]'); if (b) { b.disabled = true; b.textContent = 'Import en cours…'; }
     write('importReleve', ls, so).then(function (r) {
-      LAST_IMPORT = { added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length };
+      var cands = r.added.filter(function (x) {
+        var L = rawOf[x.date + '|' + Math.round(+x.montant * 100) + '|' + x.description], l = lib(x.libelleId);
+        if (!L || isInterne(l) || !/^(prlv|pr[ée]l[èe]vement|ech\.? pr[êe]t|[ée]ch[ée]ance)/i.test(String(L.raw).trim())) return false;
+        if (/int[ée]r[êe]ts?|frais|commission|agios|cotisation (carte|compte)|offre premium/i.test(L.raw + ' ' + x.description)) return false;
+        return !D.recurrents.some(function (rc) { return rc.libelleId === x.libelleId && Math.abs(+rc.montant - +x.montant) <= Math.max(1, +rc.montant * 0.05) && !recStatus(rc).off; });
+      }).map(function (x) {
+        var k = rvKey(x.description), seen = D.mouvements.some(function (y) { return y.id !== x.id && y.mois !== x.mois && rvKey(y.description) === k && Math.abs(+y.montant - +x.montant) <= Math.max(1, +x.montant * 0.1); });
+        return { id: x.id, on: seen };
+      });
+      LAST_IMPORT = { added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length - (r.pointed || []).length, nPt: (r.pointed || []).length, cands: cands };
       r.added.forEach(function (x) { D.mouvements.push(x); });
       r.updated.forEach(function (x) { upsertLocal(D.mouvements, x); });
       if (r.soldes !== undefined) D.soldes = r.soldes;
       resetCalc(); RV = null; sub = ''; tab = 'mouvements'; mvtFilter = 'tous';
       var ms = r.added.concat(r.updated).map(function (x) { return x.mois; }).sort(); if (ms.length) mois = ms[ms.length - 1];
       render(); window.scrollTo(0, 0);
-      toast(r.added.length + ' ajouté(s)' + (r.updated.length ? ', ' + r.updated.length + ' fixe(s) complété(s)' : '') + (r.skipped ? ', ' + r.skipped + ' ignoré(s)' : ''));
+      toast(r.added.length + ' ajouté(s)' + (LAST_IMPORT.nUpd ? ', ' + LAST_IMPORT.nUpd + ' fixe(s) complété(s)' : '') + (LAST_IMPORT.nPt ? ', ' + LAST_IMPORT.nPt + ' pointé(s)' : ''));
     }, function () { var b2 = document.querySelector('[data-act=rvImport]'); if (b2) { b2.disabled = false; b2.textContent = 'Importer'; } });
   },
   envVisSheet: function () { openEnvVis(); },
@@ -4299,7 +4510,7 @@ var ACT = {
   },
   savePaie: function () {
     var cfg = paieCfg(), m = mois, nm = shiftMonth(m, 1);
-    var nc = { jour: val('paieJour') ? +val('paieJour') : '', weekend: checked('paieWe'), mois: JSON.parse(JSON.stringify(cfg.mois)) };
+    var nc = { jour: val('paieJour') ? +val('paieJour') : '', weekend: checked('paieWe'), mois: JSON.parse(JSON.stringify(cfg.mois)), decouvert: Math.abs(parseAmount(val('paieDec')) || 0) };
     [[m, val('paieCur')], [nm, val('paieNext')]].forEach(function (q) {
       var auto = payDate(q[0], { jour: nc.jour, weekend: nc.weekend, mois: {} });
       if (q[1] && q[1] !== auto) nc.mois[q[0]] = q[1]; else delete nc.mois[q[0]];
@@ -4364,6 +4575,9 @@ document.addEventListener('input', function (e) {
     RV.map[e.target.dataset.k] = e.target.value === '' ? -1 : +e.target.value; rvBuild(); render();
   } else if (k === 'rvInv') {
     RV.invert = e.target.checked; rvBuild(); render();
+  } else if (k === 'rvCard') {
+    var CA = cartesAll(); if (e.target.value) CA[e.target.dataset.k] = e.target.value; else delete CA[e.target.dataset.k];
+    D.cartes = JSON.stringify(CA); bg('saveCartes', [CA], function (j) { D.cartes = j; }); render();
   } else if (k === 'rvLib') {
     rvSetLib(+e.target.dataset.i, e.target.value); render();
   } else if (k === 'notifSel') {
@@ -4413,13 +4627,16 @@ document.addEventListener('visibilitychange', function () {
 window.addEventListener('pagehide', backupOnLeave);
 
 var toastTimer;
-function toast(msg, err) {
+var toastUndo = null;
+/** Message en bas d'écran ; avec `undo`, un bouton « Annuler » reste affiché 6 secondes. */
+function toast(msg, err, undo) {
   var t = document.getElementById('toast');
-  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
-  t.className = 'toast' + (err ? ' err' : '');
-  t.textContent = msg; t.hidden = false;
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.className = 'toast' + (err ? ' err' : '') + (undo ? ' act' : '');
+  t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button type="button" data-act="toastUndo">Annuler</button>' : '');
+  toastUndo = undo || null; t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { t.hidden = true; }, err ? 4000 : 1800);
+  toastTimer = setTimeout(function () { t.hidden = true; toastUndo = null; }, undo ? 6000 : err ? 4000 : 1800);
 }
 
 function setOffline(off) {
