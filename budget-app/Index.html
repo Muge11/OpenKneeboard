@@ -152,7 +152,7 @@
     -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line);
     padding: calc(8px + env(safe-area-inset-top)) 8px 8px; display: flex; align-items: center; gap: 4px; }
   header .month { flex: 1; text-align: center; min-width: 0; }
-  header .month b { display: block; font-size: 16px; font-weight: 600; text-transform: capitalize; letter-spacing: -.01em; }
+  header .month b { display: block; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
   header .month span { font-size: 11px; color: var(--muted); }
   header button { background: transparent; border: 0; color: var(--text-2); width: 40px; height: 40px; border-radius: 10px; cursor: pointer;
     display: grid; place-items: center; }
@@ -830,6 +830,92 @@
   input[type=checkbox].tg:checked::after { left: 21px; background: var(--acc); }
   .opt.sw { justify-content: space-between; gap: 12px; min-height: 44px; }
 
+
+  /* ================= v1.4.0 : finitions ================= */
+  /* En-tête : [initiale]  [‹ Mois ›]  [actualiser] — la pilule du mois est vraiment au centre */
+  header { justify-content: space-between; }
+  header .me { width: 44px; height: 44px; border-radius: 50%; border: 0; color: #fff; font-weight: 800; font-size: 16px; line-height: 1;
+    display: grid; place-items: center; padding: 0 0 .07em; cursor: pointer; flex: none; }
+  header .mnav { display: flex; align-items: center; height: 48px; padding: 4px; border-radius: 999px; background: var(--surface); min-width: 0; }
+  header .mnav button { width: 40px; height: 40px; background: transparent; }
+  header .mnav button[hidden] { display: none !important; }
+  header .mnav .month { background: transparent; height: 40px; padding: 0 8px; margin: 0; }
+  header .mnav:has(button[hidden]) .month { padding: 0 20px; }
+  header .month.pickable b::after { content: ""; display: inline-block; width: 12px; height: 12px; margin-left: 6px; vertical-align: -1px; opacity: .55;
+    background: currentColor; -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat; }
+  :root { --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
+  header .mnav button:hover { background: var(--surface-3); }
+  @media (min-width: 1100px) { header { justify-content: flex-start; gap: 12px; } header .me { order: 3; margin-left: auto; } header [data-act=refresh] { order: 4; } }
+
+  /* Rangées de filtres : fondu à droite quand elles défilent */
+  .mfilters.ov, .filters.ov { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+  .mfilters.ov.end, .filters.ov.end { -webkit-mask-image: none; mask-image: none; }
+
+  /* Fiche de saisie : libellés en tuiles (grand emoji + nom) */
+  .lgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .chip.lt { height: auto; min-height: 72px; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 4px 8px !important; border-radius: 18px;
+    font-size: 11px; font-weight: 700; line-height: 1.2; white-space: normal; text-align: center; background: var(--input-bg); border: 1px solid var(--line); }
+  .chip.lt b { font-size: 22px; line-height: 1; font-weight: 400; font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+  .chip.lt span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; overflow-wrap: anywhere; }
+  .chip.lt.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+  .chip.lt.add { border: 1.5px dashed var(--line-2); background: transparent; }
+  @media (min-width: 600px) { .lgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+  /* Pastille de l'utilisateur (page Plus) */
+  .avatar { width: 44px; height: 44px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 17px; line-height: 1; padding-bottom: .07em; flex: none; }
+
+  /* ================= Barre du bas (v1.4.0) : 5 cases de même largeur =================
+     Synthèse · Mouvements · [ + ] · Budget · Épargne (ou Plus) — le + occupe la case du centre exact.
+     Les réglages (Plus) s'ouvrent avec l'initiale en haut à gauche quand l'onglet Épargne est affiché. */
+  nav#nav { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; gap: 0;
+    left: 12px; right: 12px; padding: 6px; justify-content: stretch; align-items: center; }
+  nav#nav > * { flex: none !important; width: auto; min-width: 0; margin: 0; }
+  nav#nav > button { height: 50px; padding: 0 !important; display: flex; align-items: center; justify-content: center; background: transparent !important; border-radius: 999px; }
+  nav#nav > button .pill { width: 52px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: transparent !important; transition: background .2s; }
+  nav#nav > button.on .pill { background: var(--nav-on) !important; }
+  nav#nav > button .tl { display: none !important; }
+  nav#nav .navgap { display: block; height: 50px; }
+  nav#nav[data-ep="1"] > button[data-tab="plus"] { display: none; }
+  .fab[hidden] ~ nav#nav .navgap { display: none; }
+  .fab { width: 62px; height: 62px; bottom: calc(12px + 31px - 20px + env(safe-area-inset-bottom)); }
+  .fab svg { width: 28px; height: 28px; }
+  @media (min-width: 840px) { nav#nav { left: 50%; right: auto; width: 440px; transform: translateX(-50%); } }
+  @media (min-width: 1100px) {
+    nav#nav { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; width: 232px; left: 0; transform: none; padding: 136px 14px 20px !important; gap: 4px; }
+    nav#nav > button, nav#nav > button.on { height: 46px; justify-content: flex-start; padding: 0 12px !important; gap: 12px; border-radius: 14px; }
+    nav#nav > button.on { background: var(--ink) !important; }
+    nav#nav > button .pill, nav#nav > button.on .pill { width: auto; height: auto; background: none !important; display: inline-grid; }
+    nav#nav > button .tl { display: inline !important; }
+    nav#nav[data-ep="1"] > button[data-tab="plus"] { display: flex; }
+    nav#nav .navgap { display: none; }
+    nav#nav > button:not(.on):hover { background: var(--surface-2) !important; }
+    .fab { width: 204px; height: 50px; }
+    .fab svg { width: 20px; height: 20px; }
+  }
+
+  /* Import de relevé */
+  .filebtn { position: relative; overflow: hidden; }
+  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .rvl { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .rvl:last-child { border-bottom: 0; }
+  .rvl.off { opacity: .45; }
+  .rvl .main { flex: 1; min-width: 0; }
+  .rvl .title { font-weight: 700; font-size: 13px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rvl .meta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .rvl select { width: auto; max-width: 150px; height: 28px; padding: 0 24px 0 8px; font-size: 12px; font-weight: 600; border-radius: 8px; }
+  .rvl .amt { font-weight: 800; font-size: 13px; white-space: nowrap; }
+  .rvmap { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .rvmap .field { margin: 0; }
+  .rvsum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .rvsum div { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; }
+  .rvsum b { display: block; font-size: 17px; font-weight: 800; }
+  .rvsum span { font-size: 11px; color: var(--muted); font-weight: 700; }
+  .t.solde-ask { display: flex; flex-direction: row !important; align-items: center; gap: 12px; }
+  .t.solde-ask .k { flex: 1; height: auto; line-height: 18px; display: block; }
+  .t.solde-ask .k small { display: block; font-weight: 600; color: var(--sky-t); opacity: .85; margin-top: 2px; }
+  .pchip.clk { cursor: pointer; }
+  .seg.sgn button.on.neg { background: var(--neg); color: #fff; }
+
   @media (min-width: 1700px) {
     #view[data-layout="cols"] { column-count: 3; }
     main { max-width: 1640px; }
@@ -845,9 +931,12 @@
   <div class="skel" style="height:220px"></div><div class="xs muted" style="text-align:center">Chargement…</div></div>
 
 <header>
+  <button class="me" id="meBtn" data-act="tab" data-tab="plus" aria-label="Mon compte et réglages"></button>
+  <div class="mnav">
   <button data-act="prevMonth" id="prevBtn" aria-label="Mois précédent"><svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
   <div class="month" data-act="pickMonth"><b id="monthLabel"></b><span id="versionLabel"></span><input type="month" id="monthPicker" data-input="monthPicker" tabindex="-1" aria-hidden="true"></div>
   <button data-act="nextMonth" id="nextBtn" aria-label="Mois suivant"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+  </div>
   <button data-act="refresh" aria-label="Actualiser"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></button>
 </header>
 <div class="offbar" id="offbar" hidden>Hors connexion — consultation seule, la saisie reprendra au retour du réseau</div>
@@ -1130,6 +1219,7 @@ function themeVars(style, mode, accent) {
     '--accent': L ? T.text : acc, '--accent-text': L ? T.text : acc, '--accent-soft': L ? hexA(T.text, .07) : hexA(acc, .13),
     '--chip-red': T.chipRed, '--fab-shadow': L ? '0 10px 22px ' + hexA(T.text, .25) : '0 10px 24px rgba(0, 0, 0, .45)',
     '--d1': T.d[0], '--d2': T.d[1], '--d3': T.d[2], '--d4': T.d[3], '--d5': T.d[4],
+    '--s1': T.d[2], '--s2': T.d[1], '--s3': T.d[3], '--s4': T.d[4], '--s5': L ? '#c2417a' : '#f08cb5',
     '--st-good': T.pos, '--st-warn': T.warn, '--st-serious': L ? '#c2581f' : '#ff9b6a', '--st-critical': T.neg
   };
   return v;
@@ -1234,6 +1324,32 @@ function budgetMonthOf(d) {
   return m0;
 }
 function fmtD(s) { return dOf(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+
+/* ---------------- Solde réel du compte en début de mois ---------------- */
+function soldesAll() { try { return JSON.parse((D && D.soldes) || '{}') || {}; } catch (e) { return {}; } }
+function soldeOf(m) { var s0 = soldesAll()[m]; return s0 && isFinite(+s0.montant) ? +s0.montant : null; }
+/** Date de référence du solde : juste avant la paye qui finance le mois (sinon le 1er du mois). */
+function soldeRefDate(m) {
+  var pd = payDate(m); if (pd) return pd;
+  var sal = mvOfMonth(m).filter(function (x) { var l = lib(x.libelleId); return x.statut !== 'annule' && l.sens === 'entree' && l.moisSuivant; })
+    .map(function (x) { return x.date; }).sort()[0];
+  return sal && sal < m + '-01' ? sal : m + '-01';
+}
+function openSolde(m) {
+  m = m || mois;
+  var cur = soldeOf(m), prev = compute(shiftMonth(m, -1)).bilan.reel, ref = soldeRefDate(m), neg = cur !== null ? cur < 0 : false;
+  form = { kind: 'solde', mois: m, neg: neg };
+  var h = '<h3>Solde du compte · ' + esc(monthName(m)) + '</h3>' +
+    '<div class="info">Montant <b>réel</b> du compte en banque juste avant la paye du <b>' + esc(dayName(ref)) + '</b> : ce qui reste du mois précédent, ' +
+    'ou le découvert. Il est reporté dans le reste à vivre de ' + esc(monthName(m)) + '.</div>' +
+    '<div class="seg sgn"><button data-act="soldeSign" data-v="0" class="' + (neg ? '' : 'on') + '">Supplément</button><button data-act="soldeSign" data-v="1" class="' + (neg ? 'on neg' : '') + '">Découvert</button></div>' +
+    '<div class="field"><input id="s_amt" class="amount" inputmode="decimal" placeholder="0,00 €" value="' + (cur !== null ? amtInput(Math.abs(cur)) : '') + '"></div>' +
+    '<div class="xs muted" style="margin:-4px 0 12px">Reste à vivre calculé pour ' + esc(monthName(shiftMonth(m, -1))) + ' : <b class="num">' + eur(prev) + '</b>' +
+    (cur !== null ? ' · écart avec le compte : <b class="num ' + (cur - prev < 0 ? 'neg' : 'pos') + '">' + (cur - prev >= 0 ? '+' : '') + eur(cur - prev) + '</b>' : '') + '</div>';
+  if (canEdit()) h += actions(cur !== null ? 'delSolde' : '', 'Retirer', 'saveSolde', m);
+  openSheet(h);
+  if (!canEdit()) disableSheet();
+}
 
 function reperes() {
   var r = {};
@@ -1409,7 +1525,8 @@ function computeRaw(m) {
   });
   return {
     mv: mv, per: per, tot: tot, groups: groups, types: types,
-    bilan: { prevu: tot.entree.prevu - tot.sortie.prevu, reel: tot.entree.reel - tot.sortie.reel },
+    // Report : solde réel du compte au début du mois (découvert ou supplément), compté dans le reste à vivre.
+    bilan: (function () { var r = soldeOf(m); return { prevu: tot.entree.prevu - tot.sortie.prevu + (r || 0), reel: tot.entree.reel - tot.sortie.reel + (r || 0), report: r }; })(),
     todo: mv.filter(function (x) { return !x.pointe; }).length
   };
 }
@@ -1439,11 +1556,14 @@ function render() {
   resetCalc();
   if (tab === 'epargne' && !tabsShown().some(function (t) { return t[0] === 'epargne'; })) tab = 'synthese';
   var monthless = tab === 'fixes' || tab === 'plus' || tab === 'epargne';
-  document.getElementById('monthLabel').textContent = tab === 'fixes' ? 'Mouvements fixes' : tab === 'plus' ? 'Plus' : tab === 'epargne' ? 'Épargne' : monthName(mois);
+  document.getElementById('monthLabel').textContent = tab === 'fixes' ? 'Mouvements fixes' : tab === 'plus' ? 'Plus' : tab === 'epargne' ? 'Épargne' : (function (t) { return t.charAt(0).toUpperCase() + t.slice(1); })(monthName(mois));
   document.querySelector('header .month').classList.toggle('pickable', !monthless);
   document.getElementById('prevBtn').hidden = monthless;
   document.getElementById('nextBtn').hidden = monthless;
+  var mb = document.getElementById('meBtn');
+  mb.textContent = firstName(D.me.nom || D.me.email).charAt(0) || '?'; mb.style.background = D.me.couleur || 'var(--surface-3)';
   document.getElementById('nav').dataset.n = tabsShown().length;
+  document.getElementById('nav').dataset.ep = tabsShown().some(function (t) { return t[0] === 'epargne'; }) ? '1' : '';
   document.getElementById('nav').innerHTML = tabsShown().map(function (t, i) {
     return (i === 2 ? '<span class="navgap"></span>' : '') + '<button data-act="tab" data-tab="' + t[0] + '" class="' + (navTab(tab) === t[0] ? 'on' : '') + '" aria-label="' + t[1] + '"><span class="pill">' + svg(t[0]) + '</span><span class="tl">' + t[1] + '</span></button>';
   }).join('');
@@ -1454,6 +1574,7 @@ function render() {
   view.dataset.layout = (tab === 'mouvements' && !sub) || /^(journal|backups|rapport|users)$/.test(sub) ? 'wide' : 'cols';
   view.innerHTML = v(c);
   fixEmoji(view);
+  markOverflow(view);
   // Animation uniquement quand la page change (pas lors d'un simple rafraîchissement des données).
   var key = tab + '|' + sub + '|' + (tab === 'synthese' ? synSeg : '') + '|' + (monthless ? '' : mois);
   if (key !== lastViewKey) {
@@ -1541,6 +1662,7 @@ function viewSynthese(c) {
     h += '<tr class="total"><td>Total ' + (s === 'entree' ? 'entrées' : 'sorties') + '</td><td class="num">' + eur0(t.prevu) + '</td><td class="pc">' + pct(t.prevu / revP) +
       '</td><td class="num">' + eur0(t.reel) + '</td><td class="pc">' + pct(t.reel / revR) + '</td></tr>';
   });
+  if (b.report !== null) h += '<tr class="sub click" data-act="openSolde"><td>' + (b.report < 0 ? 'Découvert de départ' : 'Solde de départ') + '</td><td class="num ' + (b.report < 0 ? 'neg' : '') + '">' + eur0(b.report) + '</td><td></td><td class="num ' + (b.report < 0 ? 'neg' : '') + '">' + eur0(b.report) + '</td><td></td></tr>';
   h += '<tr class="total"><td>Reste à vivre</td><td class="num ' + (b.prevu < 0 ? 'neg' : 'pos') + '">' + eur0(b.prevu) + '</td><td class="pc">' + pct(b.prevu / revP) +
     '</td><td class="num ' + (b.reel < 0 ? 'neg' : 'pos') + '">' + eur0(b.reel) + '</td><td class="pc">' + pct(b.reel / revR) + '</td></tr>';
   h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez une ligne pour voir ses mouvements ; la flèche déplie le groupe.</div></div>';
@@ -1562,7 +1684,7 @@ function sparkPts(c, m) {
     var d = x.date < P.start ? 0 : Math.round((dOf(x.date) - s0) / 864e5) + 1;
     per[Math.max(0, Math.min(d, nd))] += (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0);
   });
-  var pts = [], acc = 0;
+  var pts = [], acc = c.bilan.report || 0;
   for (var k = 0; k <= last; k++) { acc += per[k]; pts.push(acc); }
   return { pts: pts, nd: nd, last: last };
 }
@@ -1663,11 +1785,17 @@ function bentoHtml(c) {
   h += '<div class="t hero w2"><div class="k">Reste à vivre</div>' +
     '<div class="big num' + (b.reel < 0 ? ' neg' : '') + '">' + eurBig(b.reel) + '</div>' +
     '<div class="chips2">' + (b.prevu ? '<span class="pchip ' + (delta >= 0 ? 'lime' : 'red') + ' num">' + (delta >= 0 ? '▲ ' : '▼ ') + eur0(Math.abs(delta)) + ' vs prévu</span>' : '') +
-    (isCur && b.reel > 0 ? '<span class="pchip ghost num">' + eur0(b.reel / joursRestants) + ' / jour</span>' : '') + '</div>' +
+    (isCur && b.reel > 0 ? '<span class="pchip ghost num">' + eur0(b.reel / joursRestants) + ' / jour</span>' : '') +
+    (b.report !== null ? '<span class="pchip ' + (b.report < 0 ? 'red' : 'ghost') + ' num clk" data-act="openSolde">' + (b.report < 0 ? 'découvert ' : 'report ') + (b.report >= 0 ? '+' : '−') + eur0(Math.abs(b.report)) + '</span>' : '') + '</div>' +
     sparkSvg(sparkPts(c, mois), 'spark') +
     (today ? '<div class="mprog"><i style="width:' + (today / nd * 100) + '%"></i><b style="left:' + (today / nd * 100) + '%"></b></div>' : '') +
     '<div class="mpl"><span>' + (isCur ? 'Jour ' + today + ' / ' + nd + ' · ' + joursRestants + ' j' + (P.paie ? ' jusqu\'à la paye' : ' restant' + (joursRestants > 1 ? 's' : '')) : today ? 'Période terminée' : 'Période à venir') + '</span>' +
     '<span class="num">Prévu ' + eur0(b.prevu) + '</span></div></div>';
+  // Solde de début de mois à renseigner (mois en cours, une fois la période commencée)
+  if (b.report === null && canEdit() && isCur) {
+    h += '<div class="t sky w2 click solde-ask" data-act="openSolde"><div class="k">Solde du compte en début de mois<small>Pour compter un découvert ou un supplément</small></div>' +
+      '<span class="btn sm" style="pointer-events:none">Renseigner</span></div>';
+  }
   // Entrées / sorties
   var ent = Object.keys(c.per).map(function (k) { return c.per[k]; }).filter(function (p) { return p.lib.sens === 'entree' && (p.reel || p.prevu); })
     .sort(function (a, z) { return z.reel - a.reel; });
@@ -1947,7 +2075,7 @@ function mvtFilterFn(x) {
 
 function viewMouvements(c) {
   var F = { tous: 'Tous', sortie: 'Sorties', entree: 'Entrées', fixes: 'Fixes', ponctuels: 'Ponctuels', apointer: 'À pointer' };
-  var h = '<div class="search"><input id="searchMvt" type="search" placeholder="Rechercher : Leclerc, 45,50, Elise, Pajero, 28/10…" value="' + esc(mvtQuery) + '" data-input="searchMvt" autocomplete="off">' +
+  var h = '<div class="search"><input id="searchMvt" type="search" placeholder="Rechercher : nom, montant, date…" value="' + esc(mvtQuery) + '" data-input="searchMvt" autocomplete="off">' +
     (mvtQuery ? '<button class="clear" data-act="clearSearch" data-v="mvt" aria-label="Effacer">✕</button>' : '') + '</div>';
   h += '<div class="chips filters" id="scopeChips"' + (mvtQuery ? '' : ' hidden') + '>' + [['mois', 'Ce mois'], ['tous', 'Tous les mois']].map(function (o) {
     return '<button class="chip ' + (mvtScope === o[0] ? 'on' : '') + '" data-act="mvtScope" data-v="' + o[0] + '">' + o[1] + '</button>';
@@ -2206,7 +2334,7 @@ function viewFixes() {
       return '<button class="chip ' + (fixSort === o[0] ? 'on' : '') + '" data-act="fixSort" data-v="' + o[0] + '">' + o[1] + '</button>';
     }).join('') + '</div>';
 
-  h += '<div class="search"><input id="searchFix" type="search" placeholder="Rechercher : Pajero, Spotify, 762, le 5…" value="' + esc(fixQuery) + '" data-input="searchFix" autocomplete="off">' +
+  h += '<div class="search"><input id="searchFix" type="search" placeholder="Rechercher un fixe…" value="' + esc(fixQuery) + '" data-input="searchFix" autocomplete="off">' +
     (fixQuery ? '<button class="clear" data-act="clearSearch" data-v="fix" aria-label="Effacer">✕</button>' : '') + '</div>';
   h += '<div id="fixResults">' + fixListsHtml() + '</div>';
   if (canEdit()) h += importCardHtml();
@@ -2260,7 +2388,7 @@ function importCardHtml() {
 /* ---------------- Plus ---------------- */
 function viewPlus() {
   var h = '', me = D.me;
-  h += '<div class="card" style="display:flex;align-items:center;gap:12px"><span class="dot" style="width:38px;height:38px;background:' + esc(me.couleur) + '"></span>' +
+  h += '<div class="card" style="display:flex;align-items:center;gap:12px"><span class="avatar" style="background:' + esc(me.couleur) + '">' + esc(firstName(me.nom || me.email).charAt(0)) + '</span>' +
     '<div><b>' + esc(me.nom) + '</b><div class="xs muted">' + esc(me.email) + ' · ' + ROLE_LABEL[me.role] + '</div></div></div>';
 
   var att = D.attente.slice().sort(function (a, b) { return a.creeLe < b.creeLe ? -1 : 1; });
@@ -2304,6 +2432,7 @@ function viewPlusMenu() {
   menu += menuItem('🔔', 'Notifications', (D.pushDevices || []).length ? (D.pushDevices.length + ' appareil' + (D.pushDevices.length > 1 ? 's' : '') + ' · rappels et alertes') : 'Rappels de saisie, alertes budget', 'notifs');
   menu += menuItem('✨', 'Nouveautés', 'Version ' + D.version + ' · historique des mises à jour', 'releases');
   menu += menuItem('🏷️', 'Libellés', libsSorted().length + ' libellés · emoji · types', 'libelles');
+  if (canEdit()) menu += menuItem('📄', 'Importer un relevé', 'Fichier CSV de votre banque · historique des mois passés', 'releve');
   if (canEdit()) menu += menuItem('📅', 'Jour de paye', paieCfg().jour ? 'Le ' + paieCfg().jour + ' · période ' + fmtD(periodOf(mois).start) + ' → ' + fmtD(periodOf(mois).end) : 'Non réglé · mois calendaire', 'paie');
   menu += menuItem('🚗', 'Véhicules', vehs().map(function (v) { return v.nom; }).join(', ') + ' · coût par véhicule', 'vehicules');
   if (isAdmin()) {
@@ -2652,6 +2781,7 @@ var SUBVIEWS = {
       '<div class="xs muted" style="margin-top:8px">Les enveloppes masquées ne déclenchent pas d\'alerte. Vérification toutes les heures, de 9 h à 21 h.</div></div>';
     return h;
   },
+  releve: function () { return releveView(); },
   paie: function () {
     var cfg = paieCfg(), m = mois, P = periodOf(m), nm = shiftMonth(m, 1);
     var h = backbar('Jour de paye');
@@ -2801,6 +2931,16 @@ function emojiShift(ch) {
   _emoShift[ch] = r;
   return r;
 }
+function markOverflow(root) {
+  Array.prototype.forEach.call((root || document).querySelectorAll('.mfilters, .filters'), function (el) {
+    el.classList.toggle('ov', el.scrollWidth > el.clientWidth + 2);
+    el.classList.toggle('end', el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+  });
+}
+document.addEventListener('scroll', function (e) {
+  var el = e.target; if (!el.classList || !(el.classList.contains('mfilters') || el.classList.contains('filters'))) return;
+  el.classList.toggle('end', el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+}, true);
 function fixEmoji(root) {
   Array.prototype.forEach.call((root || document).querySelectorAll('.emo:not([data-fx])'), function (el) {
     el.setAttribute('data-fx', '1');
@@ -2810,6 +2950,227 @@ function fixEmoji(root) {
   });
 }
 function closeSheet() { var o = document.getElementById('overlay'); if (o) o.remove(); }
+
+/* ---------------- Import d'un relevé bancaire (CSV) ---------------- */
+var RV = null;
+function rvParse(text) {
+  var first = text.split(/\r?\n/).slice(0, 25).join('\n');
+  var count = function (ch) { return (first.match(new RegExp(ch === '\t' ? '\t' : '\\' + ch, 'g')) || []).length; };
+  var sep = [';', ',', '\t', '|'].sort(function (a, b) { return count(b) - count(a); })[0];
+  var rows = [], row = [], cell = '', q = false;
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); cell = ''; if (row.some(function (c) { return c.trim(); })) rows.push(row); row = []; }
+    else cell += ch;
+  }
+  row.push(cell); if (row.some(function (c) { return c.trim(); })) rows.push(row);
+  return rows.map(function (r) { return r.map(function (c) { return c.replace(/ /g, ' ').trim(); }); });
+}
+function rvDate(s) {
+  var m = String(s || '').match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+  if (m) { var y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return y + '-' + pad(+m[2]) + '-' + pad(+m[1]); }
+  m = String(s || '').match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})/);
+  return m ? m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]) : '';
+}
+function rvNum(s) {
+  var t = String(s || '').replace(/[\s €]|EUR/gi, ''), neg = false;
+  if (!t) return null;
+  if (/^\(.*\)$/.test(t)) { neg = true; t = t.slice(1, -1); }
+  if (/-$/.test(t)) { neg = true; t = t.slice(0, -1); }
+  if (/^\+/.test(t)) t = t.slice(1);
+  var c = t.lastIndexOf(','), d = t.lastIndexOf('.');
+  if (c >= 0 && d >= 0) t = c > d ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+  else if (c >= 0) t = t.replace(/,/g, '.');
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  var v = parseFloat(t); return Math.round((neg ? -v : v) * 100) / 100;
+}
+function rvGuessMap(rows) {
+  var map = { hdr: -1, date: -1, lib: -1, amt: -1, debit: -1, credit: -1, solde: -1 };
+  for (var i = 0; i < Math.min(rows.length, 30); i++) {
+    var r = rows[i].map(norm);
+    if (r.some(function (c) { return /date/.test(c); }) && r.some(function (c) { return /montant|debit|credit|amount/.test(c); })) { map.hdr = i; break; }
+  }
+  var H = map.hdr >= 0 ? rows[map.hdr].map(norm) : [];
+  var find = function (re, not) { for (var j = 0; j < H.length; j++) if (re.test(H[j]) && !(not && not.test(H[j]))) return j; return -1; };
+  if (map.hdr >= 0) {
+    map.date = find(/date/, /valeur/); if (map.date < 0) map.date = find(/date/);
+    map.lib = find(/libelle.*simplifi/); if (map.lib < 0) map.lib = find(/libell/); if (map.lib < 0) map.lib = find(/label|description|intitul|detail|nature|operation/, /date|montant/);
+    map.amt = find(/montant|amount/); map.debit = find(/debit/); map.credit = find(/credit/); map.solde = find(/solde|balance/);
+    if (map.amt >= 0) { map.debit = -1; map.credit = -1; }
+  } else {
+    var body = rows.slice(0, 40), n = body.reduce(function (a, r) { return Math.max(a, r.length); }, 0), best = -1;
+    for (var j = 0; j < n; j++) {
+      var dates = body.filter(function (r) { return rvDate(r[j]); }).length, nums = body.filter(function (r) { return !rvDate(r[j]) && rvNum(r[j]) !== null; }).length;
+      var txt = body.reduce(function (a, r) { return a + (rvNum(r[j]) === null && !rvDate(r[j]) ? (r[j] || '').length : 0); }, 0);
+      if (map.date < 0 && dates > body.length / 2) map.date = j;
+      else if (map.amt < 0 && nums > body.length / 2) map.amt = j;
+      if (txt > best) { best = txt; map.lib = j; }
+    }
+  }
+  return map;
+}
+function rvClean(s) {
+  var t = String(s || '').replace(/\s+/g, ' ').trim(), caps = t === t.toUpperCase();
+  t = t.replace(/^(PAIEMENT\s+)?(PAR\s+)?(CARTE|CB)(\s+X?\d{4})?\s*(\d{2}\/\d{2}(\/\d{2,4})?)?\s*/i, '')
+    .replace(/^(PRLV|PRELEVEMENT|PRÉLÈVEMENT)(\s+SEPA)?\s*/i, '')
+    .replace(/^(VIREMENT|VIR)\b(\s+SEPA)?(\s+(RECU|REÇU|EMIS|ÉMIS|INST|INSTANTANE|PERMANENT))?(\s+EN\s+VOTRE\s+FAVEUR)?\s*(DE\s*:?\s*)?/i, '')
+    .replace(/^(RETRAIT|RET)\s+(DAB|GAB)\b\s*/i, 'Retrait ')
+    .replace(/\b\d{2}[\/.]\d{2}([\/.]\d{2,4})?\b/g, ' ').replace(/\b[A-Z]*\d[A-Z0-9]{5,}\b/g, ' ').replace(/\s+/g, ' ').trim();
+  if (caps) t = t.toLowerCase().replace(/(^|[\s'\-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); });
+  return (t || String(s || '').trim()).substring(0, 60);
+}
+function rvKey(desc) { return norm(desc).split(/[^a-z0-9]+/).filter(function (w) { return w.length > 1; }).slice(0, 2).join(' '); }
+/** Libellé proposé : d'après vos mouvements déjà saisis, puis les mots-clés usuels. */
+function rvGuessLib(desc, sens) {
+  var k = rvKey(desc);
+  if (k && RV.learn[k]) {
+    var c = RV.learn[k], ids = Object.keys(c).filter(function (id) { return lib(id).sens === sens && lib(id).actif; }).sort(function (a, b) { return c[b] - c[a]; });
+    if (ids.length) return ids[0];
+  }
+  var n = ' ' + norm(desc).replace(/[^a-z0-9 ]/g, ' ') + ' ', best = null;
+  libsSorted(sens).forEach(function (l) { var ln = norm(l.nom); if (ln.length > 3 && n.indexOf(' ' + ln.replace(/s$/, '')) >= 0 && (!best || ln.length > norm(best.nom).length)) best = l; });
+  if (!best) Object.keys(KEYWORDS).some(function (kw) {
+    if (!KEYWORDS[kw].some(function (w) { return n.indexOf(' ' + w) >= 0; })) return false;
+    best = libsSorted(sens).filter(function (l) { return norm(l.nom) === kw; })[0] || null; return !!best;
+  });
+  if (!best && /retrait/.test(n)) best = libsSorted('sortie').filter(function (l) { return norm(l.nom) === 'divers'; })[0];
+  if (!best) {
+    var want = sens === 'entree' ? ['remboursements divers', 'entrees exceptionnelles'] : ['divers'];
+    best = libsSorted(sens).filter(function (l) { return want.indexOf(norm(l.nom)) >= 0; })[0] || libsSorted(sens)[0];
+  }
+  return best ? best.id : '';
+}
+function rvMoisOf(date, libId) {
+  var l = lib(libId);
+  return l.moisSuivant && +date.substring(8, 10) >= 15 ? shiftMonth(date.substring(0, 7), 1) : date.substring(0, 7);
+}
+function rvLoad(name, text) {
+  var rows = rvParse(text);
+  RV = { name: name, rows: rows, map: rvGuessMap(rows), invert: false, lines: [], manual: {}, soldes: {}, soldesOn: {} };
+  RV.learn = {};
+  D.mouvements.forEach(function (x) { if (x.statut === 'annule') return; var k = rvKey(x.description); if (!k) return; var c = RV.learn[k] || (RV.learn[k] = {}); c[x.libelleId] = (c[x.libelleId] || 0) + 1; });
+  rvBuild();
+}
+function rvBuild() {
+  var M = RV.map, out = [], bad = 0;
+  RV.rows.forEach(function (r, i) {
+    if (i <= M.hdr) return;
+    var date = rvDate(r[M.date]);
+    var v = M.amt >= 0 ? rvNum(r[M.amt]) : (function () { var d = rvNum(r[M.debit]), c = rvNum(r[M.credit]); if (d === null && c === null) return null; return (c ? Math.abs(c) : 0) - (d ? Math.abs(d) : 0); })();
+    if (!date || v === null || v === 0) { if (i > M.hdr + 0) bad++; return; }
+    if (RV.invert) v = -v;
+    var raw = M.lib >= 0 ? r[M.lib] : '', desc = rvClean(raw), sens = v > 0 ? 'entree' : 'sortie';
+    var L = { i: out.length, row: i, date: date, raw: raw, description: desc, montant: Math.abs(v), signed: v, sens: sens, solde: M.solde >= 0 ? rvNum(r[M.solde]) : null, on: true };
+    L.key = rvKey(desc);
+    L.libelleId = RV.manual[L.key + '|' + sens] || rvGuessLib(raw + ' ' + desc, sens);
+    L.mois = rvMoisOf(date, L.libelleId);
+    out.push(L);
+  });
+  RV.bad = bad;
+  // Ordre chronologique (les banques listent souvent du plus récent au plus ancien)
+  if (out.length > 1 && out[0].date > out[out.length - 1].date) out.reverse();
+  out.forEach(function (L, k) { L.i = k; });
+  RV.lines = out;
+  rvMatch();
+  rvSoldes();
+}
+/** Fixes à compléter et doublons déjà saisis. */
+function rvMatch() {
+  var used = {}, dd = function (a, b) { return Math.abs(dOf(a) - dOf(b)) / 864e5; };
+  RV.lines.forEach(function (L) {
+    L.majId = ''; L.dup = false;
+    var occ = D.mouvements.filter(function (x) {
+      if (!x.recurrentId || x.statut === 'annule' || x.pointe || used[x.id] || lib(x.libelleId).sens !== L.sens) return false;
+      var ref = +x.prevu || +x.montant;
+      return (x.mois === L.mois || dd(x.date, L.date) <= 7) && Math.abs(ref - L.montant) <= Math.max(1, ref * 0.05);
+    }).sort(function (a, b) { return dd(a.date, L.date) - dd(b.date, L.date); })[0];
+    if (occ) { L.majId = occ.id; used[occ.id] = true; L.libelleId = occ.libelleId; L.mois = occ.mois; return; }
+    var cents = Math.round(L.montant * 100);
+    L.dup = D.mouvements.some(function (x) { return x.statut !== 'annule' && Math.round(+x.montant * 100) === cents && lib(x.libelleId).sens === L.sens && dd(x.date, L.date) <= 2; });
+    if (L.dup) L.on = false;
+  });
+}
+/** Solde de début de mois, tiré de la colonne « Solde » du relevé (si elle existe et varie). */
+function rvSoldes() {
+  RV.soldes = {};
+  var ls = RV.lines.filter(function (L) { return L.solde !== null; });
+  if (ls.length < 2 || ls.every(function (L) { return L.solde === ls[0].solde; })) return;
+  var months = {}; RV.lines.forEach(function (L) { months[L.mois] = true; });
+  Object.keys(months).sort().forEach(function (m) {
+    var ref = soldeRefDate(m), first = ls.filter(function (L) { return L.date >= ref; })[0];
+    if (!first || first.date > ymd(new Date(dOf(ref).getTime() + 5 * 864e5))) return;
+    RV.soldes[m] = Math.round((first.solde - first.signed) * 100) / 100;
+    if (RV.soldesOn[m] === undefined) RV.soldesOn[m] = soldeOf(m) === null;
+  });
+}
+function rvSetLib(i, id) {
+  var L = RV.lines[i]; if (!L) return;
+  // Même commerce, même sens : toutes les lignes suivent (sauf celles déjà réglées à la main).
+  RV.manual[L.key + '|' + L.sens] = id;
+  RV.lines.forEach(function (x) { if (x === L || (x.key && x.key === L.key && x.sens === L.sens && !x.majId && !x.pinned)) { x.libelleId = id; x.mois = rvMoisOf(x.date, id); } });
+  L.pinned = true;
+}
+function releveView() {
+  var h = backbar('Importer un relevé');
+  h += '<div class="card"><h2>Fichier de la banque</h2><div class="small t2" style="margin-bottom:12px">Sur le site de votre banque, exportez l\'historique du compte au format <b>CSV</b> ' +
+    '(ou « Excel / tableur »), puis choisissez le fichier ici. Rien n\'est enregistré avant votre validation.</div>' +
+    '<label class="btn block filebtn">' + (RV ? 'Choisir un autre fichier' : 'Choisir le fichier CSV') + '<input type="file" id="csvFile" accept=".csv,text/csv,text/plain,.txt"></label>' +
+    (RV ? '<div class="xs muted" style="margin-top:8px;text-align:center">' + esc(RV.name) + ' · ' + RV.rows.length + ' lignes lues</div>' : '') + '</div>';
+  if (!RV) return h;
+  var M = RV.map, cols = (M.hdr >= 0 ? RV.rows[M.hdr] : RV.rows[0].map(function (_, j) { return 'Colonne ' + (j + 1); })).map(function (c, j) { return [j, c || 'Colonne ' + (j + 1)]; });
+  var sel = function (k, label, opt) {
+    return '<div class="field"><label>' + label + '</label><select data-input="rvMap" data-k="' + k + '"><option value="">' + (opt ? '—' : 'Choisir') + '</option>' +
+      cols.map(function (c) { return '<option value="' + c[0] + '"' + (M[k] === c[0] ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></div>';
+  };
+  h += fold('rv:map', 'Colonnes du fichier', '<span class="tag">' + (M.amt >= 0 ? 'montant' : 'débit / crédit') + '</span>',
+    '<div class="rvmap">' + sel('date', 'Date') + sel('lib', 'Libellé') + sel('amt', 'Montant (+ / −)', 1) + sel('solde', 'Solde', 1) + sel('debit', 'Débit', 1) + sel('credit', 'Crédit', 1) + '</div>' +
+    '<label class="opt sw" style="margin-top:8px"><span>Inverser les signes<br><span class="xs muted">si les dépenses apparaissent en entrées</span></span><input type="checkbox" class="tg" data-input="rvInv"' + (RV.invert ? ' checked' : '') + '></label>', !RV.lines.length);
+  if (!RV.lines.length) return h + '<div class="empty">Aucune ligne reconnue : vérifiez les colonnes Date et Montant.</div>';
+  var on = RV.lines.filter(function (L) { return L.on; }), add = on.filter(function (L) { return !L.majId; }).length, maj = on.filter(function (L) { return L.majId; }).length;
+  var dups = RV.lines.filter(function (L) { return L.dup; }).length;
+  h += '<div class="card"><h2>' + esc(fmtD(RV.lines[0].date)) + ' → ' + esc(fmtD(RV.lines[RV.lines.length - 1].date)) + '</h2><div class="rvsum">' +
+    '<div><b class="num">' + add + '</b><span>à ajouter</span></div><div><b class="num">' + maj + '</b><span>fixes complétés</span></div><div><b class="num">' + dups + '</b><span>déjà saisis</span></div></div>' +
+    '<div class="xs muted" style="margin-top:8px">Libellés proposés d\'après vos saisies et les mots-clés ; changer celui d\'une ligne change aussi les lignes du même commerce. Les mouvements importés sont marqués « pointés ».' +
+    (RV.bad ? ' ' + RV.bad + ' ligne(s) sans date ou montant ignorée(s).' : '') + '</div></div>';
+  var sm = Object.keys(RV.soldes);
+  if (sm.length) h += fold('rv:soldes', 'Soldes de début de mois', '<span class="tag">' + sm.length + '</span>', sm.map(function (m) {
+    return '<label class="opt sw"><span>' + esc(monthName(m)) + ' · <b class="num ' + (RV.soldes[m] < 0 ? 'neg' : '') + '">' + eur(RV.soldes[m]) + '</b>' + (soldeOf(m) !== null ? '<br><span class="xs muted">déjà renseigné : ' + eur(soldeOf(m)) + '</span>' : '') + '</span>' +
+      '<input type="checkbox" class="tg" data-act="rvSolde" data-m="' + m + '"' + (RV.soldesOn[m] ? ' checked' : '') + '></label>';
+  }).join(''), false);
+  var opts = function (sens, cur) { return libsSorted(sens).map(function (l) { return '<option value="' + l.id + '"' + (l.id === cur ? ' selected' : '') + '>' + esc(icon(l) + ' ' + l.nom) + '</option>'; }).join(''); };
+  var byM = {}; RV.lines.forEach(function (L) { (byM[L.mois] = byM[L.mois] || []).push(L); });
+  Object.keys(byM).sort().reverse().forEach(function (m, k) {
+    var ls = byM[m], tE = 0, tS = 0;
+    ls.forEach(function (L) { if (L.on) { if (L.sens === 'entree') tE += L.montant; else tS += L.montant; } });
+    h += fold('rv:m:' + m, esc(monthName(m)), '<span class="num small">' + (tE ? '<span class="pos">+' + eur0(tE) + '</span> · ' : '') + '−' + eur0(tS) + '</span>', ls.slice().reverse().map(function (L) {
+      var l = lib(L.libelleId), occ = L.majId ? byId(D.mouvements, L.majId) : null;
+      return '<div class="rvl' + (L.on ? '' : ' off') + '"><input type="checkbox" class="tg" data-act="rvTog" data-i="' + L.i + '"' + (L.on ? ' checked' : '') + '>' +
+        '<div class="main"><div class="title" title="' + esc(L.raw) + '">' + esc(L.description) + '</div><div class="meta"><span>' + esc(L.date.substring(8, 10) + '/' + L.date.substring(5, 7)) + '</span>' +
+        (occ ? '<span class="tag acc">↻ complète « ' + esc(occ.description || lib(occ.libelleId).nom) + ' »</span>' : '<select data-input="rvLib" data-i="' + L.i + '" aria-label="Libellé">' + opts(L.sens, L.libelleId) + '</select>') +
+        (L.dup ? '<span class="tag warn">déjà saisi ?</span>' : '') + '</div></div>' +
+        '<div class="amt num ' + (L.sens === 'entree' ? 'pos' : '') + '">' + (L.sens === 'entree' ? '+' : '−') + eur(L.montant) + '</div></div>';
+    }).join(''), k === 0);
+  });
+  h += '<button class="btn block" data-act="rvImport"' + (on.length ? '' : ' disabled') + '>Importer ' + on.length + ' mouvement' + (on.length > 1 ? 's' : '') + '</button>';
+  return h;
+}
+function rvRead(file) {
+  if (!file) return;
+  if (file.size > 5e6) { toast('Fichier trop volumineux (5 Mo au plus)', true); return; }
+  var fr = new FileReader();
+  fr.onload = function () {
+    var buf = fr.result, text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
+    rvLoad(file.name, text.replace(/^﻿/, ''));
+    render();
+    toast(RV.lines.length ? RV.lines.length + ' opérations reconnues' : 'Aucune opération reconnue', !RV.lines.length);
+  };
+  fr.readAsArrayBuffer(file);
+}
+document.addEventListener('change', function (e) { if (e.target && e.target.id === 'csvFile') rvRead(e.target.files && e.target.files[0]); });
 
 /* ---------------- Notifications : liaison avec l'appli installée (la coquille reçoit les notifications) ---------------- */
 var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false };
@@ -2964,11 +3325,11 @@ function busySave(p) {
   return p.catch(function (e) { var b = document.getElementById('saveBtn'); if (b) b.disabled = false; throw e; });
 }
 function libChips(sens, selected) {
-  var h = '<div class="chips" id="libChips">';
+  var h = '<div class="lgrid" id="libChips">';
   libsSorted(sens).forEach(function (l) {
-    h += '<button type="button" class="chip ' + (l.id === selected ? 'on' : '') + '" data-act="pickLib" data-id="' + l.id + '">' + icon(l) + ' ' + esc(l.nom) + '</button>';
+    h += '<button type="button" class="chip lt ' + (l.id === selected ? 'on' : '') + '" data-act="pickLib" data-id="' + l.id + '"><b>' + icon(l) + '</b><span>' + esc(l.nom) + '</span></button>';
   });
-  return h + (canEdit() ? '<button type="button" class="chip add" data-act="quickLib">+ Nouveau</button>' : '') + '</div>';
+  return h + (canEdit() ? '<button type="button" class="chip lt add" data-act="quickLib"><b>＋</b><span>Nouveau</span></button>' : '') + '</div>';
 }
 function finField(prefix, fin) {
   return '<div class="field"><label>Échéance de fin</label>' +
@@ -3405,7 +3766,7 @@ var ACT = {
     try { if (mp.showPicker) { mp.showPicker(); return; } } catch (e) {}
     mp.focus(); mp.click();
   },
-  sub: function (d) { if (d.sub === 'notifs') refreshPushState(); if (d.sub && !sub) histPush('sub'); sub = d.sub; if (sub === 'journal') journalCache = null; if (sub === 'backups') backupsCache = null; if (sub === 'rapport') rapportCache = null; render(); window.scrollTo(0, 0); },
+  sub: function (d) { if (d.sub === 'notifs') refreshPushState(); if (d.sub === 'releve') RV = null; if (d.sub && !sub) histPush('sub'); sub = d.sub; if (sub === 'journal') journalCache = null; if (sub === 'backups') backupsCache = null; if (sub === 'rapport') rapportCache = null; render(); window.scrollTo(0, 0); },
   synSeg: function (d) { var o = ['resume', 'graph', 'conseils']; navDir = o.indexOf(d.v) - o.indexOf(synSeg); synSeg = d.v; vizSel = null; render(); },
   vizPeriod: function (d) { vizPeriod = +d.v; setPref('vizPeriod', vizPeriod); render(); },
   vizSel: function (d) { vizSel = d.v && vizSel !== d.v ? d.v : null; render(); },
@@ -3585,7 +3946,42 @@ var ACT = {
   },
   setTheme: function (d) { setPref('theme', d.v); render(); },
   setAccent: function (d) { setPref('accent', d.v); render(); },
+  openSolde: function () { openSolde(mois); },
+  soldeSign: function (d) {
+    form.neg = d.v === '1';
+    Array.prototype.forEach.call(document.querySelectorAll('.seg.sgn button'), function (b) { b.classList.toggle('on', b.dataset.v === d.v); b.classList.toggle('neg', b.dataset.v === '1' && d.v === '1'); });
+  },
+  saveSolde: function () {
+    var v = parseAmount(val('s_amt'));
+    if (v === null) { toast('Montant manquant', true); return; }
+    v = Math.abs(v) * (form.neg ? -1 : 1);
+    var all = soldesAll(); all[form.mois] = { montant: v, le: nowIso(), par: D.me.email }; D.soldes = JSON.stringify(all);
+    bg('saveSolde', [form.mois, v], function (j) { D.soldes = j; });
+    closeSheet(); render(); toast(v < 0 ? 'Découvert enregistré' : 'Solde enregistré');
+  },
+  delSolde: function () {
+    var all = soldesAll(); delete all[form.mois]; D.soldes = JSON.stringify(all);
+    bg('saveSolde', [form.mois, null], function (j) { D.soldes = j; });
+    closeSheet(); render(); toast('Solde retiré');
+  },
   setStyle: function (d) { setPref('style', d.v); render(); },
+  rvTog: function (d, el) { var L = RV && RV.lines[+d.i]; if (!L) return; L.on = el.checked; render(); },
+  rvSolde: function (d, el) { RV.soldesOn[d.m] = el.checked; },
+  rvImport: function () {
+    var ls = RV.lines.filter(function (L) { return L.on; }).map(function (L) { return { date: L.date, mois: L.mois, libelleId: L.libelleId, description: L.description, montant: L.montant, majId: L.majId }; });
+    var so = {}; Object.keys(RV.soldes).forEach(function (m) { if (RV.soldesOn[m]) so[m] = RV.soldes[m]; });
+    if (!ls.length) return;
+    var b = document.querySelector('[data-act=rvImport]'); if (b) { b.disabled = true; b.textContent = 'Import en cours…'; }
+    write('importReleve', ls, so).then(function (r) {
+      r.added.forEach(function (x) { D.mouvements.push(x); });
+      r.updated.forEach(function (x) { upsertLocal(D.mouvements, x); });
+      if (r.soldes !== undefined) D.soldes = r.soldes;
+      resetCalc(); RV = null; sub = ''; tab = 'mouvements'; mvtFilter = 'tous';
+      var ms = r.added.concat(r.updated).map(function (x) { return x.mois; }).sort(); if (ms.length) mois = ms[ms.length - 1];
+      render(); window.scrollTo(0, 0);
+      toast(r.added.length + ' ajouté(s)' + (r.updated.length ? ', ' + r.updated.length + ' fixe(s) complété(s)' : '') + (r.skipped ? ', ' + r.skipped + ' ignoré(s)' : ''));
+    }, function () { var b2 = document.querySelector('[data-act=rvImport]'); if (b2) { b2.disabled = false; b2.textContent = 'Importer'; } });
+  },
   envVisSheet: function () { openEnvVis(); },
   envVis: function (d, el) {
     var a = (pref('envMasques', []) || []).filter(function (x) { return x !== d.id; });
@@ -3688,6 +4084,12 @@ document.addEventListener('input', function (e) {
     if (/^\d{4}-\d{2}$/.test(e.target.value)) { mois = e.target.value; render(); ensureMonthClient(); }
   } else if (k === 'mvtFilterSel') {
     mvtFilter = e.target.value; render();
+  } else if (k === 'rvMap') {
+    RV.map[e.target.dataset.k] = e.target.value === '' ? -1 : +e.target.value; rvBuild(); render();
+  } else if (k === 'rvInv') {
+    RV.invert = e.target.checked; rvBuild(); render();
+  } else if (k === 'rvLib') {
+    rvSetLib(+e.target.dataset.i, e.target.value); render();
   } else if (k === 'notifSel') {
     var nn = notifPrefs(); nn[e.target.dataset.k] = +e.target.value; setPref('notif', nn);
   } else if (k === 'prefSel') {

@@ -3,6 +3,26 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.4.0] — 2026-11-07 — thèmes, relevés CSV, solde du compte *(non déployée)*
+
+- **Cinq thèmes** (Bento, Minuit, Ardoise, Forêt, Terracotta), chacun en clair et en sombre, choisis dans Mes préférences
+  (galerie d'aperçus) ; couleur d'accent « celle du thème » ou au choix. Toutes les couleurs passent par des variables ;
+  550 contrôles de contraste WCAG réussis (texte ≥ 7:1, textes secondaires ≥ 4,5:1).
+- **Barre du bas** : 5 cases de même largeur (Synthèse · Mouvements · **+** · Budget · Épargne/Plus), le + au centre exact
+  et plus grand ; « Plus » s'ouvre aussi avec l'initiale en haut à gauche (mesuré : écarts identiques à 0,1 px près sur
+  Pixel 7, iPhone SE et tablette).
+- **Import de relevés bancaires CSV** (Plus › Importer un relevé) : séparateur, encodage (UTF-8 / Windows-1252),
+  préambule et colonnes détectés (Date, Libellé, Montant ou Débit/Crédit, Solde), libellés bancaires nettoyés
+  (« CB », « PRLV SEPA », « VIREMENT EN VOTRE FAVEUR »…), libellé proposé d'après vos saisies puis par mots-clés,
+  correction appliquée à tout le même commerce, salaires de fin de mois comptés le mois suivant, occurrences de fixes
+  complétées et pointées, doublons repérés (ré-import sans effet), mouvements importés pointés ; serveur `importReleve`.
+- **Solde réel en début de mois** (juste avant la paye) : découvert ou supplément reporté dans le reste à vivre,
+  la courbe, le tableau et le compte rendu e-mail ; tuile « Renseigner » sur la Synthèse, écart avec le reste calculé ;
+  rempli automatiquement depuis la colonne Solde d'un relevé ; serveur `saveSolde`.
+- **Finitions** : emoji centrés optiquement (mesure de l'encre, ±0,5 px), icônes tirelire et étincelle recentrées,
+  texte des pastilles et boutons remonté de 0,07 em (métriques de la police), échelle typographique resserrée,
+  en-tête « initiale · ‹ mois › · actualiser », libellés en tuiles dans la saisie, fondu des rangées de filtres.
+
 ## [1.3.0] — 2026-11-06 — notifications
 
 - **Vraies notifications (Web Push)** sur l'appli installée, même fermée : rappel de saisie (délai et heure au choix),

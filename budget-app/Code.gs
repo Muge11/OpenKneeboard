@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.4.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -235,6 +235,7 @@ function data_(me) {
     vehicules: readTable_(SH.VEH),
     reperes: getConfig_('reperes'),
     paie: getConfig_('paie'),
+    soldes: getConfig_('soldes'),
     vapidPublic: (function () { try { return wpKeys_().pub; } catch (e) { return ''; } })(),
     pushDevices: readTable_(SH.PUSH).filter(function (d) { return d.email.toLowerCase() === me.email.toLowerCase(); })
       .map(function (d) { return { id: d.id, appareil: d.appareil, creeLe: d.creeLe, endpoint: d.endpoint }; }),
@@ -781,6 +782,68 @@ function savePaie(paie) {
   });
 }
 
+/** Solde réel du compte au début d'un mois de budget (juste avant la paye) : découvert ou supplément reporté. */
+function saveSolde(mois, montant) {
+  var me = ctx_(ROLES.editeur);
+  checkMonth_(mois);
+  return withLock_(function () {
+    var all = parsePrefs_(getConfig_('soldes'));
+    if (montant === null || montant === '' || montant === undefined) delete all[mois];
+    else all[mois] = { montant: num_(montant), le: nowIso_(), par: me.email };
+    setConfig_('soldes', JSON.stringify(all));
+    log_(me, 'Modification', 'Solde de début de mois', mois + ' : ' + (all[mois] ? fmtEur_(all[mois].montant) : 'retiré'));
+    return JSON.stringify(all);
+  });
+}
+
+/**
+ * Import d'un relevé bancaire (CSV lu et classé dans l'appli).
+ * lignes : { date, mois, libelleId, description, montant (positif), majId (occurrence de fixe à compléter) }
+ * soldes : { 'AAAA-MM': montant } (solde de début de mois tiré du relevé, facultatif)
+ */
+function importReleve(lignes, soldes) {
+  var me = ctx_(ROLES.editeur);
+  if (!lignes || !lignes.length) throw new Error('Aucune ligne à importer');
+  if (lignes.length > 3000) throw new Error('Relevé trop long (3 000 lignes au plus par import)');
+  return withLock_(function () {
+    var libs = {}; readTable_(SH.LIB).forEach(function (l) { libs[l.id] = l; });
+    var existing = readTable_(SH.MVT), now = nowIso_(), added = [], updated = [], skipped = 0;
+    var key = function (x) { return x.date + '|' + Math.round(Number(x.montant) * 100) + '|' + (libs[x.libelleId] ? libs[x.libelleId].sens : '') + '|' + norm_(x.description).substring(0, 12); };
+    var seen = {}; existing.forEach(function (x) { if (x.statut !== 'annule') seen[key(x)] = true; });
+    lignes.forEach(function (l) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(l.date || '') || !libs[l.libelleId] || !(Number(l.montant) >= 0)) { skipped++; return; }
+      var mois = /^\d{4}-\d{2}$/.test(l.mois || '') ? l.mois : l.date.substring(0, 7);
+      if (l.majId) {
+        var occ = findBy_(SH.MVT, 'id', l.majId);
+        if (occ && occ.recurrentId) {
+          var o = clone_(occ);
+          if (num_(o.montant) !== num_(l.montant) || o.date !== l.date) o.modifie = true;
+          o.montant = num_(l.montant); o.date = l.date; o.pointe = true; o.modifPar = me.email; o.modifLe = now;
+          upsert_(SH.MVT, o); updated.push(o); return;
+        }
+      }
+      var rec = { id: newId_(), mois: mois, date: l.date, libelleId: l.libelleId, description: String(l.description || '').substring(0, 120), montant: num_(l.montant),
+        prevu: '', recurrentId: '', pointe: true, modifie: false, statut: '', saisiPar: me.email, saisiLe: now, modifPar: '', modifLe: '', vehiculeId: '', source: 'csv' };
+      if (seen[key(rec)]) { skipped++; return; }
+      seen[key(rec)] = true; added.push(rec);
+    });
+    appendRows_(SH.MVT, added);
+    var nS = 0;
+    if (soldes && typeof soldes === 'object') {
+      var all = parsePrefs_(getConfig_('soldes'));
+      Object.keys(soldes).forEach(function (m) {
+        if (!/^\d{4}-\d{2}$/.test(m) || all[m] || !isFinite(Number(soldes[m]))) return;
+        all[m] = { montant: num_(soldes[m]), le: now, par: me.email, source: 'csv' }; nS++;
+      });
+      if (nS) setConfig_('soldes', JSON.stringify(all));
+    }
+    var mois = added.concat(updated).map(function (x) { return x.mois; }).sort();
+    log_(me, 'Import', 'Relevé CSV', added.length + ' ajouté(s), ' + updated.length + ' fixe(s) complété(s), ' + skipped + ' ignoré(s)' +
+      (mois.length ? ' · ' + mois[0] + ' → ' + mois[mois.length - 1] : '') + (nS ? ' · ' + nS + ' solde(s) de début de mois' : ''));
+    return { added: added, updated: updated, skipped: skipped, soldes: getConfig_('soldes') };
+  });
+}
+
 function saveReperes(reperes) {
   var me = ctx_(ROLES.admin);
   var json = JSON.stringify(reperes || {});
@@ -1096,6 +1159,13 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.4.0', titre: 'Thèmes, relevés et solde du compte', items: [
+    'Cinq thèmes au choix (Bento, Minuit, Ardoise, Forêt, Terracotta), en clair comme en sombre.',
+    'Barre du bas parfaitement répartie, bouton + au centre ; vos réglages s\'ouvrent avec votre initiale en haut à gauche.',
+    'Import de vos relevés bancaires au format CSV (Plus › Importer un relevé) : historique rempli, libellés reconnus, fixes complétés, doublons ignorés.',
+    'Solde réel du compte en début de mois : découvert ou supplément reporté dans le reste à vivre.',
+    'Icônes et textes recentrés au pixel près, libellés en tuiles dans la saisie.'
+  ] },
   { v: '1.3.0', titre: 'Notifications', items: [
     'Vraies notifications sur le téléphone : rappel de saisie, enveloppe presque vide ou dépassée, rythme de dépense inhabituel.',
     'Tout se règle dans Plus › Notifications : heure du rappel, délai, seuil d\'alerte, montants affichés ou non.',
@@ -1286,7 +1356,8 @@ function buildReport_(mois, user) {
   var mNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   var label = mNames[Number(mois.substring(5, 7)) - 1] + ' ' + mois.substring(0, 4);
   var c = computeMonth_(mois), p = computeMonth_(shiftMonth_(mois, -1));
-  var bilan = c.eR - c.sR, bilanP = c.eP - c.sP, bilanPrev = p.eR - p.sR;
+  var soldes = parsePrefs_(getConfig_('soldes')), rep = soldes[mois] ? Number(soldes[mois].montant) || 0 : 0, repP = soldes[shiftMonth_(mois, -1)] ? Number(soldes[shiftMonth_(mois, -1)].montant) || 0 : 0;
+  var bilan = c.eR - c.sR + rep, bilanP = c.eP - c.sP + rep, bilanPrev = p.eR - p.sR + repP;
   var eur = function (n) {
     var v = Math.round((Number(n) || 0) * 100) / 100, neg = v < 0;
     var parts = Math.abs(v).toFixed(2).split('.');
@@ -1307,7 +1378,7 @@ function buildReport_(mois, user) {
     '<div style="font-size:13px;color:#7d8592">Compte rendu mensuel · Budget</div>' +
     '<div style="font-size:22px;font-weight:700;margin:2px 0 14px">' + label.charAt(0).toUpperCase() + label.slice(1) + '</div>';
   html += card('Reste à vivre', '<div style="font-size:30px;font-weight:700;color:' + col(bilan) + '">' + eur(bilan) + '</div>' +
-    table(row('Prévu', eur(bilanP)) + row('Entrées', eur(c.eR), '#3fbf7f') + row('Sorties', eur(c.sR)) +
+    table((rep ? row(rep < 0 ? 'Découvert de départ' : 'Solde de départ', eur(rep), rep < 0 ? '#f2706b' : '#3fbf7f') : '') + row('Prévu', eur(bilanP)) + row('Entrées', eur(c.eR), '#3fbf7f') + row('Sorties', eur(c.sR)) +
       row('Mois précédent', eur(bilanPrev) + ' (' + (bilan - bilanPrev >= 0 ? '+' : '') + eur(bilan - bilanPrev) + ')')));
   var envs = Object.keys(c.per).map(function (k) { return c.per[k]; })
     .filter(function (x) { return x.lib.sens === 'sortie' && x.prevu > 0; })
