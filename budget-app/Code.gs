@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.7.0';
+var APP_VERSION = '1.8.0';
 var APP_STAGE = '';
 
 var SH = {
@@ -256,6 +256,7 @@ function data_(me) {
     cartes: getConfig_('cartes'),
     soldes: getConfig_('soldes'),
     recalages: getConfig_('recalages'),
+    imports: readTable_(SH.IMP).map(function (i) { return { id: i.id, le: i.le, par: i.par, fichier: i.fichier, mois: i.mois }; }),
     vapidPublic: (function () { try { return wpKeys_().pub; } catch (e) { return ''; } })(),
     pushDevices: readTable_(SH.PUSH).filter(function (d) { return d.email.toLowerCase() === me.email.toLowerCase(); })
       .map(function (d) { return { id: d.id, appareil: d.appareil, creeLe: d.creeLe, endpoint: d.endpoint }; }),
@@ -857,7 +858,8 @@ function saveSoldesMany(map, ancre) {
     var hist = [];
     try { hist = JSON.parse(getConfig_('recalages') || '[]') || []; } catch (e) {}
     if (ancre && /^\d{4}-\d{2}-\d{2}$/.test(ancre.date || '') && isFinite(Number(ancre.montant))) {
-      hist.push({ date: ancre.date, montant: num_(ancre.montant), ecart: isFinite(Number(ancre.ecart)) ? num_(ancre.ecart) : '', le: now, par: me.email });
+      hist = hist.filter(function (r) { return r.date !== ancre.date; });
+      hist.push({ date: ancre.date, montant: num_(ancre.montant), ecart: isFinite(Number(ancre.ecart)) ? num_(ancre.ecart) : '', le: ancre.le || now, par: me.email });
       hist = hist.slice(-24);
       setConfig_('recalages', JSON.stringify(hist));
     }
@@ -894,12 +896,16 @@ function importReleve(lignes, soldes, meta) {
     var key = function (x) { return x.date + '|' + Math.round(Number(x.montant) * 100) + '|' + (libs[x.libelleId] ? libs[x.libelleId].sens : '') + '|' + norm_(x.description).substring(0, 12); };
     var seen = {}; existing.forEach(function (x) { if (x.statut !== 'annule') seen[key(x)] = true; });
     var emails = {}; readTable_(SH.USERS).forEach(function (u) { if (u.actif) emails[u.email.toLowerCase()] = u.email; });
-    var pointed = [], impId = newId_(), origs = [];
-    var keep = function (x) { origs.push({ id: x.id, mois: x.mois, montant: x.montant, date: x.date, pointe: x.pointe, modifie: x.modifie, modifPar: x.modifPar, modifLe: x.modifLe }); };
+    var pointed = [], files = (meta && meta.fichiers && meta.fichiers.length) ? meta.fichiers : [(meta && meta.fichier) || ''];
+    var F = files.map(function (nm) { return { id: newId_(), nom: String(nm || '').substring(0, 120), origs: [], touched: {} }; });
+    var fOf = function (l) { var i = Number(l.f) || 0; return F[i] || F[0]; };
+    var keep = function (x, l) { fOf(l).origs.push({ id: x.id, mois: x.mois, montant: x.montant, date: x.date, pointe: x.pointe, modifie: x.modifie, modifPar: x.modifPar, modifLe: x.modifLe }); };
+    var impId = F[0].id;
     lignes.forEach(function (l) {
       if (l.pointId) {
         var ex = findBy_(SH.MVT, 'id', l.pointId);
-        if (ex && !ex.pointe) { keep(ex); var e2 = clone_(ex); e2.pointe = true; e2.modifPar = me.email; e2.modifLe = now; upsert_(SH.MVT, e2); updated.push(e2); pointed.push(e2.id); }
+        // pointé par le relevé : la date de la banque fait foi pour le solde du compte (le mois de budget ne change pas)
+        if (ex && !ex.pointe) { keep(ex, l); var e2 = clone_(ex); e2.pointe = true; if (/^\d{4}-\d{2}-\d{2}$/.test(l.date || '')) e2.date = l.date; e2.modifPar = me.email; e2.modifLe = now; upsert_(SH.MVT, e2); updated.push(e2); pointed.push(e2.id); fOf(l).touched[e2.mois] = true; }
         else skipped++;
         return;
       }
@@ -908,17 +914,17 @@ function importReleve(lignes, soldes, meta) {
       if (l.majId) {
         var occ = findBy_(SH.MVT, 'id', l.majId);
         if (occ && occ.recurrentId) {
-          keep(occ);
+          keep(occ, l);
           var o = clone_(occ);
           if (num_(o.montant) !== num_(l.montant) || o.date !== l.date) o.modifie = true;
           o.montant = num_(l.montant); o.date = l.date; o.pointe = true; o.modifPar = me.email; o.modifLe = now;
-          upsert_(SH.MVT, o); updated.push(o); return;
+          upsert_(SH.MVT, o); updated.push(o); fOf(l).touched[o.mois] = true; return;
         }
       }
       var rec = { id: newId_(), mois: mois, date: l.date, libelleId: l.libelleId, description: String(l.description || '').substring(0, 120), montant: num_(l.montant),
-        prevu: '', recurrentId: '', pointe: true, modifie: false, statut: '', saisiPar: emails[String(l.saisiPar || '').toLowerCase()] || me.email, saisiLe: now, modifPar: '', modifLe: '', vehiculeId: '', source: 'csv:' + impId };
+        prevu: '', recurrentId: '', pointe: true, modifie: false, statut: '', saisiPar: emails[String(l.saisiPar || '').toLowerCase()] || me.email, saisiLe: now, modifPar: '', modifLe: '', vehiculeId: '', source: 'csv:' + fOf(l).id };
       if (seen[key(rec)]) { skipped++; return; }
-      added.push(rec);
+      added.push(rec); fOf(l).touched[rec.mois] = true;
     });
     appendRows_(SH.MVT, added);
     var nS = 0;
@@ -927,16 +933,70 @@ function importReleve(lignes, soldes, meta) {
       Object.keys(soldes).forEach(function (m) {
         if (!/^\d{4}-\d{2}$/.test(m) || all[m] || !isFinite(Number(soldes[m]))) return;
         all[m] = { montant: num_(soldes[m]), le: now, par: me.email, source: 'csv' }; nS++;
+        F[(meta && meta.soldeFiles && Number(meta.soldeFiles[m])) || 0 ] && (F[(meta && meta.soldeFiles && Number(meta.soldeFiles[m])) || 0].touched[m] = true);
       });
       if (nS) setConfig_('soldes', JSON.stringify(all));
     }
     var mois = added.concat(updated).map(function (x) { return x.mois; }).sort();
     log_(me, 'Import', 'Relevé', added.length + ' ajouté(s), ' + (updated.length - pointed.length) + ' fixe(s) complété(s), ' + pointed.length + ' pointé(s), ' + skipped + ' ignoré(s)' +
       (mois.length ? ' · ' + mois[0] + ' → ' + mois[mois.length - 1] : '') + (nS ? ' · ' + nS + ' solde(s) de début de mois' : ''));
-    var touched = {}; added.concat(updated).forEach(function (x) { touched[x.mois] = true; });
-    Object.keys(soldes || {}).forEach(function (m) { touched[m] = true; });
-    appendRows_(SH.IMP, [{ id: impId, le: now, par: me.email, fichier: String((meta && meta.fichier) || '').substring(0, 120), mois: Object.keys(touched).sort().join(','), originaux: JSON.stringify(origs) }]);
-    return { importId: impId, added: added, updated: updated, pointed: pointed, skipped: skipped, soldes: getConfig_('soldes') };
+    var rows = F.filter(function (f) { return Object.keys(f.touched).length; }).map(function (f) {
+      return { id: f.id, le: now, par: me.email, fichier: f.nom, mois: Object.keys(f.touched).sort().join(','), originaux: JSON.stringify(f.origs) };
+    });
+    appendRows_(SH.IMP, rows);
+    return { importId: impId, importIds: rows.map(function (r) { return r.id; }), added: added, updated: updated, pointed: pointed, skipped: skipped, soldes: getConfig_('soldes'),
+      imports: readTable_(SH.IMP).map(function (i) { return { id: i.id, le: i.le, par: i.par, fichier: i.fichier, mois: i.mois }; }) };
+  });
+}
+
+/** Supprime d'un coup les mouvements qui vérifient `drop` (une réécriture de la feuille). Renvoie le nombre supprimé. */
+function dropMvts_(drop) {
+  var sh = sheet_(SH.MVT), last = sh.getLastRow(), w = sh.getLastColumn();
+  if (last < 2) return 0;
+  var head = header_(SH.MVT), iId = head.indexOf('id'), iMo = head.indexOf('mois'), iSrc = head.indexOf('source');
+  var vals = sh.getRange(2, 1, last - 1, w).getValues(), keep = [], n = 0;
+  vals.forEach(function (r) {
+    if (r[iId] !== '' && drop({ id: String(r[iId]), mois: r[iMo] instanceof Date ? Utilities.formatDate(r[iMo], Session.getScriptTimeZone(), 'yyyy-MM') : String(r[iMo]), source: String(r[iSrc] || '') })) n++;
+    else keep.push(r);
+  });
+  if (!n) return 0;
+  if (keep.length) sh.getRange(2, 1, keep.length, w).setValues(keep);
+  sh.getRange(2 + keep.length, 1, n, w).clearContent();
+  invalidate_(SH.MVT);
+  return n;
+}
+/** Remet comme avant les mouvements complétés / pointés par un import (liste d'états d'avant). */
+function restoreOrigs_(os) {
+  var n = 0;
+  (os || []).forEach(function (o) {
+    var cur = o && o.id ? findBy_(SH.MVT, 'id', o.id) : null; if (!cur) return;
+    var back = clone_(cur); ['montant', 'date', 'pointe', 'modifie', 'modifPar', 'modifLe'].forEach(function (k) { if (o[k] !== undefined) back[k] = o[k]; });
+    upsert_(SH.MVT, back); n++;
+  });
+  return n;
+}
+/**
+ * Supprime plusieurs relevés importés d'un coup : leurs opérations, les fixes et pointages remis comme avant, et les soldes
+ * de départ tirés de ces relevés (s'ils ne viennent pas aussi d'un relevé conservé). `mois` : anciens imports sans relevé identifié.
+ */
+function annulerImports(ids, mois) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var want = {}; (ids || []).forEach(function (id) { want['csv:' + id] = true; });
+    var oldM = {}; (mois || []).forEach(function (m) { if (/^\d{4}-\d{2}$/.test(m)) oldM[m] = true; });
+    var n = dropMvts_(function (r) { return want[r.source] || (r.source === 'csv' && oldM[r.mois]); });
+    var imps = readTable_(SH.IMP).slice(), gone = {}, kept = {}, nr = 0;
+    imps.forEach(function (imp) {
+      var ms = String(imp.mois || '').split(',').filter(String);
+      if (want['csv:' + imp.id]) { var os = []; try { os = JSON.parse(imp.originaux || '[]'); } catch (e) {} nr += restoreOrigs_(os); ms.forEach(function (m) { gone[m] = true; }); deleteBy_(SH.IMP, 'id', imp.id); }
+      else ms.forEach(function (m) { kept[m] = true; });
+    });
+    Object.keys(oldM).forEach(function (m) { gone[m] = true; });
+    var all = parsePrefs_(getConfig_('soldes')), ns = 0;
+    Object.keys(gone).forEach(function (m) { if (!kept[m] && all[m] && all[m].source === 'csv') { delete all[m]; ns++; } });
+    if (ns) setConfig_('soldes', JSON.stringify(all));
+    log_(me, 'Suppression', 'Relevés importés', (ids || []).length + ' relevé(s)' + (Object.keys(oldM).length ? ' + ' + Object.keys(oldM).length + ' mois' : '') + ' : ' + n + ' opération(s) supprimée(s), ' + nr + ' remise(s) comme avant' + (ns ? ', ' + ns + ' solde(s) retiré(s)' : ''));
+    return data_(me);
   });
 }
 
@@ -949,10 +1009,7 @@ function annulerImportMois(mois) {
   var me = ctx_(ROLES.editeur);
   checkMonth_(mois);
   return withLock_(function () {
-    var sh = sheet_(SH.MVT), rows = [];
-    readTable_(SH.MVT).forEach(function (x) { if (x.mois === mois && /^csv/.test(x.source)) { var r = rowOf_(SH.MVT, 'id', x.id); if (r > 0) rows.push(r); } });
-    rows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
-    invalidate_(SH.MVT);
+    var rows = { length: dropMvts_(function (r) { return r.mois === mois && /^csv/.test(r.source); }) };
     var n = 0;
     readTable_(SH.IMP).slice().forEach(function (imp) {
       var os = []; try { os = JSON.parse(imp.originaux || '[]'); } catch (e) {}
@@ -978,10 +1035,7 @@ function undoImport(ids, originals, soldesMois, importId) {
   var me = ctx_(ROLES.editeur);
   return withLock_(function () {
     var want = {}; (ids || []).forEach(function (id) { want[String(id)] = true; });
-    var sh = sheet_(SH.MVT), data = readTable_(SH.MVT), rows = [];
-    data.forEach(function (x) { if (want[x.id] && /^csv/.test(x.source)) { var r = rowOf_(SH.MVT, 'id', x.id); if (r > 0) rows.push(r); } });
-    rows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
-    invalidate_(SH.MVT);
+    var rows = { length: dropMvts_(function (r) { return want[r.id] && /^csv/.test(r.source); }) };
     var n = 0;
     (originals || []).forEach(function (o) {
       var cur = o && o.id ? findBy_(SH.MVT, 'id', o.id) : null;
@@ -993,7 +1047,7 @@ function undoImport(ids, originals, soldesMois, importId) {
     var all = parsePrefs_(getConfig_('soldes')), ns = 0;
     (soldesMois || []).forEach(function (m) { if (all[m] && all[m].source === 'csv') { delete all[m]; ns++; } });
     if (ns) setConfig_('soldes', JSON.stringify(all));
-    if (importId) deleteBy_(SH.IMP, 'id', importId);
+    (Array.isArray(importId) ? importId : [importId]).forEach(function (id) { if (id) deleteBy_(SH.IMP, 'id', id); });
     log_(me, 'Annulation', 'Import de relevé', rows.length + ' mouvement(s) supprimé(s), ' + n + ' fixe(s) rétabli(s)' + (ns ? ', ' + ns + ' solde(s) retiré(s)' : ''));
     return { deleted: rows.length, restored: n, soldes: getConfig_('soldes') };
   });
@@ -1314,6 +1368,15 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.8.0', titre: 'Écarts avec la banque, relevés en lot', items: [
+    'Plusieurs relevés (PDF ou CSV) choisis d\'un coup : lus ensemble, chevauchements retirés, vérifiés et importés en une fois.',
+    'Relevés importés listés un par un : sélection multiple et suppression en une fois, beaucoup plus rapide.',
+    'Les soldes de départ sont désormais calculés à partir de vos soldes réels (relevés, appli bancaire) : plus de double compte quand vous importez un relevé après un recalage.',
+    'Écart avec la banque analysé : doublons probables, opérations pas encore passées, fixes non confirmés, et opérations dont la somme correspond exactement à l\'écart.',
+    'L\'écart non expliqué se résorbe tout seul quand les opérations manquantes sont importées.',
+    'La ligne « Solde de départ » suit le solde réel que vous saisissez (mention « recalé sur la banque »).',
+    'Sur ordinateur, le logo « Budget » ramène à la synthèse du mois en cours.'
+  ] },
   { v: '1.7.0', titre: 'Recaler sur le solde réel', items: [
     'Saisissez à tout moment le solde affiché par votre appli bancaire : les soldes de départ de tous les mois passés sont recalculés à partir de vos mouvements.',
     'L\'écart entre le solde estimé et le solde réel s\'affiche (frais oubliés, dépense non saisie…) ; le recalage s\'annule d\'un appui.'
@@ -1533,7 +1596,7 @@ function buildReport_(mois, user) {
   var mNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   var label = mNames[Number(mois.substring(5, 7)) - 1] + ' ' + mois.substring(0, 4);
   var c = computeMonth_(mois), p = computeMonth_(shiftMonth_(mois, -1));
-  var soldes = parsePrefs_(getConfig_('soldes')), rep = soldes[mois] ? Number(soldes[mois].montant) || 0 : 0, repP = soldes[shiftMonth_(mois, -1)] ? Number(soldes[shiftMonth_(mois, -1)].montant) || 0 : 0;
+  var BM = balModel_(), rep = soldeAt_(BM, mois), repP = soldeAt_(BM, shiftMonth_(mois, -1));
   var bilan = c.eR - c.sR + rep, bilanP = c.eP - c.sP + rep, bilanPrev = p.eR - p.sR + repP;
   var eur = function (n) {
     var v = Math.round((Number(n) || 0) * 100) / 100, neg = v < 0;
@@ -2013,27 +2076,56 @@ var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, r
  * Solde du compte prévu jusqu'à la prochaine paye, d'après le solde de départ et les mouvements datés (fixes à venir compris).
  * Renvoie null sans solde de départ ; sinon { today, min, minDate, decouvert }.
  */
-function accountForecast_(m) {
-  var soldes = parsePrefs_(getConfig_('soldes'));
-  if (!soldes[m]) return null;
+/** Modèle des soldes (mêmes règles que l'appli) : points réels (soldes de départ, soldes de l'appli bancaire) + mouvements datés. */
+function balModel_() {
   var cfg = parsePrefs_(getConfig_('paie')), libs = {}; readTable_(SH.LIB).forEach(function (l) { libs[l.id] = l; });
-  var mvts = readTable_(SH.MVT).filter(function (x) { return x.statut !== 'annule'; });
+  var mvts = readTable_(SH.MVT).filter(function (x) { return x.statut !== 'annule' && x.date; });
   var refOf = function (mm) {
     var pd = payDate_(mm, cfg); if (pd) return pd;
     var sal = mvts.filter(function (x) { var l = libs[x.libelleId]; return x.mois === mm && l && l.sens === 'entree' && l.moisSuivant && x.date < mm + '-01'; }).map(function (x) { return x.date; }).sort()[0];
     return sal || mm + '-01';
   };
-  var a = refOf(m), b = refOf(shiftMonth_(m, 1)), today = nowIso_().substring(0, 10), bal = Number(soldes[m].montant) || 0, days = {};
-  mvts.forEach(function (x) {
-    if (x.date < a || x.date >= b) return;
-    var l = libs[x.libelleId]; if (!l) return;
-    days[x.date] = (days[x.date] || 0) + (l.sens === 'entree' ? 1 : -1) * (Number(x.montant) || 0);
+  var day = function (s) { return Math.floor(new Date(s + 'T12:00:00Z').getTime() / 864e5); };
+  var so = parsePrefs_(getConfig_('soldes')), rec = []; try { rec = JSON.parse(getConfig_('recalages') || '[]') || []; } catch (e) {}
+  var pts = [], days = {}, dstr = {};
+  Object.keys(so).forEach(function (m) { var v = Number(so[m].montant); if (so[m].source === 'recalage' || !isFinite(v)) return; pts.push({ t: day(refOf(m)) - 0.5, v: v }); });
+  rec.forEach(function (r) { if (r.date && isFinite(Number(r.montant))) pts.push({ t: day(r.date) + 0.5, v: Number(r.montant) }); });
+  pts.sort(function (a, b) { return a.t - b.t; });
+  mvts.forEach(function (x) { var l = libs[x.libelleId]; if (!l) return; var k = day(x.date); days[k] = (days[k] || 0) + (l.sens === 'entree' ? 1 : -1) * (Number(x.montant) || 0); dstr[k] = x.date; });
+  var keys = Object.keys(days).map(Number).sort(function (a, b) { return a - b; });
+  var sum = function (a, b) { var s = 0; keys.forEach(function (k) { if (k > a && k <= b) s += days[k]; }); return s; };
+  var at = function (tt) {
+    var prev = null, next = null; pts.forEach(function (p) { if (p.t <= tt) prev = p; else if (!next) next = p; });
+    if (prev) return prev.v + sum(prev.t, tt); if (next) return next.v - sum(tt, next.t); return null;
+  };
+  return { pts: pts, days: days, dstr: dstr, keys: keys, at: at, refOf: refOf, day: day, cfg: cfg, so: so };
+}
+/** Solde de départ d'un mois (réel, sinon calculé) ; 0 sans aucun solde réel. */
+function soldeAt_(M, m) {
+  if (M.so[m] && M.so[m].source !== 'recalage' && isFinite(Number(M.so[m].montant))) return Number(M.so[m].montant);
+  if (!M.pts.length) return 0;
+  var v = M.at(M.day(M.refOf(m)) - 0.5); return v === null ? 0 : Math.round(v * 100) / 100;
+}
+/** Solde prévu jusqu'à la prochaine paye, depuis le dernier solde réel. null sans solde réel. */
+function accountForecast_(m) {
+  var M = balModel_(); if (!M.pts.length) return null;
+  var today = nowIso_().substring(0, 10), tT = M.day(today) + 0.5, tb = M.day(M.refOf(shiftMonth_(m, 1))) - 0.5, cur = M.at(tT);
+  if (cur === null) return null;
+  var run = cur, min = cur, minDate = today;
+  M.keys.forEach(function (k) { if (k > tT && k <= tb) { run += M.days[k]; if (run < min - 0.004) { min = run; minDate = M.dstr[k]; } } });
+  return { today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, decouvert: Number(M.cfg.decouvert) || 0 };
+}
+
+/** Retire le solde réel saisi à une date (annulation). */
+function deleteRecalage(date) {
+  var me = ctx_(ROLES.editeur);
+  return withLock_(function () {
+    var hist = []; try { hist = JSON.parse(getConfig_('recalages') || '[]') || []; } catch (e) {}
+    hist = hist.filter(function (r) { return r.date !== date; });
+    setConfig_('recalages', JSON.stringify(hist));
+    log_(me, 'Annulation', 'Solde réel du compte', date);
+    return { recalages: JSON.stringify(hist) };
   });
-  var ds = Object.keys(days).sort(), cur = bal, min = null, minDate = '';
-  ds.forEach(function (d) { if (d <= today) cur += days[d]; });
-  var run = cur; min = cur; minDate = today;
-  ds.forEach(function (d) { if (d > today) { run += days[d]; if (run < min) { min = run; minDate = d; } } });
-  return { today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, decouvert: Number(cfg.decouvert) || 0 };
 }
 
 /** Clés VAPID du foyer (créées une seule fois, gardées dans les propriétés du script). */

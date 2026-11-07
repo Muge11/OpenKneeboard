@@ -3,6 +3,26 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.8.0] — 2026-11-07 — écarts avec la banque, relevés en lot
+
+- **Nouveau modèle des soldes** : les soldes réels (relevés importés, solde saisi depuis l'appli bancaire) sont des
+  points fixes ; les soldes de départ des autres mois sont calculés depuis le point réel le plus proche. Le recalage
+  ne réécrit plus les soldes de départ : plus de double compte quand un relevé est importé après un recalage.
+- **Analyse de l'écart** (tuile « Compte en banque › Analyser », ou après un recalage) : doublons probables
+  (avec suppression d'un appui), opérations récentes pas encore passées, fixes non confirmés, recherche de la
+  combinaison d'opérations la plus vraisemblable ; seul le reste « non expliqué » est compté dans le reste à vivre,
+  et il se résorbe dès que les opérations manquantes sont importées.
+- **Solde de départ recalé** : la ligne « Solde de départ » de la Synthèse (et la pastille « report ») suit le solde
+  réel saisi, avec la mention « recalé sur la banque (± écart) » ; un appui ouvre l'analyse.
+- Une saisie à la main pointée par un relevé prend la date de l'opération bancaire.
+- **Plusieurs relevés d'un coup** (PDF et CSV mélangés) : lus en parallèle sur l'appareil, fusionnés par date,
+  lignes communes à deux relevés gardées une seule fois, contrôle des totaux par fichier, un seul envoi au serveur.
+- **Relevés importés** (Plus › Importer un relevé) : liste par fichier (mois couverts, nombre d'opérations, date
+  d'import), sélection multiple ou « Tout sélectionner », « Supprimer N relevés » en une fois ; les fixes et pointages
+  sont remis comme avant, les saisies à la main conservées. Serveur `annulerImports` ; suppression des lignes en une
+  seule réécriture de la feuille (beaucoup plus rapide).
+- Sur ordinateur, le logo « Budget » de la barre latérale ramène à la synthèse du mois en cours.
+
 ## [1.7.0] — 2026-11-07 — recaler sur le solde réel
 
 - **Recaler sur le solde réel** (tuile « Compte en banque », fiche du solde de départ, ou Plus › Paye et compte

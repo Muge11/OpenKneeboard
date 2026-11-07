@@ -181,6 +181,7 @@
   tr.grp td { font-weight: 600; color: var(--text); }
   tr.sub td { color: var(--text-2); }
   tr.sub td:first-child { padding-left: 12px; }
+  tr.sub td .rsub { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
   tr.click { cursor: pointer; }
   tr.click:active td { background: var(--surface-2); }
   tr.total td { font-weight: 700; border-bottom: 0; padding-top: 10px; }
@@ -261,6 +262,7 @@
   .vbars .col { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 100%; min-width: 0; }
   .vbars .col span { width: 40%; max-width: 12px; border-radius: 4px 4px 0 0; }
 
+  .brand { display: none; }
   nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--header-bg); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--line); display: flex; padding-bottom: env(safe-area-inset-bottom); }
   nav button { flex: 1; border: 0; background: transparent; padding: 10px 0 12px; font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer;
@@ -600,10 +602,14 @@
     nav { top: 0; bottom: 0; left: 0; right: auto !important; width: 232px; height: auto; transform: none; border-radius: 0; box-shadow: none !important;
       background: var(--surface) !important; padding: 136px 14px 20px !important; gap: 4px; align-items: stretch; }
     html:not([data-theme="light"]) nav { border-right: 1px solid var(--line); }
-    nav::before { content: "€"; top: 22px; left: 22px; width: 32px; height: 32px; border-radius: 11px; background: var(--brand-bg); color: var(--brand-ink);
+    nav::before, nav::after { content: none; }
+    .brand { display: flex; position: fixed; z-index: 21; top: 14px; left: 14px; height: 48px; padding: 0 12px 0 8px; gap: 10px; align-items: center;
+      border: 0; border-radius: 14px; background: transparent; color: var(--text); cursor: pointer; font: inherit; transition: background .15s; }
+    .brand:hover { background: var(--surface-2); }
+    .brand:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+    .brand i { font-style: normal; width: 32px; height: 32px; border-radius: 11px; background: var(--brand-bg); color: var(--brand-ink);
       display: grid; place-items: center; font-size: 16px; font-weight: 800; }
-
-    nav::after { content: "Budget"; position: absolute; top: 24px; left: 64px; font-size: 22px; font-weight: 800; letter-spacing: -.03em; color: var(--text); }
+    .brand span { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
     nav button, nav button.on { flex: none; height: 46px; justify-content: flex-start; gap: 12px; padding: 0 12px; font-size: 15px; font-weight: 700;
       color: var(--text-2); border-radius: 14px; }
     nav .tl, nav button.on .tl { display: inline; }
@@ -949,12 +955,28 @@
   .ytab .ybar { height: 4px; border-radius: 2px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
   .ytab .ybar span { display: block; height: 100%; background: var(--bar); border-radius: 2px; }
   .import-done .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  .acct-gap { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .item.sel { background: var(--surface-2); border-radius: 14px; }
+  .ech { font-size: 13px; font-weight: 800; margin: 16px 0 4px; letter-spacing: 0; }
+  .ecx { font-size: 13px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); margin-bottom: 4px; }
+  .ecrest { font-size: 13px; padding: 12px; border-radius: 14px; background: var(--input-bg); border: 1px solid var(--line); margin-top: 16px; line-height: 1.45; }
   .acct-sync { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; opacity: .8; }
   .acct-sync svg.ic { width: 12px; height: 12px; stroke-width: 2.4; }
   .t.acct .k { padding-right: 0; }
   .rcgap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--input-bg); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 13px; margin-bottom: 8px; }
   .rcgap.ok { border-color: color-mix(in srgb, var(--pos) 50%, transparent); }
   .rctab { margin-bottom: 8px; } .rctab td, .rctab th { padding: 8px 4px; } .rctab tr.same td { opacity: .5; }
+  .rvfiles { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .rvfiles > div { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .rvfiles .rvfn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+  .impl { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .impl:last-of-type { border-bottom: 0; }
+  .impl .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .impl .title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .impl .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .impl.on .title { color: var(--neg); }
+  .btn.danger-fill { background: var(--neg); color: #fff; }
+  .btn.danger-fill:disabled { background: var(--surface-3); color: var(--muted); opacity: 1; }
   .impmonth { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); font-weight: 600; }
   .impmonth .btn svg { width: 16px; height: 16px; }
   .rvpay { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
@@ -992,6 +1014,7 @@
 
 <button class="fab" id="fab" data-act="newMvt" aria-label="Ajouter un mouvement"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="fablbl">Nouveau mouvement</span></button>
 <nav id="nav"></nav>
+<button class="brand" id="brandBtn" data-act="goHome" aria-label="Retour à la synthèse"><i>€</i><span>Budget</span></button>
 
 <script>
 /* ================================================================== */
@@ -1140,6 +1163,7 @@ function groupsOf(sens) {
   return g;
 }
 function upsertLocal(arr, rec, key) {
+  _bal = null;
   key = key || 'id';
   for (var i = 0; i < arr.length; i++) if (arr[i][key] === rec[key]) { arr[i] = rec; return; }
   arr.push(rec);
@@ -1375,7 +1399,59 @@ function fmtD(s) { return dOf(s).toLocaleDateString('fr-FR', { day: 'numeric', m
 
 /* ---------------- Solde réel du compte en début de mois ---------------- */
 function soldesAll() { try { return JSON.parse((D && D.soldes) || '{}') || {}; } catch (e) { return {}; } }
-function soldeOf(m) { var s0 = soldesAll()[m]; return s0 && isFinite(+s0.montant) ? +s0.montant : null; }
+/*
+ * Soldes réels connus (points) : solde de départ d'un mois (relevé, saisie) juste avant la paye, et soldes relevés sur
+ * l'appli bancaire (recalages), en fin de journée. Les autres soldes sont calculés depuis le point réel le plus proche
+ * (d'abord le précédent) avec les mouvements datés. Entre deux points réels, la différence avec le calcul est
+ * l'« écart non expliqué » : il se résorbe tout seul quand les opérations manquantes sont importées (pas de double compte).
+ */
+function rpDay(s) { return Math.round(dOf(s).getTime() / 864e5); }
+var _bal = null;
+function balModel() {
+  if (_bal) return _bal;
+  var pts = [], so = soldesAll(), days = {}, dstr = {};
+  Object.keys(so).forEach(function (m) {
+    var v = +so[m].montant; if (so[m].source === 'recalage' || !isFinite(v)) return; // anciens recalages (v1.7) : recalculés
+    pts.push({ t: rpDay(soldeRefDate(m)) - 0.5, v: v, kind: 'start', m: m, date: soldeRefDate(m), src: so[m].source || 'saisie' });
+  });
+  recalagesAll().forEach(function (r) { if (r.date && isFinite(+r.montant)) pts.push({ t: rpDay(r.date) + 0.5, v: +r.montant, kind: 'anchor', date: r.date, le: r.le }); });
+  pts.sort(function (a, b) { return a.t - b.t; });
+  D.mouvements.forEach(function (x) { if (x.statut === 'annule' || !x.date) return; var k = rpDay(x.date); days[k] = (days[k] || 0) + signedMv(x); dstr[k] = x.date; });
+  var keys = Object.keys(days).map(Number).sort(function (a, b) { return a - b; });
+  var sum = function (a, b) { var t = 0; keys.forEach(function (k) { if (k > a && k <= b) t += days[k]; }); return t; };
+  pts.forEach(function (pt, i) {
+    pt.gap = null;
+    if (i) { var q = pts[i - 1]; pt.prev = q; pt.est = Math.round((q.v + sum(q.t, pt.t)) * 100) / 100; pt.gap = Math.round((pt.v - pt.est) * 100) / 100; }
+  });
+  _bal = { pts: pts, days: days, dstr: dstr, keys: keys, sum: sum };
+  return _bal;
+}
+/** Solde calculé à l'instant t (jour ± 0,5) : depuis le point réel précédent, sinon en remontant depuis le suivant. */
+function balanceAt(t) {
+  var B = balModel(), prev = null, next = null;
+  B.pts.forEach(function (p) { if (p.t <= t) prev = p; else if (!next) next = p; });
+  if (prev) return { v: Math.round((prev.v + B.sum(prev.t, t)) * 100) / 100, from: prev };
+  if (next) return { v: Math.round((next.v - B.sum(t, next.t)) * 100) / 100, from: next, back: true };
+  return null;
+}
+function firstDataMonth() { return D.mouvements.reduce(function (a, x) { return x.statut !== 'annule' && x.mois && (!a || x.mois < a) ? x.mois : a; }, ''); }
+/** Solde de départ du mois m : solde réel saisi ou relevé, sinon calculé (mois couverts par vos données). */
+function soldeOf(m) {
+  var s0 = soldesAll()[m];
+  if (s0 && s0.source !== 'recalage' && isFinite(+s0.montant)) return +s0.montant;
+  var B = balModel(); if (!B.pts.length) return null;
+  var f = firstDataMonth(); if (!f || m < f || m > shiftMonth(budgetMonthOf(todayStr()), 1)) return null;
+  var r = balanceAt(rpDay(soldeRefDate(m)) - 0.5); return r ? r.v : null;
+}
+/** Écart non expliqué constaté pendant la période du mois m (entre deux soldes réels). */
+function monthGap(m) {
+  var B = balModel(), a = rpDay(soldeRefDate(m)) - 0.5, b = rpDay(soldeRefDate(shiftMonth(m, 1))) - 0.5, g = 0, any = false;
+  B.pts.forEach(function (p) {
+    if (p.gap === null || p.t <= a || p.t > b || Math.abs(p.gap) < 0.005) return;
+    var A = p.ana || (p.ana = gapAnalysis(p)); if (A && Math.abs(A.rest) >= 0.005) { g += A.rest; any = true; }
+  });
+  return any ? Math.round(g * 100) / 100 : 0;
+}
 /** Date de référence du solde : juste avant la paye qui finance le mois (sinon le 1er du mois). */
 function soldeRefDate(m) {
   var pd = payDate(m); if (pd) return pd;
@@ -1383,62 +1459,39 @@ function soldeRefDate(m) {
     .map(function (x) { return x.date; }).sort()[0];
   return sal && sal < m + '-01' ? sal : m + '-01';
 }
-/** Solde du compte d'aujourd'hui à la prochaine paye, d'après le solde de départ et les mouvements datés (fixes à venir compris). */
+/** Solde du compte aujourd'hui et jusqu'à la prochaine paye : depuis le dernier solde réel, prélèvements à venir compris. */
 function accountForecast(m) {
-  var start = soldeOf(m); if (start === null) return null;
-  var a = soldeRefDate(m), b = soldeRefDate(shiftMonth(m, 1)), today = todayStr(), days = {};
-  D.mouvements.forEach(function (x) {
-    if (x.statut === 'annule' || x.date < a || x.date >= b) return;
-    days[x.date] = (days[x.date] || 0) + (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0);
-  });
-  var ds = Object.keys(days).sort(), cur = start;
-  ds.forEach(function (d) { if (d <= today) cur += days[d]; });
-  var run = cur, min = cur, minDate = today < a ? a : today, pts = [[a, start]];
-  var acc = start; ds.forEach(function (d) { acc += days[d]; pts.push([d, acc]); if (d > today && acc < min) { min = acc; minDate = d; } });
+  var B = balModel(); if (!B.pts.length) return null;
+  var a = soldeRefDate(m), b = soldeRefDate(shiftMonth(m, 1)), today = todayStr(), tT = rpDay(today) + 0.5, tb = rpDay(b) - 0.5;
+  var now = balanceAt(tT); if (!now) return null;
+  var cur = now.v, run = cur, min = cur, minDate = today < a ? a : today;
+  B.keys.forEach(function (k) { if (k > tT && k <= tb) { run += B.days[k]; if (run < min - 0.004) { min = run; minDate = B.dstr[k]; } } });
   var cfg = paieCfg();
-  return { start: start, today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, end: Math.round(acc * 100) / 100, next: b,
-    decouvert: +cfg.decouvert || 0, pts: pts, from: a };
+  return { start: soldeOf(m), today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, end: Math.round(run * 100) / 100, next: b,
+    decouvert: +cfg.decouvert || 0, from: a, basis: now.from, back: !!now.back };
 }
 /* ---------------- Recalage sur le solde réel (appli bancaire) ---------------- */
 function recalagesAll() { try { return JSON.parse(D.recalages || '[]') || []; } catch (e) { return []; } }
 function signedMv(x) { return (lib(x.libelleId).sens === 'entree' ? 1 : -1) * (+x.montant || 0); }
-/** Solde de départ du mois m déduit d'un solde réel connu à la date d (on remonte ou on avance avec les mouvements datés). */
-function startFromAnchor(m, d, amount) {
-  var ref = soldeRefDate(m), s0 = amount;
-  D.mouvements.forEach(function (x) {
-    if (x.statut === 'annule' || !x.date) return;
-    if (ref <= d && x.date >= ref && x.date <= d) s0 -= signedMv(x);
-    else if (ref > d && x.date > d && x.date < ref) s0 += signedMv(x);
-  });
-  return Math.round(s0 * 100) / 100;
-}
-/** Solde estimé par l'appli à la date d (d'après le solde de départ de la période qui la contient). */
+/** Ce que l'appli calcule pour la date d, sans tenir compte d'un éventuel solde réel déjà saisi ce jour-là. */
 function estimatedAt(d) {
-  var m = budgetMonthOf(d), st = soldeOf(m); if (st === null) return null;
-  var ref = soldeRefDate(m), v = st;
-  D.mouvements.forEach(function (x) { if (x.statut !== 'annule' && x.date && x.date >= ref && x.date <= d) v += signedMv(x); });
-  return Math.round(v * 100) / 100;
-}
-/** Mois pouvant être recalés : du premier mois qui a des mouvements jusqu'au mois de la date. */
-function recalMonths(d) {
-  var last = budgetMonthOf(d), first = D.mouvements.reduce(function (a, x) { return x.statut !== 'annule' && x.mois && (!a || x.mois < a) ? x.mois : a; }, '') || last, out = [];
-  for (var m = first; m <= last && out.length < 120; m = shiftMonth(m, 1)) out.push(m);
-  return out;
+  var t = rpDay(d) + 0.5, saved = D.recalages, r;
+  D.recalages = JSON.stringify(recalagesAll().filter(function (x) { return x.date !== d; })); _bal = null;
+  r = balanceAt(t); D.recalages = saved; _bal = null;
+  return r ? r.v : null;
 }
 function openRecalage() {
   var last = recalagesAll().slice(-1)[0];
-  form = { kind: 'recal', neg: false, before: JSON.parse(D.soldes || '{}') };
-  var ms = recalMonths(todayStr());
+  form = { kind: 'recal', neg: false };
   var h = '<h3>Solde réel du compte</h3>' +
-    '<div class="info">Indiquez le solde affiché par votre <b>appli bancaire</b>. Le solde de départ de chaque mois est recalculé à partir de vos mouvements, ' +
-    'pour que le reste à vivre colle à la réalité.</div>' +
+    '<div class="info">Indiquez le solde affiché par votre <b>appli bancaire</b>. Il devient la référence : les soldes de départ des mois sont recalculés à partir de lui, ' +
+    'et l\'écart avec ce que l\'appli avait calculé est analysé (doublons, opérations pas encore passées, dépenses manquantes).</div>' +
     '<div class="seg sgn"><button data-act="rcSign" data-v="0" class="on">Créditeur</button><button data-act="rcSign" data-v="1">Débiteur</button></div>' +
     '<div class="field"><input id="rc_amt" class="amount" inputmode="decimal" placeholder="0,00 €" data-input="rc"></div>' +
-    '<div class="row2"><div class="field"><label>Solde au</label><input id="rc_date" type="date" value="' + todayStr() + '" max="' + todayStr() + '" data-input="rc"></div>' +
-    '<div class="field"><label>Recalculer depuis</label><select id="rc_from" data-input="rc">' + ms.map(function (m, i) { return '<option value="' + m + '"' + (i === 0 ? ' selected' : '') + '>' + esc(monthName(m)) + '</option>'; }).join('') + '</select></div></div>' +
+    '<div class="field"><label>Solde au (fin de journée)</label><input id="rc_date" type="date" value="' + todayStr() + '" max="' + todayStr() + '" data-input="rc"></div>' +
     '<div id="rcPrev"></div>' +
-    (last ? '<div class="xs muted" style="margin:4px 0 8px">Dernier recalage : ' + esc(fmtD(last.date)) + ' · ' + eur(last.montant) + (last.ecart !== '' && last.ecart !== undefined ? ' (écart ' + (last.ecart >= 0 ? '+' : '') + eur(last.ecart) + ')' : '') + '</div>' : '') +
-    '<div class="actions"><button class="btn ghost" data-act="close">Annuler</button><button class="btn" id="saveBtn" data-act="rcSave">Recaler</button></div>';
+    (last ? '<div class="xs muted" style="margin:4px 0 8px">Dernier solde réel : ' + esc(fmtD(last.date)) + ' · ' + eur(last.montant) + '</div>' : '') +
+    '<div class="actions"><button class="btn ghost" data-act="close">Annuler</button><button class="btn" id="saveBtn" data-act="rcSave">Enregistrer</button></div>';
   openSheet(h);
   rcPreview();
   setTimeout(function () { var i = document.getElementById('rc_amt'); if (i) i.focus(); }, 50);
@@ -1447,36 +1500,120 @@ function rcRead() {
   var v = parseAmount(val('rc_amt')), d = val('rc_date');
   if (v === null || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
   v = Math.abs(v) * (form.neg ? -1 : 1);
-  var ms = recalMonths(d).filter(function (m) { return m >= (val('rc_from') || '0'); });
-  var rows = ms.map(function (m) { return { m: m, old: soldeOf(m), neu: startFromAnchor(m, d, v) }; });
   var est = estimatedAt(d);
+  // Soldes de départ avant / après, en ajoutant ce solde réel
+  var ms = [], f = firstDataMonth() || budgetMonthOf(d), last = budgetMonthOf(todayStr());
+  for (var m = f; m <= last && ms.length < 60; m = shiftMonth(m, 1)) ms.push(m);
+  var before = ms.map(function (m) { return soldeOf(m); });
+  var saved = D.recalages; D.recalages = JSON.stringify(recalagesAll().filter(function (x) { return x.date !== d; }).concat([{ date: d, montant: v }])); _bal = null;
+  var rows = ms.map(function (m, i) { return { m: m, old: before[i], neu: soldeOf(m) }; });
+  D.recalages = saved; _bal = null;
   return { v: v, d: d, rows: rows, est: est, ecart: est === null ? null : Math.round((v - est) * 100) / 100 };
 }
 function rcPreview() {
   var el = document.getElementById('rcPrev'); if (!el) return;
   var r = rcRead();
-  if (!r) { el.innerHTML = '<div class="xs muted" style="margin-bottom:8px">Saisissez le montant pour voir le recalcul.</div>'; return; }
+  if (!r) { el.innerHTML = '<div class="xs muted" style="margin-bottom:8px">Saisissez le montant pour voir l\'effet.</div>'; return; }
   var h = '';
-  if (r.est !== null) h += '<div class="rcgap ' + (Math.abs(r.ecart) < 0.005 ? 'ok' : '') + '"><span>Estimé par l\'appli : <b class="num">' + eur(r.est) + '</b></span><span>Écart : <b class="num ' + (r.ecart < -0.005 ? 'neg' : r.ecart > 0.005 ? 'pos' : '') + '">' +
+  if (r.est !== null) h += '<div class="rcgap ' + (Math.abs(r.ecart) < 0.005 ? 'ok' : '') + '"><span>Calculé par l\'appli : <b class="num">' + eur(r.est) + '</b></span><span>Écart : <b class="num ' + (r.ecart < -0.005 ? 'neg' : r.ecart > 0.005 ? 'pos' : '') + '">' +
     (Math.abs(r.ecart) < 0.005 ? 'aucun ✓' : (r.ecart > 0 ? '+' : '−') + eur(Math.abs(r.ecart))) + '</b></span></div>' +
-    (r.ecart < -1 ? '<div class="xs muted" style="margin:-4px 0 8px">Un écart négatif signale souvent une dépense non saisie ou des frais bancaires.</div>' : '');
-  h += '<table class="rctab"><thead><tr><th>Solde de départ</th><th>Avant</th><th>Après</th></tr></thead><tbody>' + r.rows.slice().reverse().map(function (x) {
-    var ch = x.old === null || Math.abs(x.old - x.neu) >= 0.005;
-    return '<tr' + (ch ? '' : ' class="same"') + '><td>' + esc(monthName(x.m)) + '</td><td class="num muted">' + (x.old === null ? '—' : eur(x.old)) + '</td><td class="num"><b class="' + (x.neu < 0 ? 'neg' : '') + '">' + eur(x.neu) + '</b></td></tr>';
+    (Math.abs(r.ecart) >= 1 ? '<div class="xs muted" style="margin:-4px 0 8px">Après l\'enregistrement, l\'appli cherche d\'où vient l\'écart.</div>' : '');
+  var ch = r.rows.filter(function (x) { return x.old === null || Math.abs(x.old - x.neu) >= 0.005; });
+  if (ch.length) h += '<table class="rctab"><thead><tr><th>Solde de départ</th><th>Avant</th><th>Après</th></tr></thead><tbody>' + ch.slice().reverse().map(function (x) {
+    return '<tr><td>' + esc(monthName(x.m)) + '</td><td class="num muted">' + (x.old === null ? '—' : eur(x.old)) + '</td><td class="num"><b class="' + (x.neu < 0 ? 'neg' : '') + '">' + eur(x.neu) + '</b></td></tr>';
   }).join('') + '</tbody></table>';
   el.innerHTML = h;
 }
+
+/* ---------------- Analyse des écarts avec la banque ---------------- */
+/** Explique l'écart d'un solde réel : doublons, opérations pas encore passées, fixes non confirmés, combinaison exacte. */
+function gapAnalysis(pt) {
+  var B = balModel(), q = pt.prev; if (!q) return null;
+  var ops = D.mouvements.filter(function (x) { if (x.statut === 'annule' || !x.date) return false; var k = rpDay(x.date); return k > q.t && k <= pt.t; });
+  var isCsv = function (x) { return /^csv/.test(x.source || ''); };
+  var dd = function (a, b) { return Math.abs(rpDay(a) - rpDay(b)); };
+  var dups = [], seen = {};
+  ops.forEach(function (x, i) {
+    ops.forEach(function (y, j) {
+      if (j <= i || lib(x.libelleId).sens !== lib(y.libelleId).sens || dd(x.date, y.date) > 5) return;
+      var ax = +x.montant, ay = +y.montant; if (Math.abs(ax - ay) > Math.max(0.01, Math.max(ax, ay) * 0.01)) return;
+      if (isCsv(x) && isCsv(y)) return; // deux lignes de relevé identiques : elles existent vraiment
+      var rm = !isCsv(y) && !y.pointe ? y : (!isCsv(x) && !x.pointe ? x : null);
+      if (!rm || seen[rm.id]) return;
+      seen[rm.id] = true; dups.push({ keep: rm === y ? x : y, rm: rm });
+    });
+  });
+  var lastD = pt.kind === 'anchor' ? pt.date : ymd(new Date(dOf(pt.date).getTime() - 864e5));
+  var recent = ops.filter(function (x) { return !x.pointe && !isCsv(x) && !seen[x.id] && dd(x.date, lastD) <= 4 && x.date <= lastD && (!x.recurrentId || dd(x.date, lastD) <= 2); });
+  var fixes = ops.filter(function (x) { return x.recurrentId && !x.pointe && !seen[x.id] && recent.indexOf(x) < 0; });
+  // Explication la plus probable : les doublons sont comptés en trop ; parmi les opérations récentes et les fixes non confirmés,
+  // on cherche la combinaison qui laisse le plus petit reste (une opération « en attente » coûte un peu, pour ne pas sur-expliquer).
+  var dupRm = dups.map(function (d) { return d.rm; }), base = pt.gap + dupRm.reduce(function (t, x) { return t + signedMv(x); }, 0);
+  var cands = recent.concat(fixes).slice(0, 16), n = cands.length, vals = cands.map(function (x) { return signedMv(x); });
+  // Vraisemblance d'être « en attente » : un paiement par carte d'hier l'est souvent ; un prélèvement d'il y a 2 jours rarement.
+  var pen = cands.map(function (x) { var ago = Math.max(0, rpDay(lastD) - rpDay(x.date)); return x.recurrentId ? 3 + 3 * ago : 1 + ago; });
+  var best = { mask: 0, cost: Math.abs(base), res: base, c: 0 };
+  for (var mask = 1; mask < (1 << n); mask++) {
+    var r = base, c = 0, pc = 0; for (var i = 0; i < n; i++) if (mask & (1 << i)) { r += vals[i]; c++; pc += pen[i]; }
+    var cost = Math.abs(r) + pc;
+    if (cost < best.cost - 0.001) best = { mask: mask, cost: cost, res: r, c: c };
+  }
+  var pend = []; for (var i2 = 0; i2 < n; i2++) if (best.mask & (1 << i2)) pend.push(cands[i2]);
+  var rest = Math.round(best.res * 100) / 100, exact = Math.abs(rest) < 0.01 && (pend.length || dupRm.length) ? dupRm.concat(pend) : null;
+  return { from: q, ops: ops, dups: dups, recent: recent, fixes: fixes, pending: pend, exact: exact, likely: dupRm.length + pend.length, rest: Math.abs(rest) < 0.01 ? 0 : rest };
+}
+function ecartsView() {
+  var B = balModel(), h = backbar('Écarts avec la banque');
+  var pts = B.pts.filter(function (p) { return p.gap !== null; });
+  if (!B.pts.length) return h + '<div class="empty">Aucun solde réel pour l\'instant.<br><button class="btn sm" data-act="openRecalage" style="margin-top:12px">Saisir le solde de l\'appli bancaire</button></div>';
+  var sel = pts.filter(function (p) { return p.le ? p.le === ecSel : p.date === ecSel; })[0] || pts.slice().reverse().filter(function (p) { return Math.abs(p.gap) >= 1; })[0] || pts[pts.length - 1];
+  h += '<div class="card"><h2>Soldes réels</h2><div class="xs muted" style="margin-bottom:8px">Chaque solde réel est comparé à ce que l\'appli calcule depuis le précédent. Touchez-en un pour comprendre son écart.</div>' +
+    B.pts.slice().reverse().map(function (p) {
+      var k = p.le || p.date, on = sel === p, g = p.gap;
+      return '<div class="item' + (on ? ' sel' : '') + '"' + (g !== null ? ' data-act="ecSel" data-k="' + esc(k) + '"' : ' style="cursor:default"') + '><span class="emo">' + (p.kind === 'anchor' ? '🏦' : p.src === 'csv' ? '📄' : '✍️') + '</span>' +
+        '<div class="main"><div class="title">' + esc(fmtD(p.date)) + ' · <span class="num">' + eur(p.v) + '</span></div><div class="meta">' +
+        (p.kind === 'anchor' ? 'Appli bancaire' : (p.src === 'csv' ? 'Relevé' : 'Saisi') + ' · avant la paye de ' + esc(monthName(p.m))) + (g === null ? ' · point de départ' : ' · calculé ' + eur(p.est)) + '</div></div>' +
+        (g === null ? '' : '<span class="tag ' + (Math.abs(g) < 1 ? 'acc' : 'warn') + '">' + (Math.abs(g) < 0.005 ? '✓ juste' : (g > 0 ? '+' : '−') + eur(Math.abs(g))) + '</span>') + '</div>';
+    }).join('') + '<button class="btn ghost block" data-act="openRecalage" style="margin-top:12px">Saisir le solde de l\'appli bancaire</button></div>';
+  if (!sel || sel.gap === null) return h;
+  var A = gapAnalysis(sel);
+  h += '<div class="card"><h2>Écart du ' + esc(fmtD(sel.date)) + '</h2>';
+  if (Math.abs(sel.gap) < 1) return h + '<div class="small">✓ Le calcul de l\'appli correspond à la banque' + (Math.abs(sel.gap) >= 0.005 ? ' (à ' + eur(Math.abs(sel.gap)) + ' près)' : '') + '.</div></div>';
+  h += '<div class="rcgap"><span>Banque : <b class="num">' + eur(sel.v) + '</b></span><span>Appli : <b class="num">' + eur(sel.est) + '</b></span><span>Écart : <b class="num ' + (sel.gap < 0 ? 'neg' : 'pos') + '">' + (sel.gap > 0 ? '+' : '−') + eur(Math.abs(sel.gap)) + '</b></span></div>' +
+    '<div class="xs muted" style="margin-bottom:12px">Opérations du ' + esc(fmtD(A.from.kind === 'anchor' ? A.from.date : A.from.date)) + ' au ' + esc(fmtD(sel.date)) + ' : ' + A.ops.length + '.</div>';
+  var row = function (x, extra) {
+    var l = lib(x.libelleId);
+    return '<div class="item" data-act="openMvt" data-id="' + x.id + '">' + emo(l) + '<div class="main"><div class="title">' + esc(x.description || l.nom) + '</div><div class="meta">' + esc(fmtD(x.date)) + ' · ' + esc(l.nom) +
+      (/^csv/.test(x.source || '') ? ' · relevé' : x.recurrentId ? ' · fixe' : ' · saisi') + (x.pointe ? ' · pointé' : '') + (extra || '') + '</div></div><div class="amt num ' + (l.sens === 'entree' ? 'pos' : '') + '">' + (l.sens === 'entree' ? '+' : '−') + eur(+x.montant) + '</div></div>';
+  };
+  if (A.exact) h += '<div class="ecx"><b>✓ L\'écart s\'explique entièrement</b> par ' + (A.dups.length ? 'le' + (A.dups.length > 1 ? 's' : '') + ' doublon' + (A.dups.length > 1 ? 's' : '') + (A.pending.length ? ' et ' : '') : '') +
+    (A.pending.length ? 'le' + (A.pending.length > 1 ? 's' : '') + ' opération' + (A.pending.length > 1 ? 's' : '') + ' pas encore passée' + (A.pending.length > 1 ? 's' : '') + ' en banque' : '') + ' ci-dessous.</div>';
+  if (A.dups.length) h += '<h3 class="ech">Doublons probables</h3><div class="xs muted">Même montant, à quelques jours d\'écart : une saisie à la main en plus de la ligne du relevé ou du fixe.</div>' +
+    A.dups.map(function (dp) { return row(dp.rm, ' · <b>doublon de « ' + esc(dp.keep.description || lib(dp.keep.libelleId).nom) + ' » (' + esc(fmtD(dp.keep.date)) + ')</b>') + '<div class="tools" style="margin:-4px 0 8px 56px"><button class="btn ghost sm" data-act="ecDel" data-id="' + dp.rm.id + '">Supprimer le doublon</button></div>'; }).join('');
+  if (A.pending.length) h += '<h3 class="ech">Probablement pas encore passées en banque</h3><div class="xs muted">Un paiement par carte ou un prélèvement met souvent 1 à 3 jours à apparaître. Total : <b class="num">' +
+    eur(A.pending.reduce(function (t, x) { return t - signedMv(x); }, 0)) + '</b>.</div>' + A.pending.map(function (x) { return row(x); }).join('');
+  var others = A.recent.concat(A.fixes).filter(function (x) { return A.pending.indexOf(x) < 0; });
+  if (others.length) h += fold('ec:autres', 'Autres opérations récentes ou prévues', '<span class="tag">' + others.length + '</span>', '<div class="xs muted">Elles semblent déjà passées en banque ; vérifiez leur montant si l\'écart persiste.</div>' + others.map(function (x) { return row(x); }).join(''), false);
+  if (Math.abs(A.rest) >= 1) h += '<div class="ecrest">' + (A.likely ? 'En dehors de ' + (A.dups.length ? 'ces doublons' + (A.pending.length ? ' et ' : '') : '') + (A.pending.length ? 'ces opérations en attente' : '') + ', ' : '') +
+    '<b>' + (A.rest < 0 ? 'il manque ' + eur(-A.rest) + ' de dépenses' : 'il manque ' + eur(A.rest) + ' de recettes') + '</b> dans l\'appli sur cette période ' +
+    '(achats non saisis, frais bancaires, virements…). Importez le relevé : l\'écart se résorbera tout seul, sans double compte.' +
+    '<div class="tools" style="margin-top:10px"><button class="btn sm" data-act="sub" data-sub="releve">Importer un relevé</button>' +
+    '<button class="btn ghost sm" data-act="ecBook" data-v="' + A.rest + '" data-d="' + sel.date + '">Enregistrer comme « Écart bancaire »</button></div></div>';
+  return h + '</div>';
+}
+var ecSel = '';
 function accountTile(m) {
   var F = accountForecast(m); if (!F) return '';
   var over = F.min < -F.decouvert, neg = F.min < 0, cls = over ? 'peach' : neg ? 'butter' : 'sky';
   var dl = function (d) { return esc(fmtD(d)); };
-  var lr = recalagesAll().slice(-1)[0];
+  var lr = recalagesAll().slice(-1)[0], lg = balModel().pts.slice().reverse().filter(function (p) { return p.gap !== null; })[0];
   return '<div class="t ' + cls + ' w2 click acct" data-act="openRecalage"><div class="k">Compte en banque · estimé aujourd\'hui<span class="acct-sync">' + svg('recur') + (lr ? 'recalé le ' + esc(fmtD(lr.date)) : 'Recaler') + '</span></div>' +
     '<div class="acct-row"><div class="v num">' + eurBig(F.today) + '</div>' +
     (F.min < F.today - 0.5 ? '<div class="acct-low"><span class="s">Plus bas avant la paye</span><b class="num ' + (neg ? 'neg' : '') + '">' + eur0(F.min) + '</b><span class="s">le ' + dl(F.minDate) + '</span></div>'
       : '<div class="acct-low"><span class="s">Avant la paye</span><b class="num">' + eur0(F.end) + '</b><span class="s">aucune baisse prévue</span></div>') + '</div>' +
     '<div class="s">' + (over ? '⚠ Au-delà du découvert autorisé (−' + eur0(F.decouvert) + ') : décalez une dépense ou alimentez le compte.' :
-      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : 'Prélèvements à venir compris · paye le ' + dl(F.next).replace(/\.$/, '') + '.') + '</div></div>';
+      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : 'Prélèvements à venir compris · paye le ' + dl(F.next).replace(/\.$/, '') + '.') + '</div>' +
+    (lg && Math.abs(lg.gap) >= 1 ? '<div class="acct-gap" data-act="sub" data-sub="ecarts">Écart avec la banque au ' + dl(lg.date) + ' : <b class="num">' + (lg.gap > 0 ? '+' : '−') + eur0(Math.abs(lg.gap)) + '</b> · Analyser ›</div>' : '') + '</div>';
 }
 function openSolde(m) {
   m = m || mois;
@@ -1629,7 +1766,7 @@ function envFor(libId, m) { return envInfo(libId, m).montant; }
 
 var _cmp = {}, _byMonth = null;
 /** Vide les calculs mémorisés (à chaque affichage et à chaque rechargement des données). */
-function resetCalc() { _cmp = {}; _byMonth = null; }
+function resetCalc() { _cmp = {}; _byMonth = null; _bal = null; }
 function mvOfMonth(m) {
   if (!_byMonth) {
     _byMonth = {};
@@ -1670,7 +1807,8 @@ function computeRaw(m) {
   return {
     mv: mv, per: per, tot: tot, groups: groups, types: types,
     // Report : solde réel du compte au début du mois (découvert ou supplément), compté dans le reste à vivre.
-    bilan: (function () { var r = soldeOf(m); return { prevu: tot.entree.prevu - tot.sortie.prevu + (r || 0), reel: tot.entree.reel - tot.sortie.reel + (r || 0), report: r }; })(),
+    bilan: (function () { var r = soldeOf(m), g = r === null ? 0 : monthGap(m);
+      return { prevu: tot.entree.prevu - tot.sortie.prevu + (r || 0) + g, reel: tot.entree.reel - tot.sortie.reel + (r || 0) + g, report: r, gap: g }; })(),
     todo: mv.filter(function (x) { return !x.pointe; }).length
   };
 }
@@ -1808,7 +1946,10 @@ function viewSynthese(c) {
     h += '<tr class="total"><td>Total ' + (s === 'entree' ? 'entrées' : 'sorties') + '</td><td class="num">' + eur0(t.prevu) + '</td><td class="pc">' + pct(t.prevu / revP) +
       '</td><td class="num">' + eur0(t.reel) + '</td><td class="pc">' + pct(t.reel / revR) + '</td></tr>';
   });
-  if (b.report !== null) h += '<tr class="sub click" data-act="openSolde"><td>' + (b.report < 0 ? 'Découvert de départ' : 'Solde de départ') + '</td><td class="num ' + (b.report < 0 ? 'neg' : '') + '">' + eur0(b.report) + '</td><td></td><td class="num ' + (b.report < 0 ? 'neg' : '') + '">' + eur0(b.report) + '</td><td></td></tr>';
+  // Solde de départ recalé : celui du relevé (ou saisi) corrigé de l'écart que la banque a révélé et que rien n'explique
+  if (b.report !== null) { var ra = Math.round((b.report + (b.gap || 0)) * 100) / 100;
+    h += '<tr class="sub click" data-act="' + (b.gap ? 'sub" data-sub="ecarts' : 'openSolde') + '"><td>' + (ra < 0 ? 'Découvert de départ' : 'Solde de départ') +
+      (b.gap ? '<span class="rsub">recalé sur la banque (' + (b.gap > 0 ? '+' : '−') + eur0(Math.abs(b.gap)) + ')</span>' : '') + '</td><td class="num ' + (ra < 0 ? 'neg' : '') + '">' + eur0(ra) + '</td><td></td><td class="num ' + (ra < 0 ? 'neg' : '') + '">' + eur0(ra) + '</td><td></td></tr>'; }
   h += '<tr class="total"><td>Reste à vivre</td><td class="num ' + (b.prevu < 0 ? 'neg' : 'pos') + '">' + eur0(b.prevu) + '</td><td class="pc">' + pct(b.prevu / revP) +
     '</td><td class="num ' + (b.reel < 0 ? 'neg' : 'pos') + '">' + eur0(b.reel) + '</td><td class="pc">' + pct(b.reel / revR) + '</td></tr>';
   h += '</tbody></table><div class="xs muted" style="margin-top:8px">Touchez une ligne pour voir ses mouvements ; la flèche déplie le groupe.</div></div>';
@@ -1981,7 +2122,7 @@ function bentoHtml(c) {
     '<div class="big num' + (b.reel < 0 ? ' neg' : '') + '">' + eurBig(b.reel) + '</div>' +
     '<div class="chips2">' + (b.prevu ? '<span class="pchip ' + (delta >= 0 ? 'lime' : 'red') + ' num">' + (delta >= 0 ? '▲ ' : '▼ ') + eur0(Math.abs(delta)) + ' vs prévu</span>' : '') +
     (isCur && b.reel > 0 ? '<span class="pchip ghost num">' + eur0(b.reel / joursRestants) + ' / jour</span>' : '') +
-    (b.report !== null ? '<span class="pchip ' + (b.report < 0 ? 'red' : 'ghost') + ' num clk" data-act="openSolde">' + (b.report < 0 ? 'découvert ' : 'report ') + (b.report >= 0 ? '+' : '−') + eur0(Math.abs(b.report)) + '</span>' : '') + '</div>' +
+    (b.report !== null ? (function () { var ra = b.report + (b.gap || 0); return '<span class="pchip ' + (ra < 0 ? 'red' : 'ghost') + ' num clk" data-act="' + (b.gap ? 'sub" data-sub="ecarts' : 'openSolde') + '">' + (ra < 0 ? 'découvert ' : 'report ') + (ra >= 0 ? '+' : '−') + eur0(Math.abs(ra)) + (b.gap ? ' · recalé' : '') + '</span>'; })() : '') + '</div>' +
     sparkSvg(sparkPts(c, mois), 'spark') +
     (today ? '<div class="mprog"><i style="width:' + (today / nd * 100) + '%"></i><b style="left:' + (today / nd * 100) + '%"></b></div>' : '') +
     '<div class="mpl"><span>' + (isCur ? 'Jour ' + today + ' / ' + nd + ' · ' + joursRestants + ' j' + (P.paie ? ' jusqu\'à la paye' : ' restant' + (joursRestants > 1 ? 's' : '')) : today ? 'Période terminée' : 'Période à venir') + '</span>' +
@@ -2996,6 +3137,7 @@ var SUBVIEWS = {
     return h;
   },
   releve: function () { return releveView(); },
+  ecarts: function () { return ecartsView(); },
   paie: function () {
     var cfg = paieCfg(), m = mois, P = periodOf(m), nm = shiftMonth(m, 1);
     var h = backbar('Paye et compte bancaire');
@@ -3012,7 +3154,8 @@ var SUBVIEWS = {
       (P.state === 'encours' ? ' · jour ' + P.day + ', ' + (P.len - P.day + 1) + ' jours restants' : '') + '</div>';
     h += '<div class="card"><h2>Compte bancaire</h2><div class="field"><label>Découvert autorisé</label><input id="paieDec" inputmode="decimal" placeholder="0 €" value="' + (+cfg.decouvert ? amtInput(+cfg.decouvert) : '') + '"></div>' +
       '<div class="xs muted">Indiqué sur vos relevés. L\'appli vous prévient avant de le dépasser.</div>' +
-      '<button class="btn ghost block" data-act="openRecalage" style="margin-top:12px">Recaler sur le solde réel du compte</button></div>';
+      '<button class="btn ghost block" data-act="openRecalage" style="margin-top:12px">Saisir le solde de l\'appli bancaire</button>' +
+      '<button class="btn ghost block" data-act="sub" data-sub="ecarts" style="margin-top:8px">Écarts avec la banque</button></div>';
     h += '<button class="btn block" data-act="savePaie">Enregistrer</button>';
     return h;
   },
@@ -3552,6 +3695,7 @@ function rvSoldes() {
     var ref = (RV.pays && RV.pays[m]) || payDate(m) || soldeRefDate(m), first = ls.filter(function (L) { return L.date >= ref; })[0];
     if (!first || first.date > ymd(new Date(dOf(ref).getTime() + 5 * 864e5))) return;
     RV.soldes[m] = Math.round((first.solde - first.signed) * 100) / 100;
+    RV.soldeFile = RV.soldeFile || {}; RV.soldeFile[m] = first.f || 0;
     if (RV.soldesOn[m] === undefined) RV.soldesOn[m] = soldeOf(m) === null;
   });
 }
@@ -3567,19 +3711,19 @@ function rvSetLib(i, id) {
 function releveView() {
   var h = backbar('Importer un relevé');
   if (RV && RV.step === 'review') return rvReview();
-  h += '<div class="card"><h2>Relevé de la banque</h2><div class="small t2" style="margin-bottom:12px">Choisissez un <b>relevé PDF</b> (celui que la banque envoie chaque mois) ' +
-    'ou un export <b>CSV</b> de l\'historique. Le fichier est lu sur cet appareil ; rien n\'est enregistré avant votre validation.</div>' +
-    '<label class="btn block filebtn">' + (RV ? 'Choisir un autre relevé' : 'Choisir le relevé (PDF ou CSV)') + '<input type="file" id="csvFile" accept=".pdf,application/pdf,.csv,text/csv,text/plain,.txt"></label>' +
-    (RV ? '<div class="xs muted" style="margin-top:8px;text-align:center">' + esc(RV.name.length > 34 ? RV.name.slice(0, 16) + '…' + RV.name.slice(-14) : RV.name) + ' · ' + (RV.pdf ? RV.pdf.n + ' opérations lues' : RV.rows.length + ' lignes lues') + '</div>' : '') +
+  h += '<div class="card"><h2>Relevés de la banque</h2><div class="small t2" style="margin-bottom:12px">Choisissez un ou plusieurs <b>relevés PDF</b> (ceux que la banque envoie chaque mois) ' +
+    'ou exports <b>CSV</b> de l\'historique. Les fichiers sont lus sur cet appareil ; rien n\'est enregistré avant votre validation.</div>' +
+    '<label class="btn block filebtn">' + (RV ? 'Choisir d\'autres relevés' : 'Choisir les relevés (PDF ou CSV)') + '<input type="file" id="csvFile" multiple accept=".pdf,application/pdf,.csv,text/csv,text/plain,.txt"></label>' +
+    (!RV ? '<div class="xs muted" style="margin-top:8px;text-align:center">Vous pouvez en sélectionner plusieurs d\'un coup (appui long sur le premier, puis touchez les autres).</div>' : '') +
+    (RV && RV.multi ? '<div class="rvfiles">' + RV.multi.map(function (f) {
+      return '<div><span class="rvfn">' + esc(shortName(f.name)) + '</span><span class="xs muted">' + f.n + ' op.</span>' +
+        (f.check === true ? '<span class="tag acc">✓ totaux</span>' : f.check === false ? '<span class="tag warn">⚠ totaux</span>' : '') + '</div>';
+    }).join('') + (RV.xdup ? '<div class="xs muted">' + RV.xdup + ' ligne' + (RV.xdup > 1 ? 's' : '') + ' présente' + (RV.xdup > 1 ? 's' : '') + ' dans deux relevés : gardée' + (RV.xdup > 1 ? 's' : '') + ' une seule fois.</div>' : '') + '</div>' : '') +
+    (RV && !RV.multi ? '<div class="xs muted" style="margin-top:8px;text-align:center">' + esc(shortName(RV.name)) + ' · ' + (RV.pdf ? RV.pdf.n + ' opérations lues' : RV.rows.length + ' lignes lues') + '</div>' : '') +
     (RV && RV.pdf && RV.pdf.check !== null ? '<div class="xs" style="margin-top:6px;text-align:center;font-weight:700" class="' + (RV.pdf.check ? 'pos' : 'neg') + '">' +
       (RV.pdf.check ? '<span class="pos">✓ Totaux conformes au relevé (ancien solde + opérations = nouveau solde)</span>' : '<span class="neg">⚠ Les totaux ne correspondent pas au relevé : vérifiez les lignes</span>') + '</div>' : '') + '</div>';
-  if (!RV) {
-    var im = importedMonths(), ks = Object.keys(im).sort().reverse();
-    if (ks.length && canEdit()) h += '<div class="card"><h2>Mois déjà importés</h2><div class="xs muted" style="margin-bottom:8px">Annuler un mois retire uniquement les opérations importées de ce mois et remet les fixes et pointages comme avant ; vos saisies à la main sont conservées.</div>' +
-      ks.map(function (m) { return '<div class="item" style="cursor:default;min-height:52px"><div class="main"><div class="title">' + esc(monthName(m).charAt(0).toUpperCase() + monthName(m).slice(1)) + '</div><div class="meta">' + im[m] + ' opération' + (im[m] > 1 ? 's' : '') + ' importée' + (im[m] > 1 ? 's' : '') + '</div></div>' +
-        '<button class="btn ghost sm" data-act="cancelImpMonth" data-m="' + m + '">Annuler</button></div>'; }).join('') + '</div>';
-    return h;
-  }
+  if (!RV) { if (canEdit()) h += importsListHtml(); return h; }
+  if (!RV.multi) {
   var M = RV.map, cols = (M.hdr >= 0 ? RV.rows[M.hdr] : RV.rows[0].map(function (_, j) { return 'Colonne ' + (j + 1); })).map(function (c, j) { return [j, c || 'Colonne ' + (j + 1)]; });
   var sel = function (k, label, opt) {
     return '<div class="field"><label>' + label + '</label><select data-input="rvMap" data-k="' + k + '"><option value="">' + (opt ? '—' : 'Choisir') + '</option>' +
@@ -3588,6 +3732,7 @@ function releveView() {
   h += fold('rv:map', 'Colonnes du fichier', '<span class="tag">' + (M.amt >= 0 ? 'montant' : 'débit / crédit') + '</span>',
     '<div class="rvmap">' + sel('date', 'Date') + sel('lib', 'Libellé') + sel('amt', 'Montant (+ / −)', 1) + sel('solde', 'Solde', 1) + sel('debit', 'Débit', 1) + sel('credit', 'Crédit', 1) + '</div>' +
     '<label class="opt sw" style="margin-top:8px"><span>Inverser les signes<br><span class="xs muted">si les dépenses apparaissent en entrées</span></span><input type="checkbox" class="tg" data-input="rvInv"' + (RV.invert ? ' checked' : '') + '></label>', !RV.lines.length);
+  }
   if (!RV.lines.length) return h + '<div class="empty">Aucune ligne reconnue : vérifiez les colonnes Date et Montant.</div>';
   var on = RV.lines.filter(function (L) { return L.on; }), add = on.filter(function (L) { return !L.majId && !L.pointId; }).length, maj = on.filter(function (L) { return L.majId || L.pointId; }).length;
   var dups = RV.lines.filter(function (L) { return L.dup; }).length;
@@ -3641,7 +3786,7 @@ function releveView() {
           L.pointId ? '<span class="tag acc">✓ pointe « ' + esc((byId(D.mouvements, L.pointId) || {}).description || lib(L.libelleId).nom) + ' »</span>' :
           '<select data-input="rvLib" data-i="' + L.i + '" aria-label="Libellé">' + opts(L.sens, L.libelleId) + '</select>') +
         (L.carte && cartesAll()[L.carte] ? (function (u) { return u ? '<span class="who" title="' + esc(u.nom) + '"><i style="background:' + esc(u.couleur) + '">' + esc(firstName(u.nom || u.email).charAt(0)) + '</i></span>' : ''; })(user(cartesAll()[L.carte])) : '') +
-        (L.dup ? '<span class="tag warn">déjà saisi ?</span>' : '') + '</div></div>' +
+        (L.dup ? '<span class="tag warn">déjà saisi ?</span>' : '') + (L.xdup ? '<span class="tag">dans un autre relevé</span>' : '') + '</div></div>' +
         '<div class="amt num ' + (L.sens === 'entree' ? 'pos' : '') + '" data-act="rvEdit" data-i="' + L.i + '">' + (L.sens === 'entree' ? '+' : '−') + eur(L.montant) + '</div></div>';
     }).join(''), k === 0);
   });
@@ -3695,9 +3840,88 @@ function rvEdit(i) {
     '<div class="actions"><button class="btn ghost" data-act="close">Annuler</button><button class="btn" data-act="rvESave">OK</button></div>';
   openSheet(h);
 }
-var LAST_IMPORT = null;
+var LAST_IMPORT = null, IMPSEL = { ids: {}, ms: {} };
+/** Liste des relevés importés (un par fichier) + anciens imports par mois ; sélection multiple, suppression en une fois. */
+function importsListHtml() {
+  var cnt = {}, old = {};
+  D.mouvements.forEach(function (x) { var s0 = x.source || ''; if (!/^csv/.test(s0) || x.statut === 'annule') return; if (s0 === 'csv') old[x.mois] = (old[x.mois] || 0) + 1; else cnt[s0.slice(4)] = (cnt[s0.slice(4)] || 0) + 1; });
+  var imps = (D.imports || []).slice().sort(function (a, b) { return a.le < b.le ? 1 : -1; }), oms = Object.keys(old).sort().reverse();
+  if (!imps.length && !oms.length) return '';
+  var nSel = Object.keys(IMPSEL.ids).length + Object.keys(IMPSEL.ms).length, all = imps.length + oms.length;
+  var mshort = function (ms) { return String(ms || '').split(',').filter(String).map(function (m) { return monthName(m, true).replace('.', ''); }).join(', '); };
+  var h = '<div class="card"><div class="sec-head"><h2>Relevés importés</h2><button class="link small" data-act="impAll">' + (nSel === all ? 'Tout désélectionner' : 'Tout sélectionner') + '</button></div>' +
+    '<div class="xs muted" style="margin-bottom:8px">Supprimer un relevé retire ses opérations et remet les fixes et pointages comme avant ; vos saisies à la main sont conservées.</div>';
+  h += imps.map(function (im) {
+    var on = !!IMPSEL.ids[im.id];
+    return '<label class="impl' + (on ? ' on' : '') + '"><input type="checkbox" class="tg" data-act="impSel" data-id="' + im.id + '"' + (on ? ' checked' : '') + '>' +
+      '<span class="main"><span class="title">' + esc(shortName(im.fichier || 'Relevé')) + '</span><span class="meta">' + esc(mshort(im.mois)) + ' · ' + (cnt[im.id] || 0) + ' op. · importé le ' + esc(fmtD(String(im.le).slice(0, 10))) + '</span></span></label>';
+  }).join('');
+  h += oms.map(function (m) {
+    var on = !!IMPSEL.ms[m];
+    return '<label class="impl' + (on ? ' on' : '') + '"><input type="checkbox" class="tg" data-act="impSelM" data-m="' + m + '"' + (on ? ' checked' : '') + '>' +
+      '<span class="main"><span class="title">' + esc(monthName(m).charAt(0).toUpperCase() + monthName(m).slice(1)) + '</span><span class="meta">import précédent · ' + old[m] + ' op.</span></span></label>';
+  }).join('');
+  return h + '<button class="btn block danger-fill" data-act="impDelete"' + (nSel ? '' : ' disabled') + ' style="margin-top:12px">' + (nSel ? 'Supprimer ' + nSel + ' relevé' + (nSel > 1 ? 's' : '') : 'Sélectionnez les relevés à supprimer') + '</button></div>';
+}
 function importedCount(m) { return D.mouvements.filter(function (x) { return x.mois === m && /^csv/.test(x.source || '') && x.statut !== 'annule'; }).length; }
 function importedMonths() { var o = {}; D.mouvements.forEach(function (x) { if (/^csv/.test(x.source || '') && x.statut !== 'annule') o[x.mois] = (o[x.mois] || 0) + 1; }); return o; }
+function shortName(n) { n = String(n || ''); return n.length > 34 ? n.slice(0, 16) + '…' + n.slice(-14) : n; }
+/** Lit un fichier (PDF ou CSV) → { name, rows, pdf } ; tous les relevés choisis sont lus en parallèle. */
+function rvFile(file) {
+  return new Promise(function (res, rej) {
+    if (file.size > 5e6) return rej(new Error(file.name + ' : fichier trop volumineux (5 Mo au plus)'));
+    var fr = new FileReader();
+    fr.onerror = function () { rej(new Error(file.name + ' : lecture impossible')); };
+    fr.onload = function () {
+      var buf = fr.result, head = new Uint8Array(buf.slice(0, 5)), text;
+      if (String.fromCharCode.apply(null, head) === '%PDF-') {
+        rvPdf(buf).then(function (r) { res({ name: file.name, rows: r.rows, pdf: r }); }, function (e) { rej(new Error(file.name + ' : ' + ((e && e.message) || 'PDF illisible'))); });
+        return;
+      }
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
+      res({ name: file.name, rows: rvParse(text.replace(/^﻿/, '')), pdf: null });
+    };
+    fr.readAsArrayBuffer(file);
+  });
+}
+function rvReadMany(files) {
+  files = Array.prototype.slice.call(files || []);
+  if (!files.length) return;
+  if (files.length > 24) { toast('24 relevés au plus à la fois', true); return; }
+  toast(files.length > 1 ? 'Lecture de ' + files.length + ' relevés…' : 'Lecture du relevé…');
+  var errs = [];
+  Promise.all(files.map(function (f) { return rvFile(f).catch(function (e) { errs.push(e.message); return null; }); })).then(function (list) {
+    list = list.filter(Boolean);
+    if (!list.length) { toast(errs[0] || 'Aucun relevé lisible', true); return; }
+    if (list.length === 1) rvLoadRows(list[0].name, list[0].rows, { pdf: list[0].pdf });
+    else rvLoadMany(list);
+    render();
+    toast((errs.length ? errs.length + ' fichier(s) illisible(s) · ' : '') + (RV.lines.length ? RV.lines.length + ' opérations reconnues' : 'Aucune opération reconnue'), !!errs.length || !RV.lines.length);
+  });
+}
+/** Plusieurs relevés : chacun est lu avec ses propres colonnes, puis tout est fusionné (une ligne commune à deux relevés n'est gardée qu'une fois). */
+function rvLoadMany(list) {
+  var parts = list.map(function (f) { rvLoadRows(f.name, f.rows, { pdf: f.pdf }); return { name: f.name, lines: RV.lines, pdf: f.pdf, learn: RV.learn }; });
+  parts.sort(function (a, b) { var x = a.lines[0], y = b.lines[0]; return (x ? x.date : '9') < (y ? y.date : '9') ? -1 : 1; });
+  var lines = [];
+  parts.forEach(function (pt, f) { pt.lines.forEach(function (L, k) { L.f = f; L.k = k; lines.push(L); }); });
+  lines.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.f - b.f || a.k - b.k; });
+  lines.forEach(function (L, i) { L.i = i; });
+  RV = { name: parts.length + ' relevés', multi: parts.map(function (pt) { return { name: pt.name, n: pt.lines.length, check: pt.pdf ? pt.pdf.check : null }; }),
+    rows: [], map: null, lines: lines, manual: {}, soldes: {}, soldesOn: {}, step: 'list', open: {}, learn: parts[parts.length - 1].learn, pdf: null };
+  rvPeriods(); rvMatch(); rvCrossDup(); rvSoldes();
+}
+/** Ligne déjà présente dans un autre relevé choisi (relevés qui se chevauchent) : gardée une seule fois. */
+function rvCrossDup() {
+  if (!RV.multi) return;
+  var seen = {}, n = 0;
+  RV.lines.forEach(function (L) {
+    var k = L.date + '|' + Math.round(L.montant * 100) + '|' + L.sens + '|' + rvKey(L.description);
+    if (seen[k] !== undefined && seen[k] !== L.f) { L.xdup = true; L.on = false; L.majId = ''; L.pointId = ''; n++; }
+    else if (seen[k] === undefined) seen[k] = L.f;
+  });
+  RV.xdup = n;
+}
 function rvRead(file) {
   if (!file) return;
   if (file.size > 5e6) { toast('Fichier trop volumineux (5 Mo au plus)', true); return; }
@@ -3716,7 +3940,7 @@ function rvRead(file) {
   };
   fr.readAsArrayBuffer(file);
 }
-document.addEventListener('change', function (e) { if (e.target && e.target.id === 'csvFile') rvRead(e.target.files && e.target.files[0]); });
+document.addEventListener('change', function (e) { if (e.target && e.target.id === 'csvFile') rvReadMany(e.target.files); });
 
 /* ---------------- Notifications : liaison avec l'appli installée (la coquille reçoit les notifications) ---------------- */
 var NOTIF_DEF = { rappel: true, delai: 2, heure: 20, seuil: 80, depasse: true, rythme: true, montants: false, decouvert: true };
@@ -4313,6 +4537,11 @@ function loadBackups() { call('listBackups').then(function (b) { backupsCache = 
 /* Actions (délégation d'événements)                                   */
 /* ================================================================== */
 var ACT = {
+  goHome: function () {
+    var was = tab; mois = paieCfg().jour ? budgetMonthOf(todayStr()) : ymNow(); navDir = tabIndex('synthese') - tabIndex(tab);
+    if (was !== 'synthese') histPush('tab');
+    tab = 'synthese'; sub = ''; mvtFilter = 'tous'; closeSheet(); render(); window.scrollTo(0, 0);
+  },
   tab: function (d) {
     if (tab !== d.tab && d.tab !== pref('startTab', 'synthese')) histPush('tab');
     navDir = tabIndex(d.tab) - tabIndex(tab);
@@ -4328,7 +4557,7 @@ var ACT = {
     try { if (mp.showPicker) { mp.showPicker(); return; } } catch (e) {}
     mp.focus(); mp.click();
   },
-  sub: function (d) { if (d.sub === 'notifs') refreshPushState(); if (d.sub === 'releve') RV = null; if (d.sub && !sub) histPush('sub'); sub = d.sub; if (sub === 'journal') journalCache = null; if (sub === 'backups') backupsCache = null; if (sub === 'rapport') rapportCache = null; render(); window.scrollTo(0, 0); },
+  sub: function (d) { if (d.sub === 'notifs') refreshPushState(); if (d.sub === 'releve') { RV = null; IMPSEL = { ids: {}, ms: {} }; } if (d.sub && !sub) histPush('sub'); sub = d.sub; if (sub === 'journal') journalCache = null; if (sub === 'backups') backupsCache = null; if (sub === 'rapport') rapportCache = null; render(); window.scrollTo(0, 0); },
   anGo: function (d) { navDir = 0; mois = d.m; synSeg = 'resume'; render(); window.scrollTo(0, 0); ensureMonthClient(); },
   anYear: function (d) { anYear = (anYear || +mois.substring(0, 4)) + (+d.v); render(); },
   synSeg: function (d) { var o = ['resume', 'graph', 'conseils', 'annee']; navDir = o.indexOf(d.v) - o.indexOf(synSeg); synSeg = d.v; vizSel = null; render(); },
@@ -4520,19 +4749,28 @@ var ACT = {
   },
   rcSave: function () {
     var r = rcRead(); if (!r) { toast('Montant manquant', true); return; }
-    var map = {}, before = form.before, prev = {};
-    r.rows.forEach(function (x) { map[x.m] = x.neu; prev[x.m] = before[x.m] ? before[x.m].montant : null; });
-    var all = JSON.parse(D.soldes || '{}'); Object.keys(map).forEach(function (m) { all[m] = { montant: map[m], le: nowIso(), par: D.me.email, source: 'recalage' }; });
-    D.soldes = JSON.stringify(all);
-    var h = recalagesAll(); h.push({ date: r.d, montant: r.v, ecart: r.ecart === null ? '' : r.ecart, le: nowIso() }); D.recalages = JSON.stringify(h.slice(-24));
-    resetCalc(); closeSheet(); render();
-    bg('saveSoldesMany', [map, { date: r.d, montant: r.v, ecart: r.ecart === null ? '' : r.ecart }], function (res) { D.soldes = res.soldes; D.recalages = res.recalages; resetCalc(); render(); });
-    toast(r.rows.length + ' mois recalé' + (r.rows.length > 1 ? 's' : '') + (r.ecart !== null && Math.abs(r.ecart) >= 0.005 ? ' · écart ' + (r.ecart > 0 ? '+' : '−') + eur(Math.abs(r.ecart)) : ''), false, function () {
-      var back = JSON.parse(D.soldes || '{}'); Object.keys(prev).forEach(function (m) { if (prev[m] === null) delete back[m]; else back[m] = before[m]; });
-      D.soldes = JSON.stringify(back); resetCalc(); render();
-      bg('saveSoldesMany', [prev, null], function (res) { D.soldes = res.soldes; resetCalc(); render(); });
-      toast('Recalage annulé');
+    var anc = { date: r.d, montant: r.v, ecart: r.ecart === null ? '' : r.ecart, le: nowIso() };
+    var old = recalagesAll(), h = old.filter(function (x) { return x.date !== r.d; }); h.push(anc); D.recalages = JSON.stringify(h.slice(-24));
+    resetCalc(); closeSheet();
+    bg('saveSoldesMany', [{}, anc], function (res) { D.recalages = res.recalages; resetCalc(); render(); });
+    if (r.ecart !== null && Math.abs(r.ecart) >= 1) { ecSel = anc.le; tab = 'plus'; sub = 'ecarts'; histPush('sub'); }
+    render(); window.scrollTo(0, 0);
+    toast(r.ecart === null ? 'Solde réel enregistré' : Math.abs(r.ecart) < 1 ? 'Solde juste ✓' : 'Écart ' + (r.ecart > 0 ? '+' : '−') + eur(Math.abs(r.ecart)) + ' : voici d\'où il peut venir', false, function () {
+      D.recalages = JSON.stringify(old); resetCalc(); render();
+      bg('deleteRecalage', [anc.date], function (res) { D.recalages = res.recalages; resetCalc(); render(); });
+      toast('Solde réel retiré');
     });
+  },
+  ecSel: function (d) { ecSel = d.k; render(); },
+  ecDel: function (d) { delMvt(d.id); },
+  ecBook: function (d) {
+    var v = +d.v; if (!v) return;
+    var sens = v < 0 ? 'sortie' : 'entree', l = libByName(sens === 'sortie' ? 'Divers' : 'Remboursements divers', sens) || libsSorted(sens)[0];
+    if (!confirm('Enregistrer un mouvement « Écart bancaire » de ' + eur(Math.abs(v)) + ' (' + (sens === 'sortie' ? 'dépense' : 'recette') + ') le ' + fmtD(d.d) + ' ?\n\nÀ éviter si vous comptez importer le relevé de cette période : les vraies opérations le remplaceront.')) return;
+    var x = { id: newCid(), date: d.d, mois: budgetMonthOf(d.d), montant: Math.abs(v), libelleId: l.id, description: 'Écart bancaire', recurrentId: '', prevu: '', pointe: true, modifie: false, statut: '', saisiPar: D.me.email, saisiLe: nowIso() };
+    D.mouvements.push(x); resetCalc(); render();
+    bg('saveMouvement', [{ id: x.id, date: x.date, mois: x.mois, montant: x.montant, libelleId: x.libelleId, description: x.description, pointe: true }, null], function (res) { upsertLocal(D.mouvements, res.mouvement); resetCalc(); render(); });
+    toast('Écart enregistré');
   },
   soldeSign: function (d) {
     form.neg = d.v === '1';
@@ -4587,6 +4825,22 @@ var ACT = {
     closeSheet(); render();
   },
   rvDone: function () { LAST_IMPORT = null; render(); },
+  impSel: function (d, el) { if (el.checked) IMPSEL.ids[d.id] = true; else delete IMPSEL.ids[d.id]; render(); },
+  impSelM: function (d, el) { if (el.checked) IMPSEL.ms[d.m] = true; else delete IMPSEL.ms[d.m]; render(); },
+  impAll: function () {
+    var all = (D.imports || []).length + Object.keys(importedMonths()).length, n = Object.keys(IMPSEL.ids).length + Object.keys(IMPSEL.ms).length;
+    IMPSEL = { ids: {}, ms: {} };
+    if (n < all) { (D.imports || []).forEach(function (i) { IMPSEL.ids[i.id] = true; }); D.mouvements.forEach(function (x) { if (x.source === 'csv') IMPSEL.ms[x.mois] = true; }); }
+    render();
+  },
+  impDelete: function () {
+    var ids = Object.keys(IMPSEL.ids), ms = Object.keys(IMPSEL.ms), n = ids.length + ms.length; if (!n) return;
+    var ops = D.mouvements.filter(function (x) { return (ids.indexOf(String(x.source || '').slice(4)) >= 0 && /^csv:/.test(x.source)) || (x.source === 'csv' && ms.indexOf(x.mois) >= 0); }).length;
+    if (!confirm('Supprimer ' + n + ' relevé' + (n > 1 ? 's' : '') + ' importé' + (n > 1 ? 's' : '') + ' ?\n\n' + ops + ' opération' + (ops > 1 ? 's' : '') + ' seront supprimée' + (ops > 1 ? 's' : '') + ', les fixes et pointages remis comme avant. Vos saisies à la main sont conservées.')) return;
+    var b = document.querySelector('[data-act=impDelete]'); if (b) { b.disabled = true; b.textContent = 'Suppression…'; }
+    write('annulerImports', ids, ms).then(function (data) { setData(data); IMPSEL = { ids: {}, ms: {} }; LAST_IMPORT = null; render(); toast(n + ' relevé' + (n > 1 ? 's' : '') + ' supprimé' + (n > 1 ? 's' : '')); },
+      function () { render(); });
+  },
   cancelImpMonth: function (d) {
     var n = importedCount(d.m);
     if (!confirm('Annuler l\'import de ' + monthName(d.m) + ' ?\n\n' + n + ' opération' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : '') + ' seront supprimée' + (n > 1 ? 's' : '') +
@@ -4623,7 +4877,7 @@ var ACT = {
   },
   rvImport: function () {
     var CA = cartesAll();
-    var ls = RV.lines.filter(function (L) { return L.on; }).map(function (L) { return { date: L.date, mois: L.mois, libelleId: L.libelleId, description: L.description, montant: L.montant, majId: L.majId, pointId: L.pointId, saisiPar: L.carte ? CA[L.carte] || '' : '' }; });
+    var ls = RV.lines.filter(function (L) { return L.on; }).map(function (L) { return { date: L.date, mois: L.mois, libelleId: L.libelleId, description: L.description, montant: L.montant, majId: L.majId, pointId: L.pointId, saisiPar: L.carte ? CA[L.carte] || '' : '', f: L.f || 0 }; });
     var originals = RV.lines.filter(function (L) { return L.on && (L.majId || L.pointId); }).map(function (L) { return JSON.parse(JSON.stringify(byId(D.mouvements, L.majId || L.pointId) || {})); }).filter(function (o) { return o.id; });
     // Prélèvements réguliers sans fixe : proposés comme fixes après l'import
     var rawOf = {}; RV.lines.forEach(function (L) { if (L.on && !L.majId && !L.pointId) rawOf[L.date + '|' + Math.round(L.montant * 100) + '|' + L.description] = L; });
@@ -4637,7 +4891,8 @@ var ACT = {
     }
     if (!ls.length) return;
     var b = document.querySelector('[data-act=rvImport]'); if (b) { b.disabled = true; b.textContent = 'Import en cours…'; }
-    write('importReleve', ls, so, { fichier: RV.name }).then(function (r) {
+    write('importReleve', ls, so, { fichiers: RV.multi ? RV.multi.map(function (f) { return f.name; }) : [RV.name], soldeFiles: RV.soldeFile || {} }).then(function (r) {
+      if (r.imports) D.imports = r.imports;
       var cands = r.added.filter(function (x) {
         var L = rawOf[x.date + '|' + Math.round(+x.montant * 100) + '|' + x.description], l = lib(x.libelleId);
         if (!L || isInterne(l) || !/^(prlv|pr[ée]l[èe]vement|ech\.? pr[êe]t|[ée]ch[ée]ance)/i.test(String(L.raw).trim())) return false;
@@ -4647,7 +4902,7 @@ var ACT = {
         var k = rvKey(x.description), seen = D.mouvements.some(function (y) { return y.id !== x.id && y.mois !== x.mois && rvKey(y.description) === k && Math.abs(+y.montant - +x.montant) <= Math.max(1, +x.montant * 0.1); });
         return { id: x.id, on: seen };
       });
-      LAST_IMPORT = { importId: r.importId, added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length - (r.pointed || []).length, nPt: (r.pointed || []).length, cands: cands };
+      LAST_IMPORT = { importId: r.importIds || r.importId, added: r.added.map(function (x) { return x.id; }), originals: originals, soldes: Object.keys(so), nUpd: r.updated.length - (r.pointed || []).length, nPt: (r.pointed || []).length, cands: cands };
       r.added.forEach(function (x) { D.mouvements.push(x); });
       r.updated.forEach(function (x) { upsertLocal(D.mouvements, x); });
       if (r.soldes !== undefined) D.soldes = r.soldes;
