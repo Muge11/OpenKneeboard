@@ -14,6 +14,15 @@ Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-têt
   et il se résorbe dès que les opérations manquantes sont importées.
 - **Solde de départ recalé** : la ligne « Solde de départ » de la Synthèse (et la pastille « report ») suit le solde
   réel saisi, avec la mention « recalé sur la banque (± écart) » ; un appui ouvre l'analyse.
+- **Solde à venir** (facultatif, à côté du solde dans la fiche) : l'écart « à venir − solde » est ce que la banque n'a
+  pas encore débité ; l'appli retrouve la combinaison exacte d'opérations (paiements carte en cours, prélèvements
+  annoncés) et le confirme dans l'analyse.
+- **Paiements en cours** : les paiements carte peuvent rester « en cours » jusqu'à 10 jours ; recherche exacte au centime
+  sur les 24 opérations les plus récentes (recherche en deux moitiés), puis explication approchée. Les opérations pas encore
+  débitées sont comptées juste après le solde réel : solde estimé, point bas avant la paye et solde de départ suivant
+  justes (appli et serveur : alertes, compte rendu).
+- **Alerte de confusion** : si l'écart est exactement égal à des prélèvements pas encore échus, la fiche signale que le
+  montant saisi ressemble au solde à venir.
 - Une saisie à la main pointée par un relevé prend la date de l'opération bancaire.
 - **Plusieurs relevés d'un coup** (PDF et CSV mélangés) : lus en parallèle sur l'appareil, fusionnés par date,
   lignes communes à deux relevés gardées une seule fois, contrôle des totaux par fichier, un seul envoi au serveur.

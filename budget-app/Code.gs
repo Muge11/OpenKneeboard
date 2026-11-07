@@ -859,7 +859,7 @@ function saveSoldesMany(map, ancre) {
     try { hist = JSON.parse(getConfig_('recalages') || '[]') || []; } catch (e) {}
     if (ancre && /^\d{4}-\d{2}-\d{2}$/.test(ancre.date || '') && isFinite(Number(ancre.montant))) {
       hist = hist.filter(function (r) { return r.date !== ancre.date; });
-      hist.push({ date: ancre.date, montant: num_(ancre.montant), ecart: isFinite(Number(ancre.ecart)) ? num_(ancre.ecart) : '', le: ancre.le || now, par: me.email });
+      hist.push({ date: ancre.date, montant: num_(ancre.montant), avenir: ancre.avenir !== '' && ancre.avenir != null && isFinite(Number(ancre.avenir)) ? num_(ancre.avenir) : '', enCours: String(ancre.enCours || '').replace(/[^\w,-]/g, '').substring(0, 800), ecart: isFinite(Number(ancre.ecart)) ? num_(ancre.ecart) : '', le: ancre.le || now, par: me.email });
       hist = hist.slice(-24);
       setConfig_('recalages', JSON.stringify(hist));
     }
@@ -1375,6 +1375,9 @@ var RELEASES = [
     'Écart avec la banque analysé : doublons probables, opérations pas encore passées, fixes non confirmés, et opérations dont la somme correspond exactement à l\'écart.',
     'L\'écart non expliqué se résorbe tout seul quand les opérations manquantes sont importées.',
     'La ligne « Solde de départ » suit le solde réel que vous saisissez (mention « recalé sur la banque »).',
+    'Solde à venir (facultatif) en plus du solde : l\'appli retrouve exactement les paiements carte en cours et les prélèvements annoncés.',
+    'Les paiements pas encore débités sont déduits du solde estimé : le point le plus bas avant la paye correspond au « solde à venir » de la banque.',
+    'Alerte si le montant saisi ressemble au solde à venir plutôt qu\'au solde.',
     'Sur ordinateur, le logo « Budget » ramène à la synthèse du mois en cours.'
   ] },
   { v: '1.7.0', titre: 'Recaler sur le solde réel', items: [
@@ -2091,7 +2094,14 @@ function balModel_() {
   Object.keys(so).forEach(function (m) { var v = Number(so[m].montant); if (so[m].source === 'recalage' || !isFinite(v)) return; pts.push({ t: day(refOf(m)) - 0.5, v: v }); });
   rec.forEach(function (r) { if (r.date && isFinite(Number(r.montant))) pts.push({ t: day(r.date) + 0.5, v: Number(r.montant) }); });
   pts.sort(function (a, b) { return a.t - b.t; });
-  mvts.forEach(function (x) { var l = libs[x.libelleId]; if (!l) return; var k = day(x.date); days[k] = (days[k] || 0) + (l.sens === 'entree' ? 1 : -1) * (Number(x.montant) || 0); dstr[k] = x.date; });
+  var sg = function (x) { var l = libs[x.libelleId]; return l ? (l.sens === 'entree' ? 1 : -1) * (Number(x.montant) || 0) : 0; };
+  mvts.forEach(function (x) { if (!libs[x.libelleId]) return; var k = day(x.date); days[k] = (days[k] || 0) + sg(x); dstr[k] = x.date; });
+  // Opérations repérées « pas encore débitées » au moment d'un solde réel (tant qu'elles le restent) : comptées juste après lui, comme dans l'appli.
+  var byId = {}; mvts.forEach(function (x) { byId[x.id] = x; });
+  rec.forEach(function (r) {
+    if (!r.date || !r.enCours) return; var k = day(r.date) + 0.75;
+    String(r.enCours).split(',').forEach(function (id) { var x = byId[id]; if (!x || x.pointe === true || x.pointe === 'TRUE' || x.date > r.date) return; days[k] = (days[k] || 0) + sg(x); dstr[k] = r.date; });
+  });
   var keys = Object.keys(days).map(Number).sort(function (a, b) { return a - b; });
   var sum = function (a, b) { var s = 0; keys.forEach(function (k) { if (k > a && k <= b) s += days[k]; }); return s; };
   var at = function (tt) {
@@ -2109,7 +2119,7 @@ function soldeAt_(M, m) {
 /** Solde prévu jusqu'à la prochaine paye, depuis le dernier solde réel. null sans solde réel. */
 function accountForecast_(m) {
   var M = balModel_(); if (!M.pts.length) return null;
-  var today = nowIso_().substring(0, 10), tT = M.day(today) + 0.5, tb = M.day(M.refOf(shiftMonth_(m, 1))) - 0.5, cur = M.at(tT);
+  var today = nowIso_().substring(0, 10), tT = M.day(today) + 0.9, tb = M.day(M.refOf(shiftMonth_(m, 1))) - 0.5, cur = M.at(tT);
   if (cur === null) return null;
   var run = cur, min = cur, minDate = today;
   M.keys.forEach(function (k) { if (k > tT && k <= tb) { run += M.days[k]; if (run < min - 0.004) { min = run; minDate = M.dstr[k]; } } });

@@ -958,6 +958,7 @@
   .acct-gap { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent); font-size: 12px; font-weight: 700; cursor: pointer; }
   .item.sel { background: var(--surface-2); border-radius: 14px; }
   .ech { font-size: 13px; font-weight: 800; margin: 16px 0 4px; letter-spacing: 0; }
+  .rcwarn { font-size: 13px; line-height: 1.45; padding: 10px 12px; border-radius: 14px; background: var(--warn-soft, rgba(255,170,0,.14)); color: var(--text); margin: -2px 0 10px; }
   .ecx { font-size: 13px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); margin-bottom: 4px; }
   .ecrest { font-size: 13px; padding: 12px; border-radius: 14px; background: var(--input-bg); border: 1px solid var(--line); margin-top: 16px; line-height: 1.45; }
   .acct-sync { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; opacity: .8; }
@@ -1414,14 +1415,22 @@ function balModel() {
     var v = +so[m].montant; if (so[m].source === 'recalage' || !isFinite(v)) return; // anciens recalages (v1.7) : recalculés
     pts.push({ t: rpDay(soldeRefDate(m)) - 0.5, v: v, kind: 'start', m: m, date: soldeRefDate(m), src: so[m].source || 'saisie' });
   });
-  recalagesAll().forEach(function (r) { if (r.date && isFinite(+r.montant)) pts.push({ t: rpDay(r.date) + 0.5, v: +r.montant, kind: 'anchor', date: r.date, le: r.le }); });
+  recalagesAll().forEach(function (r) { if (r.date && isFinite(+r.montant)) pts.push({ t: rpDay(r.date) + 0.5, v: +r.montant, kind: 'anchor', date: r.date, le: r.le, avenir: r.avenir === '' || r.avenir == null || !isFinite(+r.avenir) ? null : +r.avenir }); });
   pts.sort(function (a, b) { return a.t - b.t; });
   D.mouvements.forEach(function (x) { if (x.statut === 'annule' || !x.date) return; var k = rpDay(x.date); days[k] = (days[k] || 0) + signedMv(x); dstr[k] = x.date; });
   var keys = Object.keys(days).map(Number).sort(function (a, b) { return a - b; });
   var sum = function (a, b) { var t = 0; keys.forEach(function (k) { if (k > a && k <= b) t += days[k]; }); return t; };
+  // Opérations que la banque n'a pas encore débitées au moment d'un solde réel : comptées juste après lui (sinon le solde estimé
+  // ensuite, la prévision et le solde de départ suivant seraient trop hauts tant qu'elles restent « en cours »).
+  var adj = function (k, v, d) { if (days[k] === undefined) { keys.push(k); keys.sort(function (a, b) { return a - b; }); days[k] = 0; dstr[k] = d; } days[k] += v; };
   pts.forEach(function (pt, i) {
     pt.gap = null;
     if (i) { var q = pts[i - 1]; pt.prev = q; pt.est = Math.round((q.v + sum(q.t, pt.t)) * 100) / 100; pt.gap = Math.round((pt.v - pt.est) * 100) / 100; }
+    pt.pend = 0;
+    if (pt.kind === 'anchor' && pt.gap !== null && Math.abs(pt.gap) >= 1) {
+      var A = pt.ana = gapAnalysis(pt);
+      if (A && A.pending.length) { pt.pend = A.pending.reduce(function (t, x) { return t + signedMv(x); }, 0); adj(pt.t + 0.25, pt.pend, pt.date); }
+    }
   });
   _bal = { pts: pts, days: days, dstr: dstr, keys: keys, sum: sum };
   return _bal;
@@ -1462,13 +1471,13 @@ function soldeRefDate(m) {
 /** Solde du compte aujourd'hui et jusqu'à la prochaine paye : depuis le dernier solde réel, prélèvements à venir compris. */
 function accountForecast(m) {
   var B = balModel(); if (!B.pts.length) return null;
-  var a = soldeRefDate(m), b = soldeRefDate(shiftMonth(m, 1)), today = todayStr(), tT = rpDay(today) + 0.5, tb = rpDay(b) - 0.5;
+  var a = soldeRefDate(m), b = soldeRefDate(shiftMonth(m, 1)), today = todayStr(), tT = rpDay(today) + 0.9, tb = rpDay(b) - 0.5;
   var now = balanceAt(tT); if (!now) return null;
   var cur = now.v, run = cur, min = cur, minDate = today < a ? a : today;
   B.keys.forEach(function (k) { if (k > tT && k <= tb) { run += B.days[k]; if (run < min - 0.004) { min = run; minDate = B.dstr[k]; } } });
   var cfg = paieCfg();
   return { start: soldeOf(m), today: Math.round(cur * 100) / 100, min: Math.round(min * 100) / 100, minDate: minDate, end: Math.round(run * 100) / 100, next: b,
-    decouvert: +cfg.decouvert || 0, from: a, basis: now.from, back: !!now.back };
+    decouvert: +cfg.decouvert || 0, from: a, basis: now.from, back: !!now.back, pend: now.from && now.from.pend && rpDay(now.from.date) >= rpDay(today) - 10 ? -now.from.pend : 0 };
 }
 /* ---------------- Recalage sur le solde réel (appli bancaire) ---------------- */
 function recalagesAll() { try { return JSON.parse(D.recalages || '[]') || []; } catch (e) { return []; } }
@@ -1488,7 +1497,10 @@ function openRecalage() {
     'et l\'écart avec ce que l\'appli avait calculé est analysé (doublons, opérations pas encore passées, dépenses manquantes).</div>' +
     '<div class="seg sgn"><button data-act="rcSign" data-v="0" class="on">Créditeur</button><button data-act="rcSign" data-v="1">Débiteur</button></div>' +
     '<div class="field"><input id="rc_amt" class="amount" inputmode="decimal" placeholder="0,00 €" data-input="rc"></div>' +
-    '<div class="field"><label>Solde au (fin de journée)</label><input id="rc_date" type="date" value="' + todayStr() + '" max="' + todayStr() + '" data-input="rc"></div>' +
+    '<div class="row2"><div class="field"><label>Solde au (fin de journée)</label><input id="rc_date" type="date" value="' + todayStr() + '" max="' + todayStr() + '" data-input="rc"></div>' +
+    '<div class="field"><label>Solde à venir <span class="muted">(facultatif)</span></label><input id="rc_av" inputmode="decimal" placeholder="si affiché" data-input="rc"></div></div>' +
+    '<div class="xs muted" style="margin:-4px 0 10px">Le <b>solde</b> est le grand montant ; le <b>solde à venir</b> déduit en plus les paiements carte en cours et les prélèvements annoncés. ' +
+    'Avec les deux, l\'appli sait exactement ce que la banque n\'a pas encore débité.</div>' +
     '<div id="rcPrev"></div>' +
     (last ? '<div class="xs muted" style="margin:4px 0 8px">Dernier solde réel : ' + esc(fmtD(last.date)) + ' · ' + eur(last.montant) + '</div>' : '') +
     '<div class="actions"><button class="btn ghost" data-act="close">Annuler</button><button class="btn" id="saveBtn" data-act="rcSave">Enregistrer</button></div>';
@@ -1497,7 +1509,7 @@ function openRecalage() {
   setTimeout(function () { var i = document.getElementById('rc_amt'); if (i) i.focus(); }, 50);
 }
 function rcRead() {
-  var v = parseAmount(val('rc_amt')), d = val('rc_date');
+  var v = parseAmount(val('rc_amt')), d = val('rc_date'), av = parseAmount(val('rc_av'));
   if (v === null || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
   v = Math.abs(v) * (form.neg ? -1 : 1);
   var est = estimatedAt(d);
@@ -1505,10 +1517,11 @@ function rcRead() {
   var ms = [], f = firstDataMonth() || budgetMonthOf(d), last = budgetMonthOf(todayStr());
   for (var m = f; m <= last && ms.length < 60; m = shiftMonth(m, 1)) ms.push(m);
   var before = ms.map(function (m) { return soldeOf(m); });
-  var saved = D.recalages; D.recalages = JSON.stringify(recalagesAll().filter(function (x) { return x.date !== d; }).concat([{ date: d, montant: v }])); _bal = null;
+  var saved = D.recalages; D.recalages = JSON.stringify(recalagesAll().filter(function (x) { return x.date !== d; }).concat([{ date: d, montant: v, avenir: av === null ? '' : av, le: '~preview' }])); _bal = null;
   var rows = ms.map(function (m, i) { return { m: m, old: before[i], neu: soldeOf(m) }; });
+  var apt = balModel().pts.filter(function (p) { return p.le === '~preview'; })[0], A = apt && apt.gap !== null && Math.abs(apt.gap) >= 1 ? gapAnalysis(apt) : null;
   D.recalages = saved; _bal = null;
-  return { v: v, d: d, rows: rows, est: est, ecart: est === null ? null : Math.round((v - est) * 100) / 100 };
+  return { v: v, d: d, av: av, rows: rows, est: est, ana: A, ecart: est === null ? null : Math.round((v - est) * 100) / 100 };
 }
 function rcPreview() {
   var el = document.getElementById('rcPrev'); if (!el) return;
@@ -1517,7 +1530,7 @@ function rcPreview() {
   var h = '';
   if (r.est !== null) h += '<div class="rcgap ' + (Math.abs(r.ecart) < 0.005 ? 'ok' : '') + '"><span>Calculé par l\'appli : <b class="num">' + eur(r.est) + '</b></span><span>Écart : <b class="num ' + (r.ecart < -0.005 ? 'neg' : r.ecart > 0.005 ? 'pos' : '') + '">' +
     (Math.abs(r.ecart) < 0.005 ? 'aucun ✓' : (r.ecart > 0 ? '+' : '−') + eur(Math.abs(r.ecart))) + '</b></span></div>' +
-    (Math.abs(r.ecart) >= 1 ? '<div class="xs muted" style="margin:-4px 0 8px">Après l\'enregistrement, l\'appli cherche d\'où vient l\'écart.</div>' : '');
+    (r.ana ? rcHint(r.ana) : Math.abs(r.ecart || 0) >= 1 ? '<div class="xs muted" style="margin:-4px 0 8px">Après l\'enregistrement, l\'appli détaille d\'où vient l\'écart.</div>' : '');
   var ch = r.rows.filter(function (x) { return x.old === null || Math.abs(x.old - x.neu) >= 0.005; });
   if (ch.length) h += '<table class="rctab"><thead><tr><th>Solde de départ</th><th>Avant</th><th>Après</th></tr></thead><tbody>' + ch.slice().reverse().map(function (x) {
     return '<tr><td>' + esc(monthName(x.m)) + '</td><td class="num muted">' + (x.old === null ? '—' : eur(x.old)) + '</td><td class="num"><b class="' + (x.neu < 0 ? 'neg' : '') + '">' + eur(x.neu) + '</b></td></tr>';
@@ -1525,10 +1538,34 @@ function rcPreview() {
   el.innerHTML = h;
 }
 
+/** Résumé de l'analyse dans la fiche, avant d'enregistrer. */
+function rcHint(A) {
+  var tot = function (xs) { return xs.reduce(function (t, x) { return t - signedMv(x); }, 0); }, out = [];
+  if (A.suspect) return '<div class="rcwarn">⚠ Ce montant ressemble au <b>solde à venir</b> : il tient déjà compte de ' + A.suspect.length + ' prélèvement' + (A.suspect.length > 1 ? 's' : '') + ' annoncé' + (A.suspect.length > 1 ? 's' : '') +
+    ' (' + esc(A.suspect.map(function (x) { return x.description || lib(x.libelleId).nom; }).slice(0, 3).join(', ')) + (A.suspect.length > 3 ? '…' : '') + ' : ' + eur(tot(A.suspect)) + ' au total). Saisissez plutôt le <b>solde</b> (le grand montant), et ce montant-ci dans « Solde à venir ».</div>';
+  if (A.avOk) out.push('✓ Le solde à venir le confirme');
+  if (A.pending.length) out.push(A.pending.length + ' opération' + (A.pending.length > 1 ? 's' : '') + ' pas encore débitée' + (A.pending.length > 1 ? 's' : '') + ' (' + eur(tot(A.pending)) + ')');
+  if (A.dups.length) out.push(A.dups.length + ' doublon' + (A.dups.length > 1 ? 's' : '') + ' probable' + (A.dups.length > 1 ? 's' : ''));
+  if (Math.abs(A.rest) >= 1) out.push((A.rest < 0 ? 'reste ' + eur(-A.rest) + ' de dépenses non saisies' : 'reste ' + eur(A.rest) + ' de recettes non saisies'));
+  else out.push('rien d\'autre à corriger');
+  return '<div class="xs" style="margin:-4px 0 10px">' + out.join(' · ') + '.</div>';
+}
+/** Combinaison de coût minimal dont la somme vaut exactement `target` (au centime) ; recherche en deux moitiés (jusqu'à 26 valeurs). null sinon. */
+function exactSubset(vals, pen, target) {
+  var n = Math.min(vals.length, 26), h = n >> 1, T = Math.round(target * 100), cv = vals.slice(0, n).map(function (v) { return Math.round(v * 100); });
+  var half = function (a, b) { var out = [], m = b - a; for (var mask = 0; mask < (1 << m); mask++) { var s0 = 0, c = 0; for (var i = 0; i < m; i++) if (mask & (1 << i)) { s0 += cv[a + i]; c += pen[a + i]; } out.push([s0, c, mask]); } return out; };
+  var L = half(0, h), Rt = half(h, n), map = {};
+  Rt.forEach(function (r) { var k = r[0]; if (!map[k] || map[k][1] > r[1]) map[k] = r; });
+  var best = null;
+  L.forEach(function (l) { var r = map[T - l[0]]; if (r && (l[2] || r[2]) && (!best || l[1] + r[1] < best.c)) best = { c: l[1] + r[1], a: l[2], b: r[2] }; });
+  if (!best) return null;
+  var idx = []; for (var i = 0; i < h; i++) if (best.a & (1 << i)) idx.push(i); for (var j = 0; j < n - h; j++) if (best.b & (1 << j)) idx.push(h + j);
+  return idx;
+}
 /* ---------------- Analyse des écarts avec la banque ---------------- */
 /** Explique l'écart d'un solde réel : doublons, opérations pas encore passées, fixes non confirmés, combinaison exacte. */
 function gapAnalysis(pt) {
-  var B = balModel(), q = pt.prev; if (!q) return null;
+  var q = pt.prev; if (!q) return null;
   var ops = D.mouvements.filter(function (x) { if (x.statut === 'annule' || !x.date) return false; var k = rpDay(x.date); return k > q.t && k <= pt.t; });
   var isCsv = function (x) { return /^csv/.test(x.source || ''); };
   var dd = function (a, b) { return Math.abs(rpDay(a) - rpDay(b)); };
@@ -1544,23 +1581,48 @@ function gapAnalysis(pt) {
     });
   });
   var lastD = pt.kind === 'anchor' ? pt.date : ymd(new Date(dOf(pt.date).getTime() - 864e5));
-  var recent = ops.filter(function (x) { return !x.pointe && !isCsv(x) && !seen[x.id] && dd(x.date, lastD) <= 4 && x.date <= lastD && (!x.recurrentId || dd(x.date, lastD) <= 2); });
+  // Paiements carte : la banque peut les garder « en cours » jusqu'à une dizaine de jours ; prélèvements et fixes : 3 jours.
+  var recent = ops.filter(function (x) { return !x.pointe && !isCsv(x) && !seen[x.id] && dd(x.date, lastD) <= 10 && x.date <= lastD && (!x.recurrentId || dd(x.date, lastD) <= 3); })
+    .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   var fixes = ops.filter(function (x) { return x.recurrentId && !x.pointe && !seen[x.id] && recent.indexOf(x) < 0; });
   // Explication la plus probable : les doublons sont comptés en trop ; parmi les opérations récentes et les fixes non confirmés,
   // on cherche la combinaison qui laisse le plus petit reste (une opération « en attente » coûte un peu, pour ne pas sur-expliquer).
   var dupRm = dups.map(function (d) { return d.rm; }), base = pt.gap + dupRm.reduce(function (t, x) { return t + signedMv(x); }, 0);
-  var cands = recent.concat(fixes).slice(0, 16), n = cands.length, vals = cands.map(function (x) { return signedMv(x); });
+  var cands = recent.concat(fixes).slice(0, 14), n = cands.length, vals = cands.map(function (x) { return signedMv(x); });
   // Vraisemblance d'être « en attente » : un paiement par carte d'hier l'est souvent ; un prélèvement d'il y a 2 jours rarement.
-  var pen = cands.map(function (x) { var ago = Math.max(0, rpDay(lastD) - rpDay(x.date)); return x.recurrentId ? 3 + 3 * ago : 1 + ago; });
-  var best = { mask: 0, cost: Math.abs(base), res: base, c: 0 };
-  for (var mask = 1; mask < (1 << n); mask++) {
-    var r = base, c = 0, pc = 0; for (var i = 0; i < n; i++) if (mask & (1 << i)) { r += vals[i]; c++; pc += pen[i]; }
-    var cost = Math.abs(r) + pc;
-    if (cost < best.cost - 0.001) best = { mask: mask, cost: cost, res: r, c: c };
+  var penOf = function (x) { var ago = Math.max(0, rpDay(lastD) - rpDay(x.date)); return (x.recurrentId ? 3 + 3 * ago : 1 + ago * 0.6) * (lib(x.libelleId).sens === 'entree' ? 2.5 : 1); };
+  var pen = cands.map(penOf), pend = [], fut = [], avOk = false, suspect = null, res = null, sumS = function (xs) { return xs.reduce(function (t, x) { return t + signedMv(x); }, 0); };
+  var past = recent.concat(fixes).slice(0, 24), futs = D.mouvements.filter(function (x) { return x.statut !== 'annule' && x.date && x.date > lastD && dd(x.date, lastD) <= 12 && !x.pointe && !isCsv(x) && !seen[x.id]; })
+    .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  // 1. Solde à venir saisi : (à venir − solde) = exactement ce que la banque n'a pas encore débité. Les opérations de l'appli qui donnent
+  //    ce total et sont datées d'avant le solde sont « en cours » ; les autres sont les prélèvements annoncés.
+  if (pt.avenir !== null && pt.avenir !== undefined && Math.abs(pt.avenir - pt.v) >= 0.01) {
+    var fu = futs.slice(0, 6), pool = past.slice(0, 26 - fu.length).concat(fu), idx = exactSubset(pool.map(signedMv), pool.map(function (x) { return x.date > lastD ? 0.5 : penOf(x); }), pt.avenir - pt.v);
+    if (idx) { avOk = true; idx.forEach(function (k) { (pool[k].date > lastD ? fut : pend).push(pool[k]); }); res = base + sumS(pend); }
   }
-  var pend = []; for (var i2 = 0; i2 < n; i2++) if (best.mask & (1 << i2)) pend.push(cands[i2]);
-  var rest = Math.round(best.res * 100) / 100, exact = Math.abs(rest) < 0.01 && (pend.length || dupRm.length) ? dupRm.concat(pend) : null;
-  return { from: q, ops: ops, dups: dups, recent: recent, fixes: fixes, pending: pend, exact: exact, likely: dupRm.length + pend.length, rest: Math.abs(rest) < 0.01 ? 0 : rest };
+  // 2. Écart négatif égal à des prélèvements pas encore échus : le montant saisi est sans doute le « solde à venir ».
+  if (res === null && pt.kind === 'anchor' && base <= -1) {
+    var fx = futs.filter(function (x) { return lib(x.libelleId).sens === 'sortie'; }).slice(0, 16), ix = exactSubset(fx.map(signedMv), fx.map(function () { return 1; }), base);
+    if (ix) { suspect = ix.map(function (k) { return fx[k]; }); res = base; }
+  }
+  // 3. Combinaison exacte d'opérations pas encore passées (la plus vraisemblable), sur les 24 plus récentes.
+  if (res === null && Math.abs(base) >= 1) {
+    var ex = exactSubset(past.map(signedMv), past.map(penOf), -base);
+    if (ex && ex.reduce(function (t, k) { return t + penOf(past[k]); }, 0) <= Math.max(8, Math.abs(base) / 20)) { ex.forEach(function (k) { pend.push(past[k]); }); res = base + sumS(pend); }
+  }
+  // 4. Sinon, explication approchée la plus probable (un peu de reste plutôt qu'une combinaison tirée par les cheveux).
+  if (res === null) {
+    var best = { mask: 0, cost: Math.abs(base), res: base, c: 0 };
+    for (var mask = 1; mask < (1 << n); mask++) {
+      var r = base, c = 0, pc = 0; for (var i = 0; i < n; i++) if (mask & (1 << i)) { r += vals[i]; c++; pc += pen[i]; }
+      var cost = Math.abs(r) + pc;
+      if (cost < best.cost - 0.001) best = { mask: mask, cost: cost, res: r, c: c };
+    }
+    for (var i2 = 0; i2 < n; i2++) if (best.mask & (1 << i2)) pend.push(cands[i2]);
+    res = best.res;
+  }
+  var rest = Math.round(res * 100) / 100, exact = Math.abs(rest) < 0.01 && (pend.length || dupRm.length) ? dupRm.concat(pend) : null;
+  return { from: q, ops: ops, dups: dups, recent: recent, fixes: fixes, pending: pend, future: fut, avOk: avOk, suspect: suspect, exact: exact, likely: dupRm.length + pend.length, rest: Math.abs(rest) < 0.01 ? 0 : rest };
 }
 function ecartsView() {
   var B = balModel(), h = backbar('Écarts avec la banque');
@@ -1586,11 +1648,14 @@ function ecartsView() {
     return '<div class="item" data-act="openMvt" data-id="' + x.id + '">' + emo(l) + '<div class="main"><div class="title">' + esc(x.description || l.nom) + '</div><div class="meta">' + esc(fmtD(x.date)) + ' · ' + esc(l.nom) +
       (/^csv/.test(x.source || '') ? ' · relevé' : x.recurrentId ? ' · fixe' : ' · saisi') + (x.pointe ? ' · pointé' : '') + (extra || '') + '</div></div><div class="amt num ' + (l.sens === 'entree' ? 'pos' : '') + '">' + (l.sens === 'entree' ? '+' : '−') + eur(+x.montant) + '</div></div>';
   };
+  if (A.suspect) h += rcHint(A).replace('Ce montant', 'Le montant saisi') + '<div class="tools" style="margin:8px 0 12px"><button class="btn sm" data-act="openRecalage">Corriger le solde</button></div>';
+  if (A.avOk) h += '<div class="ecx" style="margin-bottom:8px">🏦 <b>Confirmé par le solde à venir</b> (' + eur(sel.avenir) + ') : la banque attend encore ' + eur(Math.abs(sel.avenir - sel.v)) + ' d\'opérations, ce sont exactement celles ci-dessous' +
+    (A.future.length ? ' et ' + A.future.length + ' prélèvement' + (A.future.length > 1 ? 's' : '') + ' annoncé' + (A.future.length > 1 ? 's' : '') + ' (' + esc(A.future.map(function (x) { return x.description || lib(x.libelleId).nom; }).join(', ')) + ')' : '') + '.</div>';
   if (A.exact) h += '<div class="ecx"><b>✓ L\'écart s\'explique entièrement</b> par ' + (A.dups.length ? 'le' + (A.dups.length > 1 ? 's' : '') + ' doublon' + (A.dups.length > 1 ? 's' : '') + (A.pending.length ? ' et ' : '') : '') +
     (A.pending.length ? 'le' + (A.pending.length > 1 ? 's' : '') + ' opération' + (A.pending.length > 1 ? 's' : '') + ' pas encore passée' + (A.pending.length > 1 ? 's' : '') + ' en banque' : '') + ' ci-dessous.</div>';
   if (A.dups.length) h += '<h3 class="ech">Doublons probables</h3><div class="xs muted">Même montant, à quelques jours d\'écart : une saisie à la main en plus de la ligne du relevé ou du fixe.</div>' +
     A.dups.map(function (dp) { return row(dp.rm, ' · <b>doublon de « ' + esc(dp.keep.description || lib(dp.keep.libelleId).nom) + ' » (' + esc(fmtD(dp.keep.date)) + ')</b>') + '<div class="tools" style="margin:-4px 0 8px 56px"><button class="btn ghost sm" data-act="ecDel" data-id="' + dp.rm.id + '">Supprimer le doublon</button></div>'; }).join('');
-  if (A.pending.length) h += '<h3 class="ech">Probablement pas encore passées en banque</h3><div class="xs muted">Un paiement par carte ou un prélèvement met souvent 1 à 3 jours à apparaître. Total : <b class="num">' +
+  if (A.pending.length) h += '<h3 class="ech">' + (A.avOk ? 'Pas encore débitées par la banque' : 'Probablement pas encore passées en banque') + '</h3><div class="xs muted">' + (A.avOk ? 'Paiements en cours à la banque (« à venir »)' : 'Un paiement par carte peut rester « en cours » plusieurs jours ; un prélèvement met 1 à 3 jours') + '. Total : <b class="num">' +
     eur(A.pending.reduce(function (t, x) { return t - signedMv(x); }, 0)) + '</b>.</div>' + A.pending.map(function (x) { return row(x); }).join('');
   var others = A.recent.concat(A.fixes).filter(function (x) { return A.pending.indexOf(x) < 0; });
   if (others.length) h += fold('ec:autres', 'Autres opérations récentes ou prévues', '<span class="tag">' + others.length + '</span>', '<div class="xs muted">Elles semblent déjà passées en banque ; vérifiez leur montant si l\'écart persiste.</div>' + others.map(function (x) { return row(x); }).join(''), false);
@@ -1612,7 +1677,7 @@ function accountTile(m) {
     (F.min < F.today - 0.5 ? '<div class="acct-low"><span class="s">Plus bas avant la paye</span><b class="num ' + (neg ? 'neg' : '') + '">' + eur0(F.min) + '</b><span class="s">le ' + dl(F.minDate) + '</span></div>'
       : '<div class="acct-low"><span class="s">Avant la paye</span><b class="num">' + eur0(F.end) + '</b><span class="s">aucune baisse prévue</span></div>') + '</div>' +
     '<div class="s">' + (over ? '⚠ Au-delà du découvert autorisé (−' + eur0(F.decouvert) + ') : décalez une dépense ou alimentez le compte.' :
-      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : 'Prélèvements à venir compris · paye le ' + dl(F.next).replace(/\.$/, '') + '.') + '</div>' +
+      neg ? 'Passage à découvert prévu' + (F.decouvert ? ', dans la limite autorisée (−' + eur0(F.decouvert) + ')' : '') + '.' : (F.pend >= 1 ? 'Paiements en cours déduits (' + eur0(F.pend) + ') · ' : 'Prélèvements à venir compris · ') + 'paye le ' + dl(F.next).replace(/\.$/, '') + '.') + '</div>' +
     (lg && Math.abs(lg.gap) >= 1 ? '<div class="acct-gap" data-act="sub" data-sub="ecarts">Écart avec la banque au ' + dl(lg.date) + ' : <b class="num">' + (lg.gap > 0 ? '+' : '−') + eur0(Math.abs(lg.gap)) + '</b> · Analyser ›</div>' : '') + '</div>';
 }
 function openSolde(m) {
@@ -4749,7 +4814,7 @@ var ACT = {
   },
   rcSave: function () {
     var r = rcRead(); if (!r) { toast('Montant manquant', true); return; }
-    var anc = { date: r.d, montant: r.v, ecart: r.ecart === null ? '' : r.ecart, le: nowIso() };
+    var anc = { date: r.d, montant: r.v, avenir: r.av === null ? '' : r.av, ecart: r.ecart === null ? '' : r.ecart, le: nowIso(), enCours: r.ana ? r.ana.pending.map(function (x) { return x.id; }).join(',') : '' };
     var old = recalagesAll(), h = old.filter(function (x) { return x.date !== r.d; }); h.push(anc); D.recalages = JSON.stringify(h.slice(-24));
     resetCalc(); closeSheet();
     bg('saveSoldesMany', [{}, anc], function (res) { D.recalages = res.recalages; resetCalc(); render(); });
