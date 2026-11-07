@@ -3057,6 +3057,13 @@ var BANK_KW = {
     [['caf ', 'allocation', 'prime'], ['Entrées exceptionnelles']]
   ]
 };
+/** Retrouve un libellé par son nom, sans tenir compte des accents, du pluriel ni d'un complément (« Assurance », « Assurances auto »…). */
+function libByName(nm, sens) {
+  var st = function (x) { return norm(x).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(function (w) { return w.replace(/[sx]$/, ''); }).join(' '); };
+  var k = st(nm), ls = libsSorted(sens);
+  return ls.filter(function (l) { return norm(l.nom) === norm(nm); })[0] || ls.filter(function (l) { return st(l.nom) === k; })[0] ||
+    ls.filter(function (l) { return st(l.nom).indexOf(k + ' ') === 0; })[0] || null;
+}
 /** Libellé proposé : d'après vos mouvements déjà saisis, puis le vocabulaire des banques et les mots-clés usuels. */
 function rvGuessLib(desc, sens) {
   var k = rvKey(desc);
@@ -3067,9 +3074,9 @@ function rvGuessLib(desc, sens) {
   var n = ' ' + norm(desc).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ', best = null;
   (BANK_KW[sens] || []).some(function (rule) {
     if (!rule[0].some(function (w) { return w.charAt(0) === '*' ? n.indexOf(w.slice(1)) >= 0 : n.indexOf(' ' + w) >= 0; })) return false;
-    rule[1].some(function (nm) { best = libsSorted(sens).filter(function (l) { return norm(l.nom) === norm(nm); })[0] || null; return !!best; });
+    rule[1].some(function (nm) { best = libByName(nm, sens); return !!best; });
     // libellé conseillé absent (ex. « Assurances ») : noté pour proposer de le créer
-    if (best && norm(best.nom) !== norm(rule[1][0]) && RV) { RV.want = RV.want || {}; RV._want = rule[1][0]; }
+    if (best && !libByName(rule[1][0], sens) && RV) { RV._want = rule[1][0]; }
     return !!best;
   });
   if (best) return best.id;
