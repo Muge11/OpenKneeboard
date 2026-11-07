@@ -16,7 +16,7 @@
  * Les sauvegardes sont stockées dans un fichier séparé « Budget — Sauvegardes ».
  */
 
-var APP_VERSION = '1.5.0';
+var APP_VERSION = '1.5.1';
 var APP_STAGE = '';
 
 var SH = {
@@ -1244,6 +1244,9 @@ function markSeen() {
 
 /** Nouveautés affichées dans l'appli (rédigées pour l'utilisateur). */
 var RELEASES = [
+  { v: '1.5.1', titre: 'Écran d\'accueil', items: [
+    'L\'écran « Bonjour » reste affiché une seconde de plus et n\'affiche plus aucun montant (seulement la date et l\'avancement du mois).'
+  ] },
   { v: '1.5.0', titre: 'Compte en banque et bilan annuel', items: [
     'Solde du compte prévu jusqu\'à la paye (prélèvements à venir compris), découvert autorisé et notification avant un passage dans le rouge.',
     'Bilan de l\'année : totaux par libellé, mois par mois, comparaison avec l\'année précédente (Synthèse › Année).',

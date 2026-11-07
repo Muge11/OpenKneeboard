@@ -3,6 +3,11 @@
 Format : [versionnage sémantique](https://semver.org/lang/fr/) — `MAJEUR.MINEUR.CORRECTIF`.
 Le numéro est défini dans `Code.gs` (`APP_VERSION`) et affiché dans l'en-tête de l'appli.
 
+## [1.5.1] — 2026-11-07
+
+- Écran d'accueil : affiché 2,5 s au lieu de 1,5 s (pendant le chargement) ; plus aucun montant (date du jour et
+  avancement du mois à la place du reste à vivre).
+
 ## [1.5.0] — 2026-11-07 — compte en banque, bilan annuel, import intelligent
 
 - **Compte en banque** (Synthèse) : solde estimé aujourd'hui et point le plus bas avant la paye, d'après le solde de

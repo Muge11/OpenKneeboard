@@ -4663,14 +4663,16 @@ function helloReady() {
   var first = firstName(D.me.nom || D.me.email);
   lsSet('budget.name', first); helloName(first);
   try {
-    var P0 = periodOf(mois), b = compute(mois).bilan;
-    document.getElementById('helloSub').innerHTML = 'Reste à vivre : <b class="num">' + esc(eur0(b.reel)) + '</b>' + (P0.state === 'encours' ? ' · jour ' + P0.day + ' / ' + P0.len : '');
+    var P0 = periodOf(mois);
+    // Aucun montant sur l'écran d'accueil (il peut être vu par-dessus l'épaule) : seulement la date et l'avancement du mois.
+    var td = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('helloSub').innerHTML = esc(td.charAt(0).toUpperCase() + td.slice(1)) + (P0.state === 'encours' ? ' · <b>jour ' + P0.day + ' / ' + P0.len + '</b>' : '');
   } catch (e) {}
   helloGone = true;
   setTimeout(function () {
     var h = document.getElementById('hello'); if (!h) return;
     h.classList.add('out'); setTimeout(function () { h.remove(); }, 700);
-  }, Math.max(0, 1500 - (Date.now() - helloT0)));
+  }, Math.max(0, 2500 - (Date.now() - helloT0)));
 }
 function helloAbort() { helloGone = true; var h = document.getElementById('hello'); if (h) h.remove(); }
 /** Prénom seul : « guillaume.gindre », « Guillaume Gindre » ou « jean-pierre_d » → « Guillaume », « Jean-Pierre ». */
